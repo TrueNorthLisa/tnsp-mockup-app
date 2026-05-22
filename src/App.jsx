@@ -622,15 +622,24 @@ Instructions:
     wx.fillText("QC CHECK",160,soy+82);
     wx.fillText("DATE COMPLETED",160,soy+132);
     y+=swatchSize+40;
+    return wc;
   }
 
   function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13;return Math.max(h,55);}
 
   function exportPNG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=exportRef.current.toDataURL("image/png");a.click();}
   function exportJPG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.jpg`;a.href=exportRef.current.toDataURL("image/jpeg",.93);a.click();}
-  function exportWorkOrder(){
-    const wo=buildWorkOrder();const a=document.createElement("a");
-    a.download=`TNSP-WorkOrder-${jobNum||"draft"}.png`;a.href=wo.toDataURL("image/png");a.click();
+  async function exportWorkOrder(){
+    try {
+      // Ensure fonts are loaded before drawing to canvas
+      await document.fonts.ready;
+      const wo = buildWorkOrder();
+      if (!wo) { showToast("Could not build work order"); return; }
+      const a = document.createElement("a");
+      a.download = `TNSP-WorkOrder-${jobNum||"draft"}.png`;
+      a.href = wo.toDataURL("image/png");
+      a.click();
+    } catch(e) { showToast("Work order error: " + e.message); }
   }
 
   const totalUnits=ALL_SIZES.filter(s=>sizes[s]?.active).reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
@@ -955,7 +964,7 @@ Instructions:
                 <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
                   <button style={S.btn()} onClick={exportPNG}>â¬‡ Client Mockup PNG</button>
                   <button style={S.btn()} onClick={exportJPG}>â¬‡ Client Mockup JPG</button>
-                  <button style={S.btn("o")} onClick={exportWorkOrder}>â¬‡ Work Order PNG</button>
+                  <button style={S.btn()} onClick={exportWorkOrder}>â¬‡ Work Order PNG</button>
                   <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                   <button style={S.btn("o")} onClick={()=>setStep(5)}>â† Fine-Tune</button>
