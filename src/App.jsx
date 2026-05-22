@@ -524,7 +524,7 @@ export default function App() {
     const artNames=artwork.map(a=>`ID ${a.id}: "${a.name.replace(/\.[^.]+$/,"")}"`).join(", ")||"none";
     const placementDesc=placements.map((p,i)=>{
       const artName=artwork.find(a=>a.id==p.artId)?.name.replace(/\.[^.]+$/,"")||"unassigned";
-      return `Placement ${i+1}:\n  - View: ${p.view}\n  - Position: ${p.placement}\n  - Artwork: "${artName}" (ID: ${p.artId||"none"})\n  - Art width: ${p.width||"not specified"} inches\n  - From low collar point: ${p.fromCollar||"not specified"} inches\n  - From centre: ${p.fromCentre||"not specified"}\n  - Decoration: ${p.decType}\n  - Colours: ${p.colours||"not specified"}\n  - Notes: ${p.notes||"none"}`;
+      return `Placement ${i+1}:\n  - View: ${p.view}\n  - Position: ${p.placement}\n  - Artwork: "${artName}" (ID: ${p.artId||"none"})\n  - Art width: ${p.width||"not specified"} inches\n  - From low collar point: ${p.fromCollar||"not specified"} inches\n  - Decoration: ${p.decType}\n  - Colours: ${p.colours||"not specified"}\n  - Notes: ${p.notes||"none"}`;
     }).join("\n\n");
     const loadedViews=Object.entries(garments).filter(([,v])=>v).map(([k])=>k).join(", ");
     const prompt=`You are a production assistant at True North Screen Printing & Embroidery in Vancouver, BC.
@@ -564,14 +564,14 @@ ${revisionNotes?`\nREVISION NOTES: ${revisionNotes}`:""}
 
 Instructions:
 1. scale% = (art width in inches / 22) * 100. Examples: 3.5"=15.9%, 4"=18.2%, 10"=45.5%, 12"=54.5%.
-2. X: Left Chest (wearer's left)=xâ‰ˆ0.65. Right Chest=xâ‰ˆ0.32. Centre=xâ‰ˆ0.50. fromCentre offset=(inches/22).
+2. X: Left Chest (wearer's left)=xâ‰ˆ0.65. Right Chest=xâ‰ˆ0.32. Centre=xâ‰ˆ0.50.
 3. Y Front: y=0.22+(fromCollar/30)*0.66. e.g. 3"=0.29, 5"=0.33, 7"=0.37.
    Y Back: y=0.19+(fromCollar/30)*0.69. e.g. 3"=0.26, 5"=0.31, 7"=0.35.
    If no fromCollar given, use standard positions above.
 4. Return ONLY valid JSON, no markdown, no backticks.
 
 JSON:
-{"intro":"One sentence summary","placements":[{"placement":"Left Chest","view":"front","artId":1,"artName":"logo","x":0.65,"y":0.33,"scale":15.9,"decType":"Screen Print","colours":"PMS 185","specWidth":"3.5","specFromCollar":"3","specFromCentre":"4 left","notes":""}]}`;
+{"intro":"One sentence summary","placements":[{"placement":"Left Chest","view":"front","artId":1,"artName":"logo","x":0.65,"y":0.33,"scale":15.9,"decType":"Screen Print","colours":"PMS 185","specWidth":"3.5","specFromCollar":"3","notes":""}]}`;
 
     try {
       const response=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
@@ -657,7 +657,7 @@ JSON:
     let y=82;
     const mr=(k,v)=>{sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#aaa";sx.fillText(k.toUpperCase(),14,y);sx.font="500 11px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(v||"â€”",115,y);y+=17;};
     if(job.num) mr("Job #",job.num); if(job.client) mr("Client",job.client);
-    const gs=[job.style,job.colour].filter(Boolean).join(" â€” "); if(gs) mr("Garment",gs);
+    const gs=[job.style,job.colour].filter(Boolean).join(" - "); if(gs) mr("Garment",gs);
     const lv=Object.entries(garments).filter(([,v])=>v).map(([k])=>k.charAt(0).toUpperCase()+k.slice(1));
     if(lv.length) mr("Views",lv.join(" + "));
 
@@ -687,7 +687,7 @@ JSON:
       if(p.decType){sx.fillStyle="rgba(200,55,45,.12)";const tw=sx.measureText(p.decType.toUpperCase()).width+10;sx.fillRect(20,y+30,tw,13);sx.font="8px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(p.decType.toUpperCase(),25,y+40);}
       let ry=y+(p.decType?50:38);
       const sr=(k,v)=>{if(!v)return;sx.font="8px IBM Plex Mono,monospace";sx.fillStyle="#999";sx.fillText(k.toUpperCase(),20,ry);sx.font="11px IBM Plex Sans,sans-serif";sx.fillStyle="#222";const words=v.split(" ");let line="";const mw=PW-150;words.forEach(w=>{const t=line?line+" "+w:w;if(sx.measureText(t).width>mw&&line){sx.fillText(line,125,ry);line=w;ry+=13;}else{line=t;}});if(line)sx.fillText(line,125,ry);ry+=15;};
-      if(p.artName)sr("Artwork",p.artName);if(p.specWidth)sr("Art Width",p.specWidth+'"');if(p.specFromCollar)sr("From Collar",p.specFromCollar+'"');if(p.specFromCentre)sr("From Centre",p.specFromCentre+'"');if(p.colours)sr("Colours",p.colours);if(p.notes)sr("Notes",p.notes);
+      if(p.artName)sr("Artwork",p.artName);if(p.specWidth)sr("Art Width",p.specWidth+'"');if(p.specFromCollar)sr("From Collar",p.specFromCollar+'"');if(p.colours)sr("Colours",p.colours);if(p.notes)sr("Notes",p.notes);
       y+=ch+13;
     });
     const fY=height-24; sx.fillStyle="#0f0f0f"; sx.fillRect(0,fY,PW,24);
@@ -866,8 +866,8 @@ JSON:
                         </div>
                       ))}
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginTop:8}}>
-                      {[["Art Width (in)","width",'e.g. 3.5"'],["From Low Collar (in)","fromCollar",'e.g. 3"'],["From Centre (in)","fromCentre",'e.g. 4" left'],["Ink / Thread Colours","colours","e.g. PMS 185, White"]].map(([lbl,key,ph])=>(
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:8}}>
+                      {[["Art Width (in)","width",'e.g. 3.5"'],["From Low Collar (in)","fromCollar",'e.g. 3"'],["Ink / Thread Colours","colours","e.g. PMS 185, White"]].map(([lbl,key,ph])=>(
                         <div key={key}>
                           <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:"#888",marginBottom:3}}>{lbl}</div>
                           <input style={S.input} placeholder={ph} value={p[key]} onChange={e=>updateRow(p._id,key,e.target.value)}/>
