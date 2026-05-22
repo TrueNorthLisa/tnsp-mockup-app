@@ -54,7 +54,10 @@ const S = {
   jobCard:  {background:"#fff",border:"1px solid #d4cdc0",padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"border-color .15s"},
 };
 
+const ALL_SIZES = ["YS","YM","YL","XS","S","M","L","XL","2XL","3XL"];
+
 function emptyJob() { return {num:"",client:"",style:"",colour:""}; }
+function emptySizes() { return Object.fromEntries(ALL_SIZES.map(s=>[s,{active:false,qty:""}])); }
 
 // â”€â”€ INTERACTIVE FINE-TUNE CANVAS (Step 4) â”€â”€
 function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
@@ -354,6 +357,7 @@ export default function App() {
   const [page, setPage] = useState("jobs");
   const [step, setStep] = useState(1);
   const [job, setJob] = useState(emptyJob());
+  const [sizes, setSizes] = useState(emptySizes());
   const [garments, setGarments] = useState({front:null,back:null,other:null});
   const [artwork, setArtwork] = useState([]);
   const [placements, setPlacements] = useState([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",fromCentre:"",decType:"Screen Print",colours:"",notes:""}]);
@@ -402,7 +406,7 @@ export default function App() {
   }
 
   function newJob() {
-    setJob(emptyJob()); setGarments({front:null,back:null,other:null}); setArtwork([]);
+    setJob(emptyJob()); setSizes(emptySizes()); setGarments({front:null,back:null,other:null}); setArtwork([]);
     setPlacements([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",fromCentre:"",decType:"Screen Print",colours:"",notes:""}]);
     setAiPlan([]); setAiStatus("idle"); setAiIntro(""); setAiError("");
     setRevisionNotes(""); setMockupBuilt(false); setSavedJobId(null); setSaveStatus("");
@@ -414,6 +418,7 @@ export default function App() {
       const data = await sb("GET",`/jobs?id=eq.${jobId}&select=*`);
       const j = data[0]; if (!j) return;
       setJob({num:j.job_num||"",client:j.client||"",style:j.garment_style||"",colour:j.garment_colour||""});
+      setSizes(j.sizes || emptySizes());
       setPlacements(j.placements||[]);
       setAiPlan(j.ai_plan||[]);
       setAiStatus(j.ai_plan?.length?"done":"idle");
@@ -462,7 +467,7 @@ export default function App() {
       });
       const payload = {
         job_num:job.num, client:job.client, garment_style:job.style, garment_colour:job.colour,
-        status, placements, ai_plan:planOverride||aiPlan,
+        status, placements, ai_plan:planOverride||aiPlan, sizes,
         garment_urls:garmentUrls, artwork_data:artworkData,
         updated_at:new Date().toISOString(),
       };
@@ -655,6 +660,21 @@ JSON:
     const gs=[job.style,job.colour].filter(Boolean).join(" â€” "); if(gs) mr("Garment",gs);
     const lv=Object.entries(garments).filter(([,v])=>v).map(([k])=>k.charAt(0).toUpperCase()+k.slice(1));
     if(lv.length) mr("Views",lv.join(" + "));
+
+    // Sizes breakdown
+    const activeSizes = ALL_SIZES.filter(s=>sizes[s]?.active && sizes[s]?.qty);
+    if(activeSizes.length) {
+      const total = activeSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
+      mr("Total Units", String(total));
+      const sizeStr = activeSizes.map(s=>`${s}:${sizes[s].qty}`).join("  ");
+      // Word-wrap size string
+      sx.font="9px IBM Plex Mono,monospace"; sx.fillStyle="#aaa"; sx.fillText("SIZE BREAKDOWN",14,y);
+      sx.font="9px IBM Plex Mono,monospace"; sx.fillStyle="#0f0f0f";
+      const words=sizeStr.split("  "); let line=""; let ly=y;
+      words.forEach(w=>{ const t=line?line+"  "+w:w; if(sx.measureText(t).width>PW-30&&line){sx.fillText(line,14,ly+12);line=w;ly+=13;}else{line=t;} });
+      if(line) sx.fillText(line,14,ly+12);
+      y=ly+26;
+    }
     y+=6; sx.fillStyle="#d4cdc0"; sx.fillRect(14,y,PW-28,1); y+=12;
     aiPlan.forEach((p,i)=>{
       const ch=estimateH(p);
@@ -755,7 +775,40 @@ JSON:
                   ))}
                 </div>
                 <hr style={S.divider}/>
-                <div style={S.secTitle}><span style={S.secN}>+</span> Garment Photos</div>
+                <div style={S.secTitle}><span style={S.secN}>+</span> Sizes &amp; Quantities</div>
+                <div style={S.notice("info")}>Check the sizes needed and enter quantities. Total auto-calculates.</div>
+                <div style={{background:"#fffdf8",border:"1px solid #d4cdc0",padding:"14px 16px",marginBottom:8}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:12}}>
+                    {ALL_SIZES.map(s=>(
+                      <label key={s} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}>
+                          <input type="checkbox" checked={sizes[s].active} onChange={e=>setSizes(z=>({...z,[s]:{...z[s],active:e.target.checked,qty:e.target.checked?z[s].qty:""}}))} style={{accentColor:"#c8372d",width:13,height:13}}/>
+                          <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".1em",textTransform:"uppercase",color:sizes[s].active?"#0f0f0f":"#aaa",fontWeight:sizes[s].active?600:400}}>{s}</span>
+                        </div>
+                        <input
+                          type="number" min="0"
+                          placeholder="0"
+                          value={sizes[s].qty}
+                          disabled={!sizes[s].active}
+                          onChange={e=>setSizes(z=>({...z,[s]:{...z[s],qty:e.target.value}}))}
+                          style={{width:"100%",background:sizes[s].active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${sizes[s].active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 6px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:sizes[s].active?"#0f0f0f":"#ccc",outline:"none"}}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  {/* Total bar */}
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid #e8e2d8"}}>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                      {ALL_SIZES.filter(s=>sizes[s].active&&sizes[s].qty).map(s=>(
+                        <span key={s} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".08em",color:"#555"}}>{s}: <strong>{sizes[s].qty}</strong></span>
+                      ))}
+                    </div>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",letterSpacing:".06em",color:"#0f0f0f",whiteSpace:"nowrap",marginLeft:16}}>
+                      Total: {ALL_SIZES.filter(s=>sizes[s].active).reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0)} units
+                    </div>
+                  </div>
+                </div>
+                <hr style={S.divider}/>
                 <div style={S.notice("info")}>Upload a photo for each view. Front is required; Back and Other are optional.</div>
                 <div style={S.grid3}>
                   {["front","back","other"].map(view=>(
@@ -922,3 +975,4 @@ JSON:
     </div>
   );
 }
+
