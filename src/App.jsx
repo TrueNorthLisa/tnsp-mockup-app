@@ -386,7 +386,11 @@ Instructions:
     }catch(err){setAiStatus("error");setAiError(err.message);}
   }
 
-  function handleFineTuneConfirm(ap){setAiPlan(ap);setStep(6);setTimeout(()=>renderMockup(),150);}
+  function handleFineTuneConfirm(ap){
+    setAiPlan(ap);
+    setStep(6);
+    setTimeout(()=>renderMockup(ap), 150);
+  }
 
   // â”€â”€ SAVE JOB â”€â”€
   async function saveJob(status="draft",planOverride){
@@ -444,9 +448,10 @@ Instructions:
   }
 
   // â”€â”€ MOCKUP â”€â”€
-  function renderMockup(){
+  function renderMockup(planOverride){
+    const plan = planOverride || aiPlan;
     const lv=["front","back","other"].filter(k=>garments[k]);if(!lv.length)return;
-    const GAP=14;const vcs=lv.map(k=>buildVC(k)).filter(Boolean);
+    const GAP=14;const vcs=lv.map(k=>buildVC(k,plan)).filter(Boolean);
     const tw=vcs.reduce((s,c)=>s+c.width,0)+(vcs.length-1)*GAP;const mh=Math.max(...vcs.map(c=>c.height));
     const specC=buildSpec(mh);const comb=document.createElement("canvas");
     comb.width=tw+GAP+specC.width;comb.height=mh;const cc=comb.getContext("2d");
@@ -457,13 +462,14 @@ Instructions:
     canvas.width=comb.width;canvas.height=comb.height;canvas.getContext("2d").drawImage(comb,0,0);setMockupBuilt(true);
   }
 
-  function buildVC(vk){
+  function buildVC(vk, plan){
+    const activePlan = plan || aiPlan;
     const g=garments[vk];if(!g)return null;const img=g.img;
     const r=Math.min(680/img.naturalWidth,800/img.naturalHeight);
     const vw=Math.round(img.naturalWidth*r),vh=Math.round(img.naturalHeight*r);
     const vc=document.createElement("canvas");vc.width=vw;vc.height=vh;const vx=vc.getContext("2d");
     vx.fillStyle="#fff";vx.fillRect(0,0,vw,vh);vx.drawImage(img,0,0,vw,vh);
-    aiPlan.filter(p=>(p.view||"front").toLowerCase()===vk).forEach(p=>{
+    activePlan.filter(p=>(p.view||"front").toLowerCase()===vk).forEach(p=>{
       const art=artwork.find(a=>a.id==p.artId);if(!art)return;
       const aw=(Math.max(2,Math.min(200,p.scale||22))/100)*vw,ah=aw*(art.img.naturalHeight/art.img.naturalWidth);
       vx.save();vx.translate((p.x||.5)*vw,(p.y||.4)*vh);vx.drawImage(art.img,-aw/2,-ah/2,aw,ah);vx.restore();
