@@ -190,6 +190,8 @@ export default function App() {
   const [decTypes, setDecTypes] = useState([]);
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [pressCheck, setPressCheck] = useState(false);
+  const [boldPrint, setBoldPrint] = useState(false);
+  const [vintagePrint, setVintagePrint] = useState(false);
   // Customer state
   const [customers, setCustomers] = useState([]);
   const [custSearch, setCustSearch] = useState("");
@@ -250,7 +252,7 @@ export default function App() {
   }
 
   function resetAll(){
-    setJobNum("");setDueDate("");setDecTypes([]);setSpecialInstructions("");setPressCheck(false);
+    setJobNum("");setDueDate("");setDecTypes([]);setSpecialInstructions("");setPressCheck(false);setBoldPrint(false);setVintagePrint(false);
     setCustId(null);setCustSearch("");setCust({company:"",contact_name:"",email:"",phone:"",address:"",city:"",province:"BC",postal:""});
     setSelBrand("");setSelStyle("");setSelColour("");setGarmentId(null);
     setGarments({front:null,back:null,other:null});setSizes(emptySizes());
@@ -408,7 +410,7 @@ Instructions:
       await saveCustomer();
       const payload={
         job_num:jobNum,client:cust.company||cust.contact_name,garment_style:`${selBrand} ${selStyle}`.trim(),garment_colour:selColour,
-        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,
+        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,bold_print:boldPrint,vintage_print:vintagePrint,
         customer_id:custId,garment_id:garmentId,
         shipping_address:{address:cust.address,city:cust.city,province:cust.province,postal:cust.postal},
         placements,ai_plan:planOverride||aiPlan,sizes,garment_urls:garmentUrls,artwork_data:artData,
@@ -424,7 +426,7 @@ Instructions:
   async function loadJob(jobId){
     try{
       const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
-      setJobNum(j.job_num||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);
+      setJobNum(j.job_num||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);
       setSavedJobId(j.id);setSaveStatus("saved");setPlacements(j.placements||[]);setAiPlan(j.ai_plan||[]);
       setAiStatus(j.ai_plan?.length?"done":"idle");setSizes(j.sizes||emptySizes());
       // Load customer
@@ -499,6 +501,12 @@ Instructions:
     const ga=[selBrand,selStyle,selColour].filter(Boolean).join(" ");if(ga)mr("Garment",ga);
     if(dueDate)mr("Due Date",new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}));
     if(decTypes.length)mr("Decoration",decTypes.join(", "));
+    // Production flags
+    const flags=[];
+    if(pressCheck) flags.push("PRESS CHECK REQUIRED");
+    if(boldPrint) flags.push("BOLD PRINT");
+    if(vintagePrint) flags.push("VINTAGE / DISTRESSED");
+    if(flags.length) mr("Print Options", flags.join("  |  "));
     const lv=Object.entries(garments).filter(([,v])=>v).map(([k])=>k.charAt(0).toUpperCase()+k.slice(1));
     if(lv.length)mr("Views",lv.join(" + "));
     // Sizes
@@ -586,12 +594,15 @@ Instructions:
       if(p.notes){wx.font="italic 10px IBM Plex Sans,sans-serif";wx.fillStyle="#666";wx.fillText("Notes: "+p.notes,30,y+44);}
       y+=60;
     });
-    // Press check banner
-    if(pressCheck){
-      wx.fillStyle="#c8372d";wx.fillRect(0,y,PW,36);
-      wx.font="bold 14px Bebas Neue,sans-serif";wx.fillStyle="#fff";wx.letterSpacing="2px";
-      wx.fillText("âš   PRESS CHECK REQUIRED â€” CONTACT CUSTOMER BEFORE PRINTING",24,y+24);
-      wx.letterSpacing="0px";y+=44;
+    // Production flags banner
+    if(pressCheck||boldPrint||vintagePrint){
+      wx.fillStyle="#0f0f0f";wx.fillRect(0,y,PW,36);
+      let flagText="";
+      if(pressCheck) flagText+="âš  PRESS CHECK REQUIRED    ";
+      if(boldPrint) flagText+="BOLD PRINT    ";
+      if(vintagePrint) flagText+="VINTAGE / DISTRESSED";
+      wx.font="bold 13px IBM Plex Mono,monospace";wx.fillStyle=pressCheck?"#c8372d":"#f5f0e8";
+      wx.fillText(flagText.trim(),24,y+24);y+=44;
     }
     // Special instructions
     if(specialInstructions){
@@ -729,13 +740,19 @@ Instructions:
                   </div>
                 </div>
                 <div style={{marginBottom:14}}>
-                  <label style={S.lbl}>Press Check Required</label>
-                  <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"10px 14px",border:`2px solid ${pressCheck?"#c8372d":"#d4cdc0"}`,background:pressCheck?"#fdf0ee":"#fffdf8",width:"fit-content"}}>
-                    <input type="checkbox" checked={pressCheck} onChange={e=>setPressCheck(e.target.checked)} style={{accentColor:"#c8372d",width:16,height:16}}/>
-                    <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:pressCheck?"#c8372d":"#888"}}>
-                      {pressCheck?"âš  Press Check Required â€” notify customer before printing":"No press check needed"}
-                    </span>
-                  </label>
+                  <label style={S.lbl}>Production Options</label>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    {[
+                      [pressCheck, setPressCheck, "Press Check Required", "âš ", "#c8372d"],
+                      [boldPrint, setBoldPrint, "Bold Print", "B", "#0f0f0f"],
+                      [vintagePrint, setVintagePrint, "Vintage / Distressed", "V", "#7a5500"],
+                    ].map(([val, setter, label, icon, activeColor])=>(
+                      <label key={label} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"10px 14px",border:`2px solid ${val?activeColor:"#d4cdc0"}`,background:val?"#fdf8f0":"#fffdf8",transition:"all .15s"}}>
+                        <input type="checkbox" checked={val} onChange={e=>setter(e.target.checked)} style={{accentColor:activeColor,width:15,height:15}}/>
+                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:val?activeColor:"#888",fontWeight:val?600:400}}>{icon} {label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div style={{marginBottom:14}}><label style={S.lbl}>Special Instructions</label><textarea style={S.ta} value={specialInstructions} onChange={e=>setSpecialInstructions(e.target.value)} placeholder="Any special notes for production..."/></div>
 
