@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -10,7 +10,7 @@ const sb = async (method, path, body) => {
       "Content-Type": "application/json",
       "apikey": SUPABASE_KEY,
       "Authorization": `Bearer ${SUPABASE_KEY}`,
-      "Prefer": method === "POST" ? "return=representation" : "return=representation",
+      "Prefer": "return=representation",
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -34,18 +34,18 @@ const S = {
   brandSub: {fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".18em",textTransform:"uppercase",color:"#444",marginTop:2},
   tag:      {fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".14em",textTransform:"uppercase",border:"1px solid #333",color:"#666",padding:"5px 11px"},
   steps:    {display:"flex",background:"#0f0f0f",borderBottom:"2px solid #0f0f0f"},
-  step:     (active,done)=>({flex:1,padding:"10px 16px",borderRight:"1px solid #2a2a2a",background:active?"#1a1a1a":done?"#111":"transparent",cursor:"pointer"}),
-  stepNum:  (active)=>({fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".14em",textTransform:"uppercase",color:active?"#c8372d":"#3a3a3a"}),
-  stepLbl:  (active,done)=>({fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".8rem",fontWeight:500,color:active?"#f5f0e8":done?"#3a3a3a":"#555",marginTop:2}),
-  wrap:     {maxWidth:820,margin:"0 auto",padding:"32px 20px 80px"},
+  step:     (a,d)=>({flex:1,padding:"10px 16px",borderRight:"1px solid #2a2a2a",background:a?"#1a1a1a":d?"#111":"transparent",cursor:"pointer"}),
+  stepNum:  (a)=>({fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".14em",textTransform:"uppercase",color:a?"#c8372d":"#3a3a3a"}),
+  stepLbl:  (a,d)=>({fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".8rem",fontWeight:500,color:a?"#f5f0e8":d?"#3a3a3a":"#555",marginTop:2}),
+  wrap:     {maxWidth:860,margin:"0 auto",padding:"28px 20px 80px"},
   secTitle: {fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.25rem",letterSpacing:".1em",borderBottom:"2px solid #0f0f0f",paddingBottom:5,marginBottom:14,display:"flex",alignItems:"baseline",gap:10},
   secN:     {fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",color:"#c8372d"},
   label:    {fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".14em",textTransform:"uppercase",color:"#555",display:"block",marginBottom:3},
   input:    {background:"#fffdf8",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"8px 10px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".88rem",color:"#0f0f0f",outline:"none",width:"100%"},
   select:   {background:"#fffdf8",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 10px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".84rem",color:"#0f0f0f",outline:"none",width:"100%",appearance:"none"},
   textarea: {background:"#fffdf8",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 10px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",color:"#0f0f0f",outline:"none",width:"100%",resize:"vertical",minHeight:64},
-  btn:      (variant="primary")=>({fontFamily:"'IBM Plex Mono',monospace",fontSize:".6rem",letterSpacing:".14em",textTransform:"uppercase",padding:"11px 22px",cursor:"pointer",border:"2px solid #0f0f0f",background:variant==="primary"?"#0f0f0f":variant==="red"?"#c8372d":variant==="green"?"#2a7a4b":"transparent",color:variant==="outline"?"#0f0f0f":"#f5f0e8"}),
-  notice:   (type)=>({fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".1em",textTransform:"uppercase",padding:"9px 13px",marginBottom:14,borderLeft:`3px solid ${type==="info"?"#2a5abd":type==="warn"?"#b8892e":type==="success"?"#2a7a4b":"#c8372d"}`,background:type==="info"?"#e8f0fe":type==="warn"?"#fff8e6":type==="success"?"#e6f4ec":"#fdf0ee",color:type==="info"?"#2a5abd":type==="warn"?"#7a5500":type==="success"?"#1b5e38":"#c8372d"}),
+  btn:      (v="primary")=>({fontFamily:"'IBM Plex Mono',monospace",fontSize:".6rem",letterSpacing:".14em",textTransform:"uppercase",padding:"11px 22px",cursor:"pointer",border:"2px solid #0f0f0f",background:v==="primary"?"#0f0f0f":v==="red"?"#c8372d":v==="green"?"#2a7a4b":"transparent",color:v==="outline"?"#0f0f0f":"#f5f0e8"}),
+  notice:   (t)=>({fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".1em",textTransform:"uppercase",padding:"9px 13px",marginBottom:14,borderLeft:`3px solid ${t==="info"?"#2a5abd":t==="warn"?"#b8892e":t==="success"?"#2a7a4b":"#c8372d"}`,background:t==="info"?"#e8f0fe":t==="warn"?"#fff8e6":t==="success"?"#e6f4ec":"#fdf0ee",color:t==="info"?"#2a5abd":t==="warn"?"#7a5500":t==="success"?"#1b5e38":"#c8372d"}),
   grid2:    {display:"grid",gridTemplateColumns:"1fr 1fr",gap:14},
   grid3:    {display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10},
   divider:  {border:"none",borderTop:"1px solid #d4cdc0",margin:"20px 0"},
@@ -54,12 +54,304 @@ const S = {
   jobCard:  {background:"#fff",border:"1px solid #d4cdc0",padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",transition:"border-color .15s"},
 };
 
-function emptyJob() {
-  return { num:"", client:"", style:"", colour:"" };
+function emptyJob() { return {num:"",client:"",style:"",colour:""}; }
+
+// â”€â”€ INTERACTIVE FINE-TUNE CANVAS (Step 4) â”€â”€
+function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
+  const [viewKey, setViewKey] = useState(() => {
+    const loaded = ["front","back","other"].filter(k => garments[k]);
+    return loaded[0] || "front";
+  });
+  // layers: one per aiPlan entry, keyed by index
+  const [layers, setLayers] = useState(() =>
+    aiPlan.map((p, i) => ({
+      id: i,
+      placement: p.placement,
+      view: (p.view||"front").toLowerCase(),
+      artId: p.artId,
+      x: p.x || 0.5,
+      y: p.y || 0.4,
+      scale: p.scale || 20,
+      flipped: false,
+      visible: true,
+    }))
+  );
+  const [selected, setSelected] = useState(null);
+  const [dragging, setDragging] = useState(false);
+  const [resizing, setResizing] = useState(false);
+  const [dragOX, setDragOX] = useState(0);
+  const [dragOY, setDragOY] = useState(0);
+  const [resizeStartScale, setResizeStartScale] = useState(0);
+  const [resizeStartDist, setResizeStartDist] = useState(0);
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const loadedViews = ["front","back","other"].filter(k => garments[k]);
+  const viewLayers = layers.filter(l => l.view === viewKey);
+
+  // Render canvas whenever state changes
+  useEffect(() => { renderCanvas(); }, [layers, selected, viewKey, garments, artwork]);
+
+  function renderCanvas() {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const g = garments[viewKey]; if (!g) return;
+    const ctx = canvas.getContext("2d");
+    const cw = canvas.width, ch = canvas.height;
+    ctx.clearRect(0,0,cw,ch);
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,cw,ch);
+    ctx.drawImage(g.img, 0, 0, cw, ch);
+
+    // Draw layers for this view
+    layers.filter(l => l.view===viewKey && l.visible).forEach(l => {
+      const art = artwork.find(a => a.id == l.artId); if (!art) return;
+      const aw = (l.scale/100)*cw;
+      const ah = aw*(art.img.naturalHeight/art.img.naturalWidth);
+      const ax = l.x*cw, ay = l.y*ch;
+      ctx.save();
+      ctx.translate(ax, ay);
+      if (l.flipped) ctx.scale(-1,1);
+      ctx.drawImage(art.img, -aw/2, -ah/2, aw, ah);
+      ctx.restore();
+
+      // Selection handles
+      if (l.id === selected) {
+        ctx.save();
+        ctx.translate(ax, ay);
+        ctx.strokeStyle = "rgba(200,55,45,.8)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5,4]);
+        ctx.strokeRect(-aw/2-4, -ah/2-4, aw+8, ah+8);
+        ctx.setLineDash([]);
+        // Corner handles
+        [[-aw/2-4,-ah/2-4],[aw/2+4,-ah/2-4],[-aw/2-4,ah/2+4],[aw/2+4,ah/2+4]].forEach(([hx,hy]) => {
+          ctx.fillStyle = "#c8372d";
+          ctx.fillRect(hx-7, hy-7, 14, 14);
+          ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
+          ctx.strokeRect(hx-7, hy-7, 14, 14);
+        });
+        // Label
+        ctx.font = `bold ${Math.max(9,cw*.014)}px IBM Plex Mono,monospace`;
+        ctx.fillStyle = "rgba(200,55,45,.9)";
+        ctx.fillText(l.placement, -aw/2-4, -ah/2-9);
+        ctx.restore();
+      }
+    });
+  }
+
+  function getCanvasPoint(e) {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * canvas.width / rect.width,
+      y: (e.clientY - rect.top) * canvas.height / rect.height,
+    };
+  }
+
+  function hitCorner(p, l) {
+    const art = artwork.find(a => a.id == l.artId); if (!art) return null;
+    const cw = canvasRef.current.width, ch = canvasRef.current.height;
+    const aw = (l.scale/100)*cw, ah = aw*(art.img.naturalHeight/art.img.naturalWidth);
+    const ax = l.x*cw, ay = l.y*ch;
+    const corners = [[-aw/2-4,-ah/2-4],[aw/2+4,-ah/2-4],[-aw/2-4,ah/2+4],[aw/2+4,ah/2+4]];
+    for (const [hx,hy] of corners) {
+      if (Math.abs(p.x-(ax+hx)) < 12 && Math.abs(p.y-(ay+hy)) < 12) return true;
+    }
+    return false;
+  }
+
+  function hitLayer(p, l) {
+    const art = artwork.find(a => a.id == l.artId); if (!art) return false;
+    const cw = canvasRef.current.width, ch = canvasRef.current.height;
+    const aw = (l.scale/100)*cw, ah = aw*(art.img.naturalHeight/art.img.naturalWidth);
+    const ax = l.x*cw, ay = l.y*ch;
+    return p.x>=ax-aw/2-10 && p.x<=ax+aw/2+10 && p.y>=ay-ah/2-10 && p.y<=ay+ah/2+10;
+  }
+
+  function onMouseDown(e) {
+    const p = getCanvasPoint(e);
+    // Check resize on selected first
+    if (selected !== null) {
+      const sel = layers.find(l => l.id===selected);
+      if (sel && sel.view===viewKey && hitCorner(p, sel)) {
+        const cw = canvasRef.current.width, ch = canvasRef.current.height;
+        const dist = Math.sqrt((p.x-sel.x*cw)**2 + (p.y-sel.y*ch)**2);
+        setResizing(true);
+        setResizeStartScale(sel.scale);
+        setResizeStartDist(dist);
+        return;
+      }
+    }
+    // Hit test layers top to bottom
+    const viewL = layers.filter(l=>l.view===viewKey&&l.visible).reverse();
+    for (const l of viewL) {
+      if (hitLayer(p, l)) {
+        setSelected(l.id);
+        const cw = canvasRef.current.width, ch = canvasRef.current.height;
+        setDragging(true);
+        setDragOX(p.x - l.x*cw);
+        setDragOY(p.y - l.y*ch);
+        return;
+      }
+    }
+    setSelected(null);
+  }
+
+  function onMouseMove(e) {
+    const p = getCanvasPoint(e);
+    const cw = canvasRef.current.width, ch = canvasRef.current.height;
+    if (resizing && selected !== null) {
+      const sel = layers.find(l=>l.id===selected);
+      if (!sel) return;
+      const dist = Math.sqrt((p.x-sel.x*cw)**2 + (p.y-sel.y*ch)**2);
+      if (resizeStartDist > 0) {
+        const newScale = Math.max(2, Math.min(200, resizeStartScale*(dist/resizeStartDist)));
+        setLayers(ls => ls.map(l => l.id===selected ? {...l, scale:Math.round(newScale)} : l));
+      }
+      return;
+    }
+    if (dragging && selected !== null) {
+      setLayers(ls => ls.map(l => l.id===selected ? {
+        ...l,
+        x: Math.max(0.05, Math.min(0.95, (p.x-dragOX)/cw)),
+        y: Math.max(0.05, Math.min(0.95, (p.y-dragOY)/ch)),
+      } : l));
+    }
+  }
+
+  function onMouseUp() { setDragging(false); setResizing(false); }
+
+  function onWheel(e) {
+    e.preventDefault();
+    if (selected === null) return;
+    setLayers(ls => ls.map(l => l.id===selected ? {...l, scale:Math.max(2,Math.min(200,l.scale+(e.deltaY>0?-1:1)))} : l));
+  }
+
+  function nudge(dx, dy) {
+    if (selected === null) return;
+    const cw = canvasRef.current?.width || 600;
+    const ch = canvasRef.current?.height || 700;
+    setLayers(ls => ls.map(l => l.id===selected ? {
+      ...l,
+      x: Math.max(0.05,Math.min(0.95, l.x+dx/cw)),
+      y: Math.max(0.05,Math.min(0.95, l.y+dy/ch)),
+    } : l));
+  }
+
+  function scaleStep(d) {
+    if (selected === null) return;
+    setLayers(ls => ls.map(l => l.id===selected ? {...l, scale:Math.max(2,Math.min(200,l.scale+d))} : l));
+  }
+
+  function flipSelected() {
+    if (selected === null) return;
+    setLayers(ls => ls.map(l => l.id===selected ? {...l,flipped:!l.flipped} : l));
+  }
+
+  function toggleVis(id) {
+    setLayers(ls => ls.map(l => l.id===id ? {...l,visible:!l.visible} : l));
+  }
+
+  // Build the final merged plan from adjusted layers
+  function handleConfirm() {
+    const adjustedPlan = aiPlan.map((p, i) => {
+      const l = layers.find(l => l.id===i);
+      return l ? {...p, x:l.x, y:l.y, scale:l.scale} : p;
+    });
+    onConfirm(adjustedPlan);
+  }
+
+  const selLayer = selected !== null ? layers.find(l=>l.id===selected) : null;
+
+  return (
+    <div>
+      <div style={S.secTitle}><span style={S.secN}>04</span> Fine-Tune Placements</div>
+      <div style={S.notice("info")}>
+        Drag artwork to reposition Â· Drag corner handles to resize Â· Scroll to scale Â· Click a placement in the list to select it
+      </div>
+
+      <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+
+        {/* Canvas area */}
+        <div style={{flex:1,minWidth:0}}>
+          {/* View switcher */}
+          {loadedViews.length > 1 && (
+            <div style={{display:"flex",gap:0,marginBottom:10,border:"1px solid #d4cdc0",width:"fit-content"}}>
+              {loadedViews.map(v => (
+                <button key={v} onClick={()=>setViewKey(v)} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:"7px 16px",background:viewKey===v?"#0f0f0f":"transparent",color:viewKey===v?"#f5f0e8":"#888",border:"none",borderRight:v!==loadedViews[loadedViews.length-1]?"1px solid #d4cdc0":"none",cursor:"pointer"}}>
+                  {v.charAt(0).toUpperCase()+v.slice(1)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div ref={containerRef} style={{background:"#111",position:"relative",lineHeight:0}}>
+            <canvas
+              ref={canvasRef}
+              width={640} height={750}
+              style={{maxWidth:"100%",cursor:dragging?"grabbing":resizing?"nwse-resize":"default",display:"block"}}
+              onMouseDown={onMouseDown}
+              onMouseMove={onMouseMove}
+              onMouseUp={onMouseUp}
+              onMouseLeave={onMouseUp}
+              onWheel={onWheel}
+            />
+          </div>
+
+          {/* Nudge / scale toolbar */}
+          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+            {[["â†",-4,0],["â†’",4,0],["â†‘",0,-4],["â†“",0,4]].map(([lbl,dx,dy])=>(
+              <button key={lbl} onClick={()=>nudge(dx,dy)} style={{...S.btn("outline"),padding:"7px 14px",fontSize:".7rem"}}>{lbl}</button>
+            ))}
+            <button onClick={()=>scaleStep(-1)} style={{...S.btn("outline"),padding:"7px 14px",fontSize:".7rem"}}>âˆ’ Size</button>
+            <button onClick={()=>scaleStep(1)} style={{...S.btn("outline"),padding:"7px 14px",fontSize:".7rem"}}>+ Size</button>
+            <button onClick={flipSelected} style={{...S.btn("outline"),padding:"7px 14px",fontSize:".7rem"}}>â‡† Flip</button>
+          </div>
+        </div>
+
+        {/* Right panel â€” layer list + selected info */}
+        <div style={{width:210,flexShrink:0}}>
+          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".14em",textTransform:"uppercase",color:"#c8372d",marginBottom:8}}>Placements</div>
+          {layers.map(l => {
+            const art = artwork.find(a=>a.id==l.artId);
+            const isSel = l.id===selected;
+            return (
+              <div key={l.id} onClick={()=>{ setSelected(l.id); setViewKey(l.view); }}
+                style={{background:isSel?"#0f0f0f":"#fff",border:`1px solid ${isSel?"#c8372d":"#d4cdc0"}`,borderLeft:`3px solid ${isSel?"#c8372d":"#d4cdc0"}`,padding:"8px 10px",marginBottom:6,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+                {art && <img src={art.dataURL} style={{width:28,height:28,objectFit:"contain",background:"#f5f0e8",padding:2,flexShrink:0}}/>}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".08em",textTransform:"uppercase",color:isSel?"#f5f0e8":"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.placement}</div>
+                  <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:isSel?"#aaa":"#bbb",marginTop:2}}>{l.view.toUpperCase()} Â· {Math.round(l.scale)}%</div>
+                </div>
+                <button onClick={e=>{e.stopPropagation();toggleVis(l.id);}} style={{background:"none",border:"none",color:isSel?"#aaa":"#ccc",fontSize:".72rem",cursor:"pointer",padding:2}}>{l.visible?"ðŸ‘":"ðŸš«"}</button>
+              </div>
+            );
+          })}
+
+          {/* Selected layer readout */}
+          {selLayer && (
+            <div style={{marginTop:12,background:"#fff",border:"1px solid #d4cdc0",padding:"10px 12px"}}>
+              <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#c8372d",marginBottom:8}}>Selected</div>
+              {[["X pos",Math.round(selLayer.x*100)+"%"],["Y pos",Math.round(selLayer.y*100)+"%"],["Scale",Math.round(selLayer.scale)+"%"]].map(([k,v])=>(
+                <div key={k} style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                  <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".08em",textTransform:"uppercase",color:"#aaa"}}>{k}</span>
+                  <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",color:"#0f0f0f",fontWeight:500}}>{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:10,marginTop:20,flexWrap:"wrap"}}>
+        <button style={S.btn("outline")} onClick={onBack}>â† Back to AI Review</button>
+        <button style={S.btn()} onClick={handleConfirm}>âœ“ Looks Good â€” Generate Final â†’</button>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
-  const [page, setPage] = useState("jobs"); // "jobs" | "builder"
+  const [page, setPage] = useState("jobs");
   const [step, setStep] = useState(1);
   const [job, setJob] = useState(emptyJob());
   const [garments, setGarments] = useState({front:null,back:null,other:null});
@@ -73,7 +365,7 @@ export default function App() {
   const [aiError, setAiError] = useState("");
   const [revisionNotes, setRevisionNotes] = useState("");
   const [mockupBuilt, setMockupBuilt] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(""); // "" | "saving" | "saved" | "error"
+  const [saveStatus, setSaveStatus] = useState("");
   const [savedJobId, setSavedJobId] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(false);
@@ -83,26 +375,20 @@ export default function App() {
 
   useEffect(() => {
     const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap";
+    link.rel="stylesheet";
+    link.href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap";
     document.head.appendChild(link);
   }, []);
 
-  useEffect(() => {
-    if (page === "jobs") loadJobs();
-  }, [page]);
+  useEffect(() => { if (page==="jobs") loadJobs(); }, [page]);
 
-  function showToast(msg) {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2800);
-  }
+  function showToast(msg) { setToast(msg); setTimeout(()=>setToast(""),2800); }
 
-  // â”€â”€ JOBS LIST â”€â”€
   async function loadJobs() {
     setJobsLoading(true);
     try {
-      const data = await sb("GET", "/jobs?select=id,job_num,client,garment_style,garment_colour,status,created_at,updated_at&order=updated_at.desc");
-      setJobs(Array.isArray(data) ? data : []);
+      const data = await sb("GET","/jobs?select=id,job_num,client,garment_style,garment_colour,status,created_at,updated_at&order=updated_at.desc");
+      setJobs(Array.isArray(data)?data:[]);
     } catch(e) { showToast("Could not load jobs"); }
     setJobsLoading(false);
   }
@@ -110,177 +396,133 @@ export default function App() {
   async function deleteJob(id, e) {
     e.stopPropagation();
     if (!confirm("Delete this job?")) return;
-    await sb("DELETE", `/jobs?id=eq.${id}`);
-    setJobs(j => j.filter(x => x.id !== id));
+    await sb("DELETE",`/jobs?id=eq.${id}`);
+    setJobs(j=>j.filter(x=>x.id!==id));
     showToast("Job deleted");
   }
 
   function newJob() {
-    setJob(emptyJob());
-    setGarments({front:null,back:null,other:null});
-    setArtwork([]);
+    setJob(emptyJob()); setGarments({front:null,back:null,other:null}); setArtwork([]);
     setPlacements([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",fromCentre:"",decType:"Screen Print",colours:"",notes:""}]);
     setAiPlan([]); setAiStatus("idle"); setAiIntro(""); setAiError("");
     setRevisionNotes(""); setMockupBuilt(false); setSavedJobId(null); setSaveStatus("");
-    setArtCounter(1); setRowCounter(2);
-    setStep(1); setPage("builder");
+    setArtCounter(1); setRowCounter(2); setStep(1); setPage("builder");
   }
 
   async function loadJob(jobId) {
     try {
-      const data = await sb("GET", `/jobs?id=eq.${jobId}&select=*`);
+      const data = await sb("GET",`/jobs?id=eq.${jobId}&select=*`);
       const j = data[0]; if (!j) return;
-      setJob({ num: j.job_num||"", client: j.client||"", style: j.garment_style||"", colour: j.garment_colour||"" });
-      setPlacements(j.placements || []);
-      setAiPlan(j.ai_plan || []);
-      setAiStatus(j.ai_plan?.length ? "done" : "idle");
-      setSavedJobId(j.id);
-      setSaveStatus("saved");
-
-      // Restore garment images from dataURLs
-      const gUrls = j.garment_urls || {};
+      setJob({num:j.job_num||"",client:j.client||"",style:j.garment_style||"",colour:j.garment_colour||""});
+      setPlacements(j.placements||[]);
+      setAiPlan(j.ai_plan||[]);
+      setAiStatus(j.ai_plan?.length?"done":"idle");
+      setSavedJobId(j.id); setSaveStatus("saved");
+      const gUrls = j.garment_urls||{};
       const newGarments = {front:null,back:null,other:null};
-      await Promise.all(Object.entries(gUrls).map(([view, dataURL]) => new Promise(res => {
-        if (!dataURL) { res(); return; }
-        const img = new Image();
-        img.onload = () => { newGarments[view] = { img, name: view+" view", dataURL }; res(); };
-        img.src = dataURL;
+      await Promise.all(Object.entries(gUrls).map(([view,dataURL])=>new Promise(res=>{
+        if(!dataURL){res();return;}
+        const img=new Image();
+        img.onload=()=>{newGarments[view]={img,name:view+" view",dataURL};res();};
+        img.src=dataURL;
       })));
       setGarments(newGarments);
-
-      // Restore artwork
-      const artData = j.artwork_data || [];
+      const artData = j.artwork_data||[];
       const newArt = [];
-      await Promise.all(artData.map((a, idx) => new Promise(res => {
-        const img = new Image();
-        img.onload = () => { newArt[idx] = { id: a.id, img, name: a.name, dataURL: a.dataURL }; res(); };
-        img.src = a.dataURL;
+      await Promise.all(artData.map((a,idx)=>new Promise(res=>{
+        const img=new Image();
+        img.onload=()=>{newArt[idx]={id:a.id,img,name:a.name,dataURL:a.dataURL};res();};
+        img.src=a.dataURL;
       })));
       setArtwork(newArt.filter(Boolean));
-      if (newArt.length) setArtCounter(Math.max(...newArt.map(a=>a.id)) + 1);
-
-      setStep(j.ai_plan?.length ? 3 : 1);
-      setPage("builder");
+      if(newArt.length) setArtCounter(Math.max(...newArt.map(a=>a.id))+1);
+      setStep(j.ai_plan?.length?3:1); setPage("builder");
       showToast("Job loaded â€” ready to edit");
-    } catch(e) { showToast("Could not load job: " + e.message); }
+    } catch(e) { showToast("Could not load job: "+e.message); }
   }
 
-  // â”€â”€ SAVE JOB â”€â”€
-  async function saveJob(status="draft") {
+  async function saveJob(status="draft", planOverride) {
     setSaveStatus("saving");
     try {
-      // Compress garment dataURLs for storage (reduce quality)
       const garmentUrls = {};
-      for (const [view, g] of Object.entries(garments)) {
-        if (!g) continue;
-        // Compress to JPEG at 60% quality for storage
-        const canvas = document.createElement("canvas");
-        const maxW = 400;
-        const r = Math.min(maxW / g.img.naturalWidth, 1);
-        canvas.width = Math.round(g.img.naturalWidth * r);
-        canvas.height = Math.round(g.img.naturalHeight * r);
-        canvas.getContext("2d").drawImage(g.img, 0, 0, canvas.width, canvas.height);
-        garmentUrls[view] = canvas.toDataURL("image/jpeg", 0.6);
+      for (const [view,g] of Object.entries(garments)) {
+        if(!g) continue;
+        const c=document.createElement("canvas");
+        const r=Math.min(400/g.img.naturalWidth,1);
+        c.width=Math.round(g.img.naturalWidth*r); c.height=Math.round(g.img.naturalHeight*r);
+        c.getContext("2d").drawImage(g.img,0,0,c.width,c.height);
+        garmentUrls[view]=c.toDataURL("image/jpeg",0.6);
       }
-
-      // Compress artwork for storage
-      const artworkData = artwork.map(a => {
-        const canvas = document.createElement("canvas");
-        const maxW = 300;
-        const r = Math.min(maxW / a.img.naturalWidth, 1);
-        canvas.width = Math.round(a.img.naturalWidth * r);
-        canvas.height = Math.round(a.img.naturalHeight * r);
-        canvas.getContext("2d").drawImage(a.img, 0, 0, canvas.width, canvas.height);
-        return { id: a.id, name: a.name, dataURL: canvas.toDataURL("image/png") };
+      const artworkData = artwork.map(a=>{
+        const c=document.createElement("canvas");
+        const r=Math.min(300/a.img.naturalWidth,1);
+        c.width=Math.round(a.img.naturalWidth*r); c.height=Math.round(a.img.naturalHeight*r);
+        c.getContext("2d").drawImage(a.img,0,0,c.width,c.height);
+        return {id:a.id,name:a.name,dataURL:c.toDataURL("image/png")};
       });
-
       const payload = {
-        job_num: job.num,
-        client: job.client,
-        garment_style: job.style,
-        garment_colour: job.colour,
-        status,
-        placements,
-        ai_plan: aiPlan,
-        garment_urls: garmentUrls,
-        artwork_data: artworkData,
-        updated_at: new Date().toISOString(),
+        job_num:job.num, client:job.client, garment_style:job.style, garment_colour:job.colour,
+        status, placements, ai_plan:planOverride||aiPlan,
+        garment_urls:garmentUrls, artwork_data:artworkData,
+        updated_at:new Date().toISOString(),
       };
-
-      if (savedJobId) {
-        await sb("PATCH", `/jobs?id=eq.${savedJobId}`, payload);
-      } else {
-        const result = await sb("POST", "/jobs", payload);
-        if (result?.[0]?.id) setSavedJobId(result[0].id);
-      }
+      if(savedJobId) { await sb("PATCH",`/jobs?id=eq.${savedJobId}`,payload); }
+      else { const r=await sb("POST","/jobs",payload); if(r?.[0]?.id) setSavedJobId(r[0].id); }
       setSaveStatus("saved");
-      showToast(status === "final" ? "Job saved as final âœ“" : "Draft saved âœ“");
-    } catch(e) {
-      setSaveStatus("error");
-      showToast("Save failed: " + e.message);
-    }
+      showToast(status==="final"?"Job saved as final âœ“":"Draft saved âœ“");
+    } catch(e) { setSaveStatus("error"); showToast("Save failed: "+e.message); }
   }
 
-  // â”€â”€ NAVIGATION â”€â”€
   function goStep(n) {
-    if (n === 3) runAI();
-    else if (n === 4) buildMockup();
+    if(n===3) runAI();
+    else if(n===5) buildMockup();
     setStep(n);
     window.scrollTo({top:0,behavior:"smooth"});
   }
 
-  // â”€â”€ GARMENT â”€â”€
   function loadGarmentView(e, view) {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const img = new Image();
-      img.onload = () => setGarments(g => ({...g, [view]:{img, name:file.name, dataURL:ev.target.result}}));
-      img.src = ev.target.result;
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>setGarments(g=>({...g,[view]:{img,name:file.name,dataURL:ev.target.result}}));
+      img.src=ev.target.result;
     };
-    reader.readAsDataURL(file);
-    e.target.value = "";
+    reader.readAsDataURL(file); e.target.value="";
   }
 
-  // â”€â”€ ARTWORK â”€â”€
   function loadArtFiles(e) {
-    Array.from(e.target.files).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const img = new Image();
-        img.onload = () => setArtwork(prev => [...prev, {id: artCounter + prev.length, img, name:file.name, dataURL:ev.target.result}]);
-        img.src = ev.target.result;
+    Array.from(e.target.files).forEach(file=>{
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        const img=new Image();
+        img.onload=()=>setArtwork(prev=>[...prev,{id:artCounter+prev.length,img,name:file.name,dataURL:ev.target.result}]);
+        img.src=ev.target.result;
       };
       reader.readAsDataURL(file);
     });
-    setArtCounter(c => c + e.target.files.length);
-    e.target.value = "";
+    setArtCounter(c=>c+e.target.files.length); e.target.value="";
   }
-  function removeArt(id) { setArtwork(a => a.filter(x => x.id !== id)); }
+  function removeArt(id) { setArtwork(a=>a.filter(x=>x.id!==id)); }
 
-  // â”€â”€ PLACEMENTS â”€â”€
   function addRow() {
-    setPlacements(p => [...p, {_id:rowCounter,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",fromCentre:"",decType:"Screen Print",colours:"",notes:""}]);
-    setRowCounter(c => c+1);
+    setPlacements(p=>[...p,{_id:rowCounter,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",fromCentre:"",decType:"Screen Print",colours:"",notes:""}]);
+    setRowCounter(c=>c+1);
   }
-  function removeRow(id) { setPlacements(p => p.filter(x => x._id !== id)); }
-  function updateRow(id, key, val) { setPlacements(p => p.map(x => x._id===id ? {...x,[key]:val} : x)); }
+  function removeRow(id) { setPlacements(p=>p.filter(x=>x._id!==id)); }
+  function updateRow(id,key,val) { setPlacements(p=>p.map(x=>x._id===id?{...x,[key]:val}:x)); }
 
-  // â”€â”€ AI â”€â”€
   async function runAI() {
     setAiStatus("thinking"); setAiPlan([]); setAiIntro(""); setAiError("");
-    if (!garments.front) { setAiStatus("error"); setAiError("Please upload a front garment photo first."); return; }
-    if (!placements.length) { setAiStatus("error"); setAiError("Please add at least one placement."); return; }
-
-    const artNames = artwork.map(a => `ID ${a.id}: "${a.name.replace(/\.[^.]+$/,"")}"`).join(", ") || "none";
-    const placementDesc = placements.map((p,i) => {
-      const artName = artwork.find(a => a.id == p.artId)?.name.replace(/\.[^.]+$/,"") || "unassigned";
+    if(!garments.front){setAiStatus("error");setAiError("Please upload a front garment photo first.");return;}
+    if(!placements.length){setAiStatus("error");setAiError("Please add at least one placement.");return;}
+    const artNames=artwork.map(a=>`ID ${a.id}: "${a.name.replace(/\.[^.]+$/,"")}"`).join(", ")||"none";
+    const placementDesc=placements.map((p,i)=>{
+      const artName=artwork.find(a=>a.id==p.artId)?.name.replace(/\.[^.]+$/,"")||"unassigned";
       return `Placement ${i+1}:\n  - View: ${p.view}\n  - Position: ${p.placement}\n  - Artwork: "${artName}" (ID: ${p.artId||"none"})\n  - Art width: ${p.width||"not specified"} inches\n  - From low collar point: ${p.fromCollar||"not specified"} inches\n  - From centre: ${p.fromCentre||"not specified"}\n  - Decoration: ${p.decType}\n  - Colours: ${p.colours||"not specified"}\n  - Notes: ${p.notes||"none"}`;
     }).join("\n\n");
-
-    const loadedViews = Object.entries(garments).filter(([,v])=>v).map(([k])=>k).join(", ");
-
-    const prompt = `You are a production assistant at True North Screen Printing & Embroidery in Vancouver, BC.
+    const loadedViews=Object.entries(garments).filter(([,v])=>v).map(([k])=>k).join(", ");
+    const prompt=`You are a production assistant at True North Screen Printing & Embroidery in Vancouver, BC.
 Interpret this mockup placement brief and return a confirmed placement plan as JSON only.
 
 JOB:
@@ -297,13 +539,12 @@ GARMENT DIMENSIONS (standard Large, laid flat):
 GARMENT PHOTO CALIBRATION:
 - The garment photos have ~12% blank space above the shoulder seam at the top of the image.
 - The shoulder seam sits at yâ‰ˆ0.12 in the image.
-- The front collar low point sits at yâ‰ˆ0.22 in the image (shoulder + ~3" collar drop on a 30" image).
-- The back collar low point sits at yâ‰ˆ0.19 in the image (shoulder + ~2" collar drop on a 30" image).
+- The front collar low point sits at yâ‰ˆ0.22 in the image.
+- The back collar low point sits at yâ‰ˆ0.19 in the image.
 - The bottom hem sits at yâ‰ˆ0.88 in the image.
-- The printable body height in the image = 0.88 - 0.22 = 0.66 of image height for front, 0.88 - 0.19 = 0.69 for back.
 
-STANDARD PLACEMENT POSITIONS (use these as your base, adjust only if fromCollar/fromCentre measurements differ):
-- Left Chest: x=0.65, y=0.33 (wearer's left chest, ~4" from collar, ~4" right of centre seam)
+STANDARD PLACEMENT POSITIONS (use these as base, adjust only if measurements differ):
+- Left Chest: x=0.65, y=0.33
 - Right Chest: x=0.32, y=0.33
 - Centre Front: x=0.50, y=0.38
 - Full Front: x=0.50, y=0.45
@@ -314,106 +555,76 @@ ARTWORK FILES: ${artNames}
 
 PLACEMENTS:
 ${placementDesc}
-${revisionNotes ? `\nREVISION NOTES: ${revisionNotes}` : ""}
+${revisionNotes?`\nREVISION NOTES: ${revisionNotes}`:""}
 
 Instructions:
-1. For each placement, determine canvas x,y (0.0â€“1.0, top-left origin) and scale (artwork width as % of canvas width).
-2. SCALE: canvas width represents 22 inches. Calculate scale% = (art width in inches / 22) * 100.
-   Examples: 3.5" art = 15.9% scale. 4" = 18.2%. 10" = 45.5%. 12" = 54.5%.
-3. POSITION X: canvas width = 22". Left Chest (wearer's left) = right side of image xâ‰ˆ0.65. Right Chest = xâ‰ˆ0.32. Centre = xâ‰ˆ0.50.
-   For fromCentre: offset = (inches from centre / 22). e.g. 4" left of centre = x = 0.50 - (4/22) = 0.32.
-4. POSITION Y: Use the calibrated anchor points above as your base positions.
-   If fromCollar is specified, calculate precisely:
-   Front: y = 0.22 + (fromCollar / 30) * 0.66. e.g. 3" from front collar = 0.22 + (3/30)*0.66 = 0.29. 5" = 0.33. 7" = 0.37.
-   Back: y = 0.19 + (fromCollar / 30) * 0.69. e.g. 3" from back collar = 0.19 + (3/30)*0.69 = 0.26. 5" = 0.31. 7" = 0.35.
-   If no fromCollar is given, use the standard placement positions above.
-5. Return ONLY valid JSON, no markdown, no backticks, no explanation.
+1. scale% = (art width in inches / 22) * 100. Examples: 3.5"=15.9%, 4"=18.2%, 10"=45.5%, 12"=54.5%.
+2. X: Left Chest (wearer's left)=xâ‰ˆ0.65. Right Chest=xâ‰ˆ0.32. Centre=xâ‰ˆ0.50. fromCentre offset=(inches/22).
+3. Y Front: y=0.22+(fromCollar/30)*0.66. e.g. 3"=0.29, 5"=0.33, 7"=0.37.
+   Y Back: y=0.19+(fromCollar/30)*0.69. e.g. 3"=0.26, 5"=0.31, 7"=0.35.
+   If no fromCollar given, use standard positions above.
+4. Return ONLY valid JSON, no markdown, no backticks.
 
-JSON structure:
-{
-  "intro": "One sentence summary",
-  "placements": [
-    {
-      "placement": "Left Chest",
-      "view": "front",
-      "artId": 1,
-      "artName": "logo-name",
-      "x": 0.68,
-      "y": 0.17,
-      "scale": 15.9,
-      "decType": "Screen Print",
-      "colours": "PMS 185 Red, White",
-      "specWidth": "3.5",
-      "specFromCollar": "3",
-      "specFromCentre": "4 left",
-      "notes": ""
-    }
-  ]
-}`;
+JSON:
+{"intro":"One sentence summary","placements":[{"placement":"Left Chest","view":"front","artId":1,"artName":"logo","x":0.65,"y":0.33,"scale":15.9,"decType":"Screen Print","colours":"PMS 185","specWidth":"3.5","specFromCollar":"3","specFromCentre":"4 left","notes":""}]}`;
 
     try {
-      const response = await fetch("/.netlify/functions/claude", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ messages: [{role:"user", content: prompt}] })
-      });
-      const text = await response.text();
-      if (!response.ok) throw new Error(`Server error ${response.status}: ${text.substring(0,300)}`);
-      let data;
-      try { data = JSON.parse(text); } catch(e) { throw new Error("Could not parse server response: " + text.substring(0,200)); }
-      if (data.error) throw new Error(data.error);
-      const raw = data.content?.find(b => b.type==="text")?.text || "";
-      if (!raw) throw new Error("Empty response â€” check your ANTHROPIC_API_KEY in Netlify environment variables.");
-      const clean = raw.replace(/```json|```/g,"").trim();
-      let plan;
-      try { plan = JSON.parse(clean); } catch(e) { throw new Error("AI returned invalid JSON. Try again."); }
-      setAiPlan(plan.placements || []);
-      setAiIntro(plan.intro || "Placement plan ready.");
+      const response=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
+      const text=await response.text();
+      if(!response.ok) throw new Error(`Server error ${response.status}: ${text.substring(0,300)}`);
+      let data; try{data=JSON.parse(text);}catch(e){throw new Error("Could not parse server response.");}
+      if(data.error) throw new Error(data.error);
+      const raw=data.content?.find(b=>b.type==="text")?.text||"";
+      if(!raw) throw new Error("Empty response â€” check ANTHROPIC_API_KEY in Netlify.");
+      const clean=raw.replace(/```json|```/g,"").trim();
+      let plan; try{plan=JSON.parse(clean);}catch(e){throw new Error("AI returned invalid JSON. Try again.");}
+      setAiPlan(plan.placements||[]);
+      setAiIntro(plan.intro||"Placement plan ready.");
       setAiStatus("done");
-    } catch(err) {
-      setAiStatus("error");
-      setAiError(err.message);
-    }
+    } catch(err){setAiStatus("error");setAiError(err.message);}
   }
 
-  // â”€â”€ MOCKUP â”€â”€
-  function buildMockup() { setTimeout(() => renderMockup(), 100); }
+  function handleFineTuneConfirm(adjustedPlan) {
+    setAiPlan(adjustedPlan);
+    goStep(5);
+  }
+
+  function buildMockup() { setTimeout(()=>renderMockup(),100); }
 
   function renderMockup() {
-    const loadedViews = ["front","back","other"].filter(k => garments[k]);
-    if (!loadedViews.length) return;
-    const GAP = 14;
-    const viewCanvases = loadedViews.map(k => buildViewCanvas(k)).filter(Boolean);
-    const totalW = viewCanvases.reduce((s,c)=>s+c.width,0) + (viewCanvases.length-1)*GAP;
-    const maxH = Math.max(...viewCanvases.map(c=>c.height));
-    const specC = buildSpecCanvas(maxH);
-    const combined = document.createElement("canvas");
-    combined.width = totalW + GAP + specC.width;
-    combined.height = maxH;
-    const cc = combined.getContext("2d");
-    cc.fillStyle = "#ede8df"; cc.fillRect(0,0,combined.width,combined.height);
-    let xOff = 0;
-    viewCanvases.forEach(vc => { cc.drawImage(vc, xOff, Math.round((maxH-vc.height)/2)); xOff += vc.width + GAP; });
-    cc.drawImage(specC, xOff, 0);
-    exportRef.current = combined;
-    const canvas = canvasRef.current; if (!canvas) return;
-    canvas.width = combined.width; canvas.height = combined.height;
-    canvas.getContext("2d").drawImage(combined, 0, 0);
+    const loadedViews=["front","back","other"].filter(k=>garments[k]);
+    if(!loadedViews.length) return;
+    const GAP=14;
+    const viewCanvases=loadedViews.map(k=>buildViewCanvas(k)).filter(Boolean);
+    const totalW=viewCanvases.reduce((s,c)=>s+c.width,0)+(viewCanvases.length-1)*GAP;
+    const maxH=Math.max(...viewCanvases.map(c=>c.height));
+    const specC=buildSpecCanvas(maxH);
+    const combined=document.createElement("canvas");
+    combined.width=totalW+GAP+specC.width; combined.height=maxH;
+    const cc=combined.getContext("2d");
+    cc.fillStyle="#ede8df"; cc.fillRect(0,0,combined.width,combined.height);
+    let xOff=0;
+    viewCanvases.forEach(vc=>{cc.drawImage(vc,xOff,Math.round((maxH-vc.height)/2));xOff+=vc.width+GAP;});
+    cc.drawImage(specC,xOff,0);
+    exportRef.current=combined;
+    const canvas=canvasRef.current; if(!canvas) return;
+    canvas.width=combined.width; canvas.height=combined.height;
+    canvas.getContext("2d").drawImage(combined,0,0);
     setMockupBuilt(true);
   }
 
   function buildViewCanvas(viewKey) {
-    const g = garments[viewKey]; if (!g) return null;
-    const img = g.img;
-    const r = Math.min(680/img.naturalWidth, 800/img.naturalHeight);
-    const vw = Math.round(img.naturalWidth*r), vh = Math.round(img.naturalHeight*r);
-    const vc = document.createElement("canvas"); vc.width=vw; vc.height=vh;
-    const vx = vc.getContext("2d");
-    vx.fillStyle="#ffffff"; vx.fillRect(0,0,vw,vh); vx.drawImage(img,0,0,vw,vh);
+    const g=garments[viewKey]; if(!g) return null;
+    const img=g.img;
+    const r=Math.min(680/img.naturalWidth,800/img.naturalHeight);
+    const vw=Math.round(img.naturalWidth*r),vh=Math.round(img.naturalHeight*r);
+    const vc=document.createElement("canvas"); vc.width=vw; vc.height=vh;
+    const vx=vc.getContext("2d");
+    vx.fillStyle="#fff"; vx.fillRect(0,0,vw,vh); vx.drawImage(img,0,0,vw,vh);
     aiPlan.filter(p=>(p.view||"front").toLowerCase()===viewKey).forEach(p=>{
       const art=artwork.find(a=>a.id==p.artId); if(!art) return;
-      const scale=Math.max(2,Math.min(200,p.scale||22));
-      const aw=(scale/100)*vw, ah=aw*(art.img.naturalHeight/art.img.naturalWidth);
+      const aw=(Math.max(2,Math.min(200,p.scale||22))/100)*vw;
+      const ah=aw*(art.img.naturalHeight/art.img.naturalWidth);
       vx.save(); vx.translate((p.x||.5)*vw,(p.y||.4)*vh); vx.drawImage(art.img,-aw/2,-ah/2,aw,ah); vx.restore();
     });
     const fs=Math.max(10,vw*.018);
@@ -424,7 +635,7 @@ JSON structure:
     vx.font=`500 ${fs*.9}px IBM Plex Mono,monospace`; vx.fillStyle="rgba(245,240,232,.82)";
     vx.fillText("TRUE NORTH SCREEN PRINTING",10,vh-fs*1.75);
     vx.font=`${fs*.74}px IBM Plex Mono,monospace`; vx.fillStyle="rgba(200,55,45,.85)";
-    const meta=[job.num&&"JOB #"+job.num, job.client&&job.client.toUpperCase()].filter(Boolean).join("  Â·  ");
+    const meta=[job.num&&"JOB #"+job.num,job.client&&job.client.toUpperCase()].filter(Boolean).join("  Â·  ");
     if(meta) vx.fillText(meta,10,vh-fs*.78);
     return vc;
   }
@@ -439,7 +650,7 @@ JSON structure:
     sx.font="10px IBM Plex Mono,monospace"; sx.fillStyle="#c8372d"; sx.fillText("SCREEN PRINTING & EMBROIDERY",14,44);
     sx.font="9px IBM Plex Mono,monospace"; sx.fillStyle="#555"; sx.fillText("PLACEMENT SPECIFICATION SHEET",14,59);
     let y=82;
-    const mr=(k,v)=>{ sx.font="9px IBM Plex Mono,monospace"; sx.fillStyle="#aaa"; sx.fillText(k.toUpperCase(),14,y); sx.font="500 11px IBM Plex Sans,sans-serif"; sx.fillStyle="#0f0f0f"; sx.fillText(v||"â€”",115,y); y+=17; };
+    const mr=(k,v)=>{sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#aaa";sx.fillText(k.toUpperCase(),14,y);sx.font="500 11px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(v||"â€”",115,y);y+=17;};
     if(job.num) mr("Job #",job.num); if(job.client) mr("Client",job.client);
     const gs=[job.style,job.colour].filter(Boolean).join(" â€” "); if(gs) mr("Garment",gs);
     const lv=Object.entries(garments).filter(([,v])=>v).map(([k])=>k.charAt(0).toUpperCase()+k.slice(1));
@@ -453,10 +664,10 @@ JSON structure:
       sx.font="9px IBM Plex Mono,monospace"; sx.fillStyle="#c8372d";
       sx.fillText(`PLACEMENT ${i+1} Â· ${(p.view||"FRONT").toUpperCase()}`,20,y+11);
       sx.font="bold 13px IBM Plex Sans,sans-serif"; sx.fillStyle="#0f0f0f"; sx.fillText(p.placement||"â€”",20,y+26);
-      if(p.decType){ sx.fillStyle="rgba(200,55,45,.12)"; const tw=sx.measureText(p.decType.toUpperCase()).width+10; sx.fillRect(20,y+30,tw,13); sx.font="8px IBM Plex Mono,monospace"; sx.fillStyle="#c8372d"; sx.fillText(p.decType.toUpperCase(),25,y+40); }
+      if(p.decType){sx.fillStyle="rgba(200,55,45,.12)";const tw=sx.measureText(p.decType.toUpperCase()).width+10;sx.fillRect(20,y+30,tw,13);sx.font="8px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(p.decType.toUpperCase(),25,y+40);}
       let ry=y+(p.decType?50:38);
-      const sr=(k,v)=>{ if(!v) return; sx.font="8px IBM Plex Mono,monospace"; sx.fillStyle="#999"; sx.fillText(k.toUpperCase(),20,ry); sx.font="11px IBM Plex Sans,sans-serif"; sx.fillStyle="#222"; const words=v.split(" "); let line=""; const mw=PW-150; words.forEach(w=>{ const t=line?line+" "+w:w; if(sx.measureText(t).width>mw&&line){sx.fillText(line,125,ry);line=w;ry+=13;}else{line=t;} }); if(line) sx.fillText(line,125,ry); ry+=15; };
-      if(p.artName) sr("Artwork",p.artName); if(p.specWidth) sr("Art Width",p.specWidth+'"'); if(p.specFromCollar) sr("From Collar",p.specFromCollar+'"'); if(p.specFromCentre) sr("From Centre",p.specFromCentre+'"'); if(p.colours) sr("Colours",p.colours); if(p.notes) sr("Notes",p.notes);
+      const sr=(k,v)=>{if(!v)return;sx.font="8px IBM Plex Mono,monospace";sx.fillStyle="#999";sx.fillText(k.toUpperCase(),20,ry);sx.font="11px IBM Plex Sans,sans-serif";sx.fillStyle="#222";const words=v.split(" ");let line="";const mw=PW-150;words.forEach(w=>{const t=line?line+" "+w:w;if(sx.measureText(t).width>mw&&line){sx.fillText(line,125,ry);line=w;ry+=13;}else{line=t;}});if(line)sx.fillText(line,125,ry);ry+=15;};
+      if(p.artName)sr("Artwork",p.artName);if(p.specWidth)sr("Art Width",p.specWidth+'"');if(p.specFromCollar)sr("From Collar",p.specFromCollar+'"');if(p.specFromCentre)sr("From Centre",p.specFromCentre+'"');if(p.colours)sr("Colours",p.colours);if(p.notes)sr("Notes",p.notes);
       y+=ch+13;
     });
     const fY=height-24; sx.fillStyle="#0f0f0f"; sx.fillRect(0,fY,PW,24);
@@ -466,50 +677,44 @@ JSON structure:
     return sc;
   }
 
-  function estimateH(p){ let h=p.decType?54:40; if(p.artName)h+=15; if(p.specWidth)h+=15; if(p.specFromCollar)h+=15; if(p.specFromCentre)h+=15; if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13; if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13; return Math.max(h,55); }
+  function estimateH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.specFromCentre)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13;return Math.max(h,55);}
 
-  function exportPNG(){ if(!exportRef.current) return; const a=document.createElement("a"); a.download=`TNSP-Mockup-${job.num||"draft"}.png`; a.href=exportRef.current.toDataURL("image/png"); a.click(); }
-  function exportJPG(){ if(!exportRef.current) return; const a=document.createElement("a"); a.download=`TNSP-Mockup-${job.num||"draft"}.jpg`; a.href=exportRef.current.toDataURL("image/jpeg",.93); a.click(); }
+  function exportPNG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${job.num||"draft"}.png`;a.href=exportRef.current.toDataURL("image/png");a.click();}
+  function exportJPG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${job.num||"draft"}.jpg`;a.href=exportRef.current.toDataURL("image/jpeg",.93);a.click();}
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  //  RENDER
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   return (
     <div style={S.body}>
-      {/* Header */}
       <div style={S.header}>
         <div>
           <div style={S.brand}>TRUE<span style={S.brandSpan}>NORTH</span></div>
           <div style={S.brandSub}>Screen Printing &amp; Embroidery</div>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center"}}>
-          {page==="builder" && <button style={{...S.tag,cursor:"pointer",color:"#aaa"}} onClick={()=>setPage("jobs")}>â† All Jobs</button>}
+          {page==="builder"&&<button style={{...S.tag,cursor:"pointer",color:"#aaa"}} onClick={()=>setPage("jobs")}>â† All Jobs</button>}
           <div style={S.tag}>AI Mockup Builder</div>
         </div>
       </div>
 
-      {/* â•â• JOBS PAGE â•â• */}
-      {page==="jobs" && (
+      {/* JOBS PAGE */}
+      {page==="jobs"&&(
         <div style={S.wrap}>
           <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:20}}>
             <div style={S.secTitle}><span style={S.secN}>âœ¦</span> Saved Jobs</div>
             <button style={S.btn("red")} onClick={newJob}>+ New Mockup</button>
           </div>
-
-          {jobsLoading && <div style={S.notice("info")}>Loading jobs...</div>}
-          {!jobsLoading && jobs.length===0 && <div style={S.notice("info")}>No saved jobs yet â€” click New Mockup to get started.</div>}
-
-          {jobs.map(j => (
+          {jobsLoading&&<div style={S.notice("info")}>Loading jobs...</div>}
+          {!jobsLoading&&jobs.length===0&&<div style={S.notice("info")}>No saved jobs yet â€” click New Mockup to get started.</div>}
+          {jobs.map(j=>(
             <div key={j.id} style={S.jobCard} onClick={()=>loadJob(j.id)}
               onMouseEnter={e=>e.currentTarget.style.borderColor="#c8372d"}
               onMouseLeave={e=>e.currentTarget.style.borderColor="#d4cdc0"}>
               <div>
                 <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",letterSpacing:".06em"}}>
                   {j.client||"Unnamed Client"}
-                  {j.job_num && <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",color:"#c8372d",marginLeft:10}}>#{j.job_num}</span>}
+                  {j.job_num&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",color:"#c8372d",marginLeft:10}}>#{j.job_num}</span>}
                 </div>
                 <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".08em",textTransform:"uppercase",color:"#aaa",marginTop:3}}>
-                  {j.garment_style}{j.garment_colour ? " â€” "+j.garment_colour : ""}
+                  {j.garment_style}{j.garment_colour?" â€” "+j.garment_colour:""}
                 </div>
                 <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".08em",textTransform:"uppercase",color:"#ccc",marginTop:2}}>
                   {new Date(j.updated_at).toLocaleDateString("en-CA")}
@@ -519,18 +724,18 @@ JSON structure:
                 <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".1em",textTransform:"uppercase",padding:"3px 8px",background:j.status==="final"?"#e6f4ec":"#fff8e6",color:j.status==="final"?"#2a7a4b":"#7a5500",border:`1px solid ${j.status==="final"?"#2a7a4b":"#b8892e"}`}}>
                   {j.status||"draft"}
                 </span>
-                <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem",padding:"4px 6px"}} title="Delete">âœ•</button>
+                <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem",padding:"4px 6px"}}>âœ•</button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* â•â• BUILDER PAGE â•â• */}
-      {page==="builder" && (
+      {/* BUILDER PAGE */}
+      {page==="builder"&&(
         <>
           <div style={S.steps}>
-            {[["01","Job Details"],["02","Artwork & Placements"],["03","AI Review"],["04","Mockup"]].map(([n,lbl],i)=>(
+            {[["01","Job Details"],["02","Artwork & Placements"],["03","AI Review"],["04","Fine-Tune"],["05","Export"]].map(([n,lbl],i)=>(
               <div key={i} style={S.step(step===i+1,step>i+1)} onClick={()=>step>i+1&&setStep(i+1)}>
                 <div style={S.stepNum(step===i+1)}>{`Step ${n}`}</div>
                 <div style={S.stepLbl(step===i+1,step>i+1)}>{lbl}</div>
@@ -541,7 +746,7 @@ JSON structure:
           <div style={S.wrap}>
 
             {/* STEP 1 */}
-            {step===1 && (
+            {step===1&&(
               <div>
                 <div style={S.secTitle}><span style={S.secN}>01</span> Job &amp; Garment Details</div>
                 <div style={S.grid2}>
@@ -556,9 +761,9 @@ JSON structure:
                   {["front","back","other"].map(view=>(
                     <label key={view} style={{border:`2px ${garments[view]?"solid #4caf7d":"dashed #d4cdc0"}`,background:"#fffdf8",padding:14,textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:90,position:"relative",gap:4}}>
                       <input type="file" accept="image/*" style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%"}} onChange={e=>loadGarmentView(e,view)}/>
-                      {garments[view] ? <img src={garments[view].dataURL} style={{maxHeight:52,maxWidth:"100%",objectFit:"contain"}}/> : <span style={{fontSize:"1.3rem"}}>ðŸ‘•</span>}
+                      {garments[view]?<img src={garments[view].dataURL} style={{maxHeight:52,maxWidth:"100%",objectFit:"contain"}}/>:<span style={{fontSize:"1.3rem"}}>ðŸ‘•</span>}
                       <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:garments[view]?"#4caf7d":"#aaa"}}>
-                        {garments[view] ? "âœ“ "+garments[view].name.substring(0,16) : view.charAt(0).toUpperCase()+view.slice(1)+(view==="front"?" *":"")}
+                        {garments[view]?"âœ“ "+garments[view].name.substring(0,16):view.charAt(0).toUpperCase()+view.slice(1)+(view==="front"?" *":"")}
                       </span>
                     </label>
                   ))}
@@ -571,10 +776,10 @@ JSON structure:
             )}
 
             {/* STEP 2 */}
-            {step===2 && (
+            {step===2&&(
               <div>
                 <div style={S.secTitle}><span style={S.secN}>02</span> Artwork Library</div>
-                <div style={S.notice("info")}>Upload all logos/artwork for this job. Assign each one to a placement below.</div>
+                <div style={S.notice("info")}>Upload all logos/artwork for this job.</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
                   {artwork.map(a=>(
                     <div key={a.id} style={{background:"#fffdf8",border:"2px solid #d4cdc0",padding:8,display:"flex",flexDirection:"column",alignItems:"center",gap:4,width:78,position:"relative"}}>
@@ -603,13 +808,8 @@ JSON structure:
                         <div key={key}>
                           <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:"#888",marginBottom:3}}>{lbl}</div>
                           {type==="artSelect"
-                            ? <select style={S.select} value={p.artId} onChange={e=>updateRow(p._id,"artId",e.target.value)}>
-                                <option value="">â€” Select â€”</option>
-                                {artwork.map(a=><option key={a.id} value={a.id}>{a.name.replace(/\.[^.]+$/,"").substring(0,16)}</option>)}
-                              </select>
-                            : <select style={S.select} value={p[key]} onChange={e=>updateRow(p._id,key,e.target.value)}>
-                                {opts.map(o=><option key={o} value={o}>{o}</option>)}
-                              </select>}
+                            ?<select style={S.select} value={p.artId} onChange={e=>updateRow(p._id,"artId",e.target.value)}><option value="">â€” Select â€”</option>{artwork.map(a=><option key={a.id} value={a.id}>{a.name.replace(/\.[^.]+$/,"").substring(0,16)}</option>)}</select>
+                            :<select style={S.select} value={p[key]} onChange={e=>updateRow(p._id,key,e.target.value)}>{opts.map(o=><option key={o} value={o}>{o}</option>)}</select>}
                         </div>
                       ))}
                     </div>
@@ -633,24 +833,24 @@ JSON structure:
               </div>
             )}
 
-            {/* STEP 3 */}
-            {step===3 && (
+            {/* STEP 3 â€” AI REVIEW */}
+            {step===3&&(
               <div>
                 <div style={S.secTitle}><span style={S.secN}>03</span> AI Placement Review</div>
-                {aiStatus==="thinking" && (
+                {aiStatus==="thinking"&&(
                   <div style={{...S.notice("warn"),display:"flex",alignItems:"center",gap:8}}>
                     <span style={{display:"inline-flex",gap:3}}>{[0,.2,.4].map((d,i)=><span key={i} style={{width:5,height:5,background:"currentColor",borderRadius:"50%",display:"inline-block",animation:`pulse 1.2s ${d}s infinite`}}/>)}</span>
                     Reading your job specs and calculating placements...
                     <style>{`@keyframes pulse{0%,80%,100%{opacity:.2}40%{opacity:1}}`}</style>
                   </div>
                 )}
-                {aiStatus==="error" && <div style={{...S.notice("warn"),borderColor:"#c8372d",background:"#fdf0ee",color:"#c8372d"}}>âš  {aiError}</div>}
-                {aiStatus==="done" && (
+                {aiStatus==="error"&&<div style={{...S.notice("warn"),borderColor:"#c8372d",background:"#fdf0ee",color:"#c8372d"}}>âš  {aiError}</div>}
+                {aiStatus==="done"&&(
                   <div>
                     <div style={S.notice("info")}>âœ“ {aiIntro}</div>
                     {aiPlan.map((p,i)=>{
                       const art=artwork.find(a=>a.id==p.artId);
-                      return (
+                      return(
                         <div key={i} style={S.sumCard}>
                           <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:8}}>
                             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",letterSpacing:".08em"}}>{p.placement}</div>
@@ -673,17 +873,28 @@ JSON structure:
                 )}
                 <div style={{display:"flex",gap:10,marginTop:24,flexWrap:"wrap"}}>
                   <button style={S.btn("outline")} onClick={()=>setStep(2)}>â† Back</button>
-                  {aiStatus==="done"&&<button style={S.btn()} onClick={()=>goStep(4)}>âœ“ Looks Good â€” Build Mockup â†’</button>}
+                  {aiStatus==="done"&&<button style={S.btn()} onClick={()=>setStep(4)}>Fine-Tune Placements â†’</button>}
                   {(aiStatus==="done"||aiStatus==="error")&&<button style={S.btn("outline")} onClick={()=>runAI()}>â†º Re-run{revisionNotes?" with Changes":""}</button>}
                   <button style={S.btn("outline")} onClick={()=>saveJob("draft")}>ðŸ’¾ Save Draft</button>
                 </div>
               </div>
             )}
 
-            {/* STEP 4 */}
-            {step===4 && (
+            {/* STEP 4 â€” FINE-TUNE */}
+            {step===4&&aiPlan.length>0&&(
+              <FineTuneCanvas
+                garments={garments}
+                artwork={artwork}
+                aiPlan={aiPlan}
+                onConfirm={handleFineTuneConfirm}
+                onBack={()=>setStep(3)}
+              />
+            )}
+
+            {/* STEP 5 â€” EXPORT */}
+            {step===5&&(
               <div>
-                <div style={S.secTitle}><span style={S.secN}>04</span> Your Mockup</div>
+                <div style={S.secTitle}><span style={S.secN}>05</span> Final Mockup</div>
                 {saveStatus==="saved"&&<div style={S.notice("success")}>âœ“ Job saved successfully</div>}
                 <div style={{background:"#111",display:"flex",alignItems:"center",justifyContent:"center",minHeight:400,backgroundImage:"linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px)",backgroundSize:"28px 28px",padding:16}}>
                   {!mockupBuilt&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".6rem",letterSpacing:".16em",textTransform:"uppercase",color:"#333"}}>Building...</span>}
@@ -694,7 +905,7 @@ JSON structure:
                   <button style={S.btn()} onClick={exportJPG}>â¬‡ Export JPG</button>
                   <button style={S.btn("green")} onClick={()=>saveJob("final")}>ðŸ’¾ Save as Final</button>
                   <button style={S.btn("outline")} onClick={()=>saveJob("draft")}>ðŸ’¾ Save Draft</button>
-                  <button style={S.btn("outline")} onClick={()=>setStep(3)}>â† Back to Review</button>
+                  <button style={S.btn("outline")} onClick={()=>setStep(4)}>â† Back to Fine-Tune</button>
                 </div>
               </div>
             )}
@@ -703,8 +914,7 @@ JSON structure:
         </>
       )}
 
-      {/* Toast */}
-      {toast && (
+      {toast&&(
         <div style={{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",background:"#0f0f0f",color:"#f5f0e8",fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".12em",textTransform:"uppercase",padding:"9px 18px",borderLeft:"3px solid #c8372d",zIndex:9999,whiteSpace:"nowrap"}}>
           {toast}
         </div>
