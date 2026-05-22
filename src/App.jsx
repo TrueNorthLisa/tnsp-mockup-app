@@ -202,6 +202,7 @@ export default function App() {
   const [garmentList, setGarmentList] = useState([]);
   const [selBrand, setSelBrand] = useState("");
   const [selStyle, setSelStyle] = useState("");
+  const [selStyleNum, setSelStyleNum] = useState("");
   const [selColour, setSelColour] = useState("");
   const [garmentId, setGarmentId] = useState(null);
   const [garments, setGarments] = useState({front:null,back:null,other:null});
@@ -254,7 +255,7 @@ export default function App() {
   function resetAll(){
     setJobNum("");setDueDate("");setDecTypes([]);setSpecialInstructions("");setPressCheck(false);setBoldPrint(false);setVintagePrint(false);
     setCustId(null);setCustSearch("");setCust({company:"",contact_name:"",email:"",phone:"",address:"",city:"",province:"BC",postal:""});
-    setSelBrand("");setSelStyle("");setSelColour("");setGarmentId(null);
+    setSelBrand("");setSelStyle("");setSelStyleNum("");setSelColour("");setGarmentId(null);
     setGarments({front:null,back:null,other:null});setSizes(emptySizes());
     setArtwork([]);setArtCounter(1);
     setPlacements([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(2);
@@ -310,7 +311,7 @@ export default function App() {
   const colours=garmentList.filter(g=>g.brand===selBrand&&g.style_name===selStyle);
 
   function selectColour(g){
-    setSelColour(g.colour);setGarmentId(g.id);
+    setSelColour(g.colour);setGarmentId(g.id);setSelStyleNum(g.style_num||"");
     // Load garment photos from Supabase storage URLs
     const newG={front:null,back:null,other:null};
     const loadImg=(url,view)=>new Promise(res=>{
@@ -351,7 +352,7 @@ export default function App() {
     const prompt=`You are a production assistant at True North Screen Printing & Embroidery in Vancouver, BC.
 Interpret this mockup placement brief and return a confirmed placement plan as JSON only.
 
-JOB: ${jobNum||"n/a"} | Client: ${cust.company||"n/a"} | Garment: ${selBrand} ${selStyle} - ${selColour}
+JOB: ${jobNum||"n/a"} | Client: ${cust.company||"n/a"} | Garment: ${selBrand} ${selStyle}${selStyleNum?` (${selStyleNum})`:""} - ${selColour}
 Loaded views: ${lv}
 
 GARMENT DIMENSIONS (standard Large, laid flat):
@@ -442,6 +443,8 @@ Instructions:
       // Load garment meta
       if(j.garment_style){const parts=j.garment_style.split(" ");setSelBrand(parts[0]||"");setSelStyle(parts.slice(1).join(" ")||"");}
       setSelColour(j.garment_colour||"");setGarmentId(j.garment_id||null);
+      // Restore style num from garment list
+      if(j.garment_id){const gm=garmentList.find(g=>g.id===j.garment_id);if(gm)setSelStyleNum(gm.style_num||"");}
       // Load artwork
       const artData=j.artwork_data||[];const newArt=[];
       await Promise.all(artData.map((a,idx)=>new Promise(res=>{const img=new Image();img.onload=()=>{newArt[idx]={id:a.id,img,name:a.name,dataURL:a.dataURL};res();};img.src=a.dataURL;})));
@@ -498,7 +501,7 @@ Instructions:
     const mr=(k,v)=>{sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#aaa";sx.fillText(k.toUpperCase(),14,y);sx.font="500 11px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(v||"",115,y);y+=17;};
     if(jobNum)mr("Job #",jobNum);if(cust.company)mr("Client",cust.company);if(cust.contact_name)mr("Contact",cust.contact_name);
     if(cust.email)mr("Email",cust.email);if(cust.phone)mr("Phone",cust.phone);
-    const ga=[selBrand,selStyle,selColour].filter(Boolean).join(" ");if(ga)mr("Garment",ga);
+    const ga=[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`,selColour].filter(Boolean).join(" ");if(ga)mr("Garment",ga);
     if(dueDate)mr("Due Date",new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}));
     if(decTypes.length)mr("Decoration",decTypes.join(", "));
     // Production flags
@@ -566,7 +569,7 @@ Instructions:
     row("Email",cust.email,"Phone",cust.phone);
     row("Ship To",[cust.address,cust.city,cust.province,cust.postal].filter(Boolean).join(", "),"Due Date",dueDate?new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}):"");
     section("GARMENT");
-    row("Style",[selBrand,selStyle].filter(Boolean).join(" "),"Colour",selColour);
+    row("Style",[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" "),"Colour",selColour);
     row("Decoration",decTypes.join(", "),"","");
     // Sizes table
     section("SIZES & QUANTITIES");
