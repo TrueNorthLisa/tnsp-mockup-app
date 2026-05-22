@@ -4,6 +4,9 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const sb = async (method, path, body) => {
+  if (!SUPABASE_URL || SUPABASE_URL === "undefined") {
+    throw new Error(`VITE_SUPABASE_URL is not set â€” check Netlify environment variables and redeploy.`);
+  }
   const url = `${SUPABASE_URL}/rest/v1${path}`;
   const res = await fetch(url, {
     method,
