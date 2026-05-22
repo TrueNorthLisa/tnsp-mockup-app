@@ -294,6 +294,22 @@ GARMENT DIMENSIONS (standard Large, laid flat):
 - Body length: 30 inches
 - Use these exact dimensions for all scaling and positioning calculations.
 
+GARMENT PHOTO CALIBRATION:
+- The garment photos have ~12% blank space above the shoulder seam at the top of the image.
+- The shoulder seam sits at yâ‰ˆ0.12 in the image.
+- The front collar low point sits at yâ‰ˆ0.22 in the image (shoulder + ~3" collar drop on a 30" image).
+- The back collar low point sits at yâ‰ˆ0.19 in the image (shoulder + ~2" collar drop on a 30" image).
+- The bottom hem sits at yâ‰ˆ0.88 in the image.
+- The printable body height in the image = 0.88 - 0.22 = 0.66 of image height for front, 0.88 - 0.19 = 0.69 for back.
+
+STANDARD PLACEMENT POSITIONS (use these as your base, adjust only if fromCollar/fromCentre measurements differ):
+- Left Chest: x=0.65, y=0.33 (wearer's left chest, ~4" from collar, ~4" right of centre seam)
+- Right Chest: x=0.32, y=0.33
+- Centre Front: x=0.50, y=0.38
+- Full Front: x=0.50, y=0.45
+- Centre Back: x=0.50, y=0.30
+- Full Back: x=0.50, y=0.38
+
 ARTWORK FILES: ${artNames}
 
 PLACEMENTS:
@@ -304,13 +320,13 @@ Instructions:
 1. For each placement, determine canvas x,y (0.0â€“1.0, top-left origin) and scale (artwork width as % of canvas width).
 2. SCALE: canvas width represents 22 inches. Calculate scale% = (art width in inches / 22) * 100.
    Examples: 3.5" art = 15.9% scale. 4" = 18.2%. 10" = 45.5%. 12" = 54.5%.
-3. POSITION X: canvas width = 22". Left Chest (wearer's left) = right side of image xâ‰ˆ0.68. Right Chest = xâ‰ˆ0.28. Centre = xâ‰ˆ0.50.
+3. POSITION X: canvas width = 22". Left Chest (wearer's left) = right side of image xâ‰ˆ0.65. Right Chest = xâ‰ˆ0.32. Centre = xâ‰ˆ0.50.
    For fromCentre: offset = (inches from centre / 22). e.g. 4" left of centre = x = 0.50 - (4/22) = 0.32.
-4. POSITION Y: canvas height = 30".
-   Front view: front collar sits ~2" down from high shoulder point. y = (2 + fromCollar) / 30.
-   Back view: back collar sits ~1" down from high shoulder point. y = (1 + fromCollar) / 30.
-   Examples front: 3" from low front collar = y=(2+3)/30=0.17. 5" = y=(2+5)/30=0.23. 7" = y=(2+7)/30=0.30.
-   Examples back: 3" from low back collar = y=(1+3)/30=0.13. 5" = y=(1+5)/30=0.20. 7" = y=(1+7)/30=0.27.
+4. POSITION Y: Use the calibrated anchor points above as your base positions.
+   If fromCollar is specified, calculate precisely:
+   Front: y = 0.22 + (fromCollar / 30) * 0.66. e.g. 3" from front collar = 0.22 + (3/30)*0.66 = 0.29. 5" = 0.33. 7" = 0.37.
+   Back: y = 0.19 + (fromCollar / 30) * 0.69. e.g. 3" from back collar = 0.19 + (3/30)*0.69 = 0.26. 5" = 0.31. 7" = 0.35.
+   If no fromCollar is given, use the standard placement positions above.
 5. Return ONLY valid JSON, no markdown, no backticks, no explanation.
 
 JSON structure:
@@ -696,5 +712,3 @@ JSON structure:
     </div>
   );
 }
-
-
