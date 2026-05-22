@@ -386,7 +386,7 @@ Instructions:
     }catch(err){setAiStatus("error");setAiError(err.message);}
   }
 
-  function handleFineTuneConfirm(ap){setAiPlan(ap);setStep(5);setTimeout(()=>renderMockup(),150);}
+  function handleFineTuneConfirm(ap){setAiPlan(ap);setStep(6);setTimeout(()=>renderMockup(),150);}
 
   // â”€â”€ SAVE JOB â”€â”€
   async function saveJob(status="draft",planOverride){
