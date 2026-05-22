@@ -933,9 +933,6 @@ function GarmentManager({ garmentList, onRefresh }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-  const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
   async function addGarment() {
     if(!form.style_name||!form.colour){setMsg("Style name and colour are required.");return;}
     if(!form.front_url&&!form.back_url){setMsg("Please add at least a front or back photo URL.");return;}
