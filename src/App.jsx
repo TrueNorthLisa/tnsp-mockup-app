@@ -4,7 +4,8 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const sb = async (method, path, body) => {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+  const url = `${SUPABASE_URL}/rest/v1${path}`;
+  const res = await fetch(url, {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -15,6 +16,7 @@ const sb = async (method, path, body) => {
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
+  if (!res.ok) throw new Error(`Supabase ${res.status} at ${path}: ${text.substring(0,200)}`);
   return text ? JSON.parse(text) : [];
 };
 
@@ -938,8 +940,7 @@ function GarmentManager({ garmentList, onRefresh }) {
     if(!form.front_url&&!form.back_url){setMsg("Please add at least a front or back photo URL.");return;}
     setSaving(true);setMsg("");
     try{
-      const result = await sb("POST","/garments",form);
-      if(!result||result.error) throw new Error(result?.message||result?.error||"Unknown error");
+      await sb("POST","/garments",form);
       setMsg("Garment added successfully âœ“");
       setForm(f=>({...f,style_num:"",colour:"",colour_hex:"",front_url:"",back_url:"",photo_url:""}));
       onRefresh();
