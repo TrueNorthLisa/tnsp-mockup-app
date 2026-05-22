@@ -189,6 +189,7 @@ export default function App() {
   const [dueDate, setDueDate] = useState("");
   const [decTypes, setDecTypes] = useState([]);
   const [specialInstructions, setSpecialInstructions] = useState("");
+  const [pressCheck, setPressCheck] = useState(false);
   // Customer state
   const [customers, setCustomers] = useState([]);
   const [custSearch, setCustSearch] = useState("");
@@ -249,7 +250,7 @@ export default function App() {
   }
 
   function resetAll(){
-    setJobNum("");setDueDate("");setDecTypes([]);setSpecialInstructions("");
+    setJobNum("");setDueDate("");setDecTypes([]);setSpecialInstructions("");setPressCheck(false);
     setCustId(null);setCustSearch("");setCust({company:"",contact_name:"",email:"",phone:"",address:"",city:"",province:"BC",postal:""});
     setSelBrand("");setSelStyle("");setSelColour("");setGarmentId(null);
     setGarments({front:null,back:null,other:null});setSizes(emptySizes());
@@ -407,7 +408,7 @@ Instructions:
       await saveCustomer();
       const payload={
         job_num:jobNum,client:cust.company||cust.contact_name,garment_style:`${selBrand} ${selStyle}`.trim(),garment_colour:selColour,
-        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,
+        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,
         customer_id:custId,garment_id:garmentId,
         shipping_address:{address:cust.address,city:cust.city,province:cust.province,postal:cust.postal},
         placements,ai_plan:planOverride||aiPlan,sizes,garment_urls:garmentUrls,artwork_data:artData,
@@ -423,7 +424,7 @@ Instructions:
   async function loadJob(jobId){
     try{
       const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
-      setJobNum(j.job_num||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");
+      setJobNum(j.job_num||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);
       setSavedJobId(j.id);setSaveStatus("saved");setPlacements(j.placements||[]);setAiPlan(j.ai_plan||[]);
       setAiStatus(j.ai_plan?.length?"done":"idle");setSizes(j.sizes||emptySizes());
       // Load customer
@@ -585,18 +586,42 @@ Instructions:
       if(p.notes){wx.font="italic 10px IBM Plex Sans,sans-serif";wx.fillStyle="#666";wx.fillText("Notes: "+p.notes,30,y+44);}
       y+=60;
     });
+    // Press check banner
+    if(pressCheck){
+      wx.fillStyle="#c8372d";wx.fillRect(0,y,PW,36);
+      wx.font="bold 14px Bebas Neue,sans-serif";wx.fillStyle="#fff";wx.letterSpacing="2px";
+      wx.fillText("âš   PRESS CHECK REQUIRED â€” CONTACT CUSTOMER BEFORE PRINTING",24,y+24);
+      wx.letterSpacing="0px";y+=44;
+    }
     // Special instructions
     if(specialInstructions){
       section("SPECIAL INSTRUCTIONS");
       wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,50);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,50);
       wx.font="11px IBM Plex Sans,sans-serif";wx.fillStyle="#333";wx.fillText(specialInstructions,30,y+20);y+=54;
     }
-    // Sign-off
-    y=Math.max(y,PH-120);
-    wx.fillStyle="#f5f0e8";wx.fillRect(0,y,PW,PH-y);
-    wx.fillStyle="#d4cdc0";wx.fillRect(24,y+20,240,1);wx.fillRect(PW/2+20,y+20,240,1);
-    wx.font="8px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.fillText("PRODUCTION SIGN-OFF",24,y+32);wx.fillText("QC CHECK",PW/2+20,y+32);
-    return wc;
+    // Ink swatch + sign-off row
+    y=Math.max(y,PH-180);
+    section("QC & SIGN-OFF");
+    // Ink swatch box (4x4 inches at ~96dpi = 384px, but we scale to fit)
+    const swatchSize = 110;
+    wx.fillStyle="#fff";wx.fillRect(24,y,swatchSize,swatchSize);
+    wx.strokeStyle="#0f0f0f";wx.lineWidth=1.5;wx.strokeRect(24,y,swatchSize,swatchSize);
+    // Diagonal lines to show it's empty
+    wx.strokeStyle="#e0dbd3";wx.lineWidth=1;
+    wx.beginPath();wx.moveTo(24,y);wx.lineTo(24+swatchSize,y+swatchSize);wx.stroke();
+    wx.beginPath();wx.moveTo(24+swatchSize,y);wx.lineTo(24,y+swatchSize);wx.stroke();
+    wx.font="8px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.textAlign="center";
+    wx.fillText("INK SWATCH",24+swatchSize/2,y+swatchSize+12);
+    wx.fillText("(apply sample here)",24+swatchSize/2,y+swatchSize+24);
+    wx.textAlign="left";
+    // Sign-off lines to the right of swatch
+    const soy = y+20;
+    wx.fillStyle="#d4cdc0";wx.fillRect(160,soy+20,280,1);wx.fillRect(160,soy+70,280,1);wx.fillRect(160,soy+120,280,1);
+    wx.font="8px IBM Plex Mono,monospace";wx.fillStyle="#aaa";
+    wx.fillText("PRODUCTION SIGN-OFF",160,soy+32);
+    wx.fillText("QC CHECK",160,soy+82);
+    wx.fillText("DATE COMPLETED",160,soy+132);
+    y+=swatchSize+40;
   }
 
   function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13;return Math.max(h,55);}
@@ -693,6 +718,15 @@ Instructions:
                       </label>
                     ))}
                   </div>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <label style={S.lbl}>Press Check Required</label>
+                  <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"10px 14px",border:`2px solid ${pressCheck?"#c8372d":"#d4cdc0"}`,background:pressCheck?"#fdf0ee":"#fffdf8",width:"fit-content"}}>
+                    <input type="checkbox" checked={pressCheck} onChange={e=>setPressCheck(e.target.checked)} style={{accentColor:"#c8372d",width:16,height:16}}/>
+                    <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:pressCheck?"#c8372d":"#888"}}>
+                      {pressCheck?"âš  Press Check Required â€” notify customer before printing":"No press check needed"}
+                    </span>
+                  </label>
                 </div>
                 <div style={{marginBottom:14}}><label style={S.lbl}>Special Instructions</label><textarea style={S.ta} value={specialInstructions} onChange={e=>setSpecialInstructions(e.target.value)} placeholder="Any special notes for production..."/></div>
 
