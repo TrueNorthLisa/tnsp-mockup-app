@@ -293,11 +293,12 @@ export default function App() {
 
   // â”€â”€ GARMENTS â”€â”€
   async function loadGarmentList(){
-    try{const d=await sb("GET","/garments?select=*&order=brand.asc,style_name.asc");setGarmentList(Array.isArray(d)?d:[]);}catch(e){}
+    try{const d=await sb("GET","/garments?select=*&order=brand.asc,style_name.asc");setGarmentList(Array.isArray(d)?d:[]);}
+    catch(e){console.error("loadGarmentList error",e);}
   }
 
-  const brands=[...new Set(garmentList.map(g=>g.brand))];
-  const styles=[...new Set(garmentList.filter(g=>g.brand===selBrand).map(g=>g.style_name))];
+  const brands=[...new Set(garmentList.map(g=>g.brand))].filter(Boolean);
+  const styles=[...new Set(garmentList.filter(g=>g.brand===selBrand).map(g=>g.style_name))].filter(Boolean);
   const colours=garmentList.filter(g=>g.brand===selBrand&&g.style_name===selStyle);
 
   function selectColour(g){
@@ -713,7 +714,7 @@ Instructions:
                   <div><label style={S.lbl}>Postal Code</label><input style={S.inp} value={cust.postal} onChange={e=>setCust(c=>({...c,postal:e.target.value}))} placeholder="V6B 1A1"/></div>
                 </div>
                 <div style={{display:"flex",gap:10,marginTop:24}}>
-                  <button style={S.btn()} onClick={()=>setStep(2)}>Next - Garment Selection â†’</button>
+                  <button style={S.btn()} onClick={()=>{loadGarmentList();setStep(2);}}>Next - Garment Selection â†’</button>
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
@@ -932,12 +933,23 @@ function GarmentManager({ garmentList, onRefresh }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
   async function addGarment() {
     if(!form.style_name||!form.colour){setMsg("Style name and colour are required.");return;}
-    setSaving(true);
+    if(!form.front_url&&!form.back_url){setMsg("Please add at least a front or back photo URL.");return;}
+    setSaving(true);setMsg("");
     try{
-      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/garments`,{method:"POST",headers:{"Content-Type":"application/json","apikey":import.meta.env.VITE_SUPABASE_ANON_KEY,"Authorization":`Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,"Prefer":"return=representation"},body:JSON.stringify(form)});
-      setMsg("Garment added âœ“");setForm(f=>({...f,style_num:"",colour:"",colour_hex:"",front_url:"",back_url:"",photo_url:""}));
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/garments`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Prefer":"return=representation"},
+        body:JSON.stringify(form)
+      });
+      const text = await res.text();
+      if(!res.ok) throw new Error(`Supabase error ${res.status}: ${text}`);
+      setMsg("Garment added successfully âœ“");
+      setForm(f=>({...f,style_num:"",colour:"",colour_hex:"",front_url:"",back_url:"",photo_url:""}));
       onRefresh();
     }catch(e){setMsg("Error: "+e.message);}
     setSaving(false);
@@ -945,41 +957,47 @@ function GarmentManager({ garmentList, onRefresh }) {
 
   async function deleteGarment(id){
     if(!confirm("Remove this garment?"))return;
-    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/garments?id=eq.${id}`,{method:"DELETE",headers:{"apikey":import.meta.env.VITE_SUPABASE_ANON_KEY,"Authorization":`Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`}});
+    await fetch(`${SUPABASE_URL}/rest/v1/garments?id=eq.${id}`,{
+      method:"DELETE",
+      headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
+    });
     onRefresh();
   }
 
+  const fldStyle = {background:"#fff",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 8px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",outline:"none",width:"100%",appearance:"none"};
+  const lblStyle = {fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#777",display:"block",marginBottom:3};
   const brands=["Gildan","Comfort Colors","Next Level","Bella+Canvas"];
+
   return (
     <div>
       <div style={{background:"#fffdf8",border:"1px solid #d4cdc0",padding:"16px",marginBottom:16}}>
         <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".14em",textTransform:"uppercase",color:"#c8372d",marginBottom:12}}>Add Garment to Library</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-          <div><label style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#777",display:"block",marginBottom:3}}>Brand</label><select style={{background:"#fff",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 8px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",outline:"none",width:"100%",appearance:"none"}} value={form.brand} onChange={e=>setForm(f=>({...f,brand:e.target.value}))}>{brands.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
-          <div><label style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#777",display:"block",marginBottom:3}}>Style #</label><input style={{background:"#fff",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 8px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",outline:"none",width:"100%"}} value={form.style_num} onChange={e=>setForm(f=>({...f,style_num:e.target.value}))} placeholder="e.g. 5000"/></div>
-          <div><label style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#777",display:"block",marginBottom:3}}>Style Name</label><input style={{background:"#fff",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 8px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",outline:"none",width:"100%"}} value={form.style_name} onChange={e=>setForm(f=>({...f,style_name:e.target.value}))} placeholder="e.g. Heavy Cotton Tee"/></div>
-          <div><label style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#777",display:"block",marginBottom:3}}>Colour Name</label><input style={{background:"#fff",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 8px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",outline:"none",width:"100%"}} value={form.colour} onChange={e=>setForm(f=>({...f,colour:e.target.value}))} placeholder="e.g. Sport Grey"/></div>
-          <div><label style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#777",display:"block",marginBottom:3}}>Front Photo URL</label><input style={{background:"#fff",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 8px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",outline:"none",width:"100%"}} value={form.front_url} onChange={e=>setForm(f=>({...f,front_url:e.target.value}))} placeholder="https://...supabase.co/storage/.../front.jpg"/></div>
-          <div><label style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#777",display:"block",marginBottom:3}}>Back Photo URL</label><input style={{background:"#fff",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 8px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",outline:"none",width:"100%"}} value={form.back_url} onChange={e=>setForm(f=>({...f,back_url:e.target.value}))} placeholder="https://...supabase.co/storage/.../back.jpg"/></div>
+          <div><label style={lblStyle}>Brand</label><select style={fldStyle} value={form.brand} onChange={e=>setForm(f=>({...f,brand:e.target.value}))}>{brands.map(b=><option key={b} value={b}>{b}</option>)}</select></div>
+          <div><label style={lblStyle}>Style # (optional)</label><input style={fldStyle} value={form.style_num} onChange={e=>setForm(f=>({...f,style_num:e.target.value}))} placeholder="e.g. 5000"/></div>
+          <div><label style={lblStyle}>Style Name <span style={{color:"#c8372d"}}>*</span></label><input style={fldStyle} value={form.style_name} onChange={e=>setForm(f=>({...f,style_name:e.target.value}))} placeholder="e.g. Heavy Cotton Tee"/></div>
+          <div><label style={lblStyle}>Colour Name <span style={{color:"#c8372d"}}>*</span></label><input style={fldStyle} value={form.colour} onChange={e=>setForm(f=>({...f,colour:e.target.value}))} placeholder="e.g. Sport Grey"/></div>
+          <div><label style={lblStyle}>Front Photo URL</label><input style={fldStyle} value={form.front_url} onChange={e=>setForm(f=>({...f,front_url:e.target.value}))} placeholder="https://...supabase.co/storage/v1/object/public/garments/..."/></div>
+          <div><label style={lblStyle}>Back Photo URL</label><input style={fldStyle} value={form.back_url} onChange={e=>setForm(f=>({...f,back_url:e.target.value}))} placeholder="https://...supabase.co/storage/v1/object/public/garments/..."/></div>
         </div>
-        {msg&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".1em",textTransform:"uppercase",color:msg.includes("âœ“")?"#2a7a4b":"#c8372d",marginBottom:8}}>{msg}</div>}
-        <button onClick={addGarment} disabled={saving} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".14em",textTransform:"uppercase",padding:"10px 20px",cursor:"pointer",border:"2px solid #0f0f0f",background:"#0f0f0f",color:"#f5f0e8"}}>
+        {msg&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".1em",textTransform:"uppercase",color:msg.includes("âœ“")?"#2a7a4b":"#c8372d",marginBottom:8,padding:"8px 10px",background:msg.includes("âœ“")?"#e6f4ec":"#fdf0ee",borderLeft:`3px solid ${msg.includes("âœ“")?"#2a7a4b":"#c8372d"}`}}>{msg}</div>}
+        <button onClick={addGarment} disabled={saving} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".14em",textTransform:"uppercase",padding:"10px 20px",cursor:saving?"not-allowed":"pointer",border:"2px solid #0f0f0f",background:saving?"#555":"#0f0f0f",color:"#f5f0e8"}}>
           {saving?"Adding...":"+ Add to Library"}
         </button>
       </div>
-      {/* Garment list */}
       <div style={{display:"flex",flexDirection:"column",gap:6}}>
         {garmentList.map(g=>(
           <div key={g.id} style={{background:"#fff",border:"1px solid #d4cdc0",padding:"10px 14px",display:"flex",alignItems:"center",gap:12}}>
-            {g.front_url&&<img src={g.front_url} style={{width:40,height:40,objectFit:"contain",background:"#f5f0e8"}} crossOrigin="anonymous"/>}
+            {(g.front_url||g.back_url)&&<img src={g.front_url||g.back_url} style={{width:44,height:44,objectFit:"contain",background:"#f5f0e8"}} crossOrigin="anonymous" onError={e=>e.target.style.display="none"}/>}
             <div style={{flex:1}}>
-              <div style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".88rem",fontWeight:500}}>{g.brand} {g.style_name} {g.style_num&&`(${g.style_num})`}</div>
+              <div style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".88rem",fontWeight:500}}>{g.brand} {g.style_name}{g.style_num&&` (${g.style_num})`}</div>
               <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".08em",textTransform:"uppercase",color:"#aaa",marginTop:2}}>{g.colour}</div>
+              {g.front_url&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:"#ccc",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:400}}>{g.front_url}</div>}
             </div>
-            <button onClick={()=>deleteGarment(g.id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>âœ•</button>
+            <button onClick={()=>deleteGarment(g.id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem",flexShrink:0}}>âœ•</button>
           </div>
         ))}
-        {garmentList.length===0&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb",padding:"10px 0"}}>No garments in library yet</div>}
+        {garmentList.length===0&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb",padding:"10px 0"}}>No garments in library yet â€” add one above</div>}
       </div>
     </div>
   );
