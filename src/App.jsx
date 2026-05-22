@@ -938,13 +938,8 @@ function GarmentManager({ garmentList, onRefresh }) {
     if(!form.front_url&&!form.back_url){setMsg("Please add at least a front or back photo URL.");return;}
     setSaving(true);setMsg("");
     try{
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/garments`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`,"Prefer":"return=representation"},
-        body:JSON.stringify(form)
-      });
-      const text = await res.text();
-      if(!res.ok) throw new Error(`Supabase error ${res.status}: ${text}`);
+      const result = await sb("POST","/garments",form);
+      if(!result||result.error) throw new Error(result?.message||result?.error||"Unknown error");
       setMsg("Garment added successfully âœ“");
       setForm(f=>({...f,style_num:"",colour:"",colour_hex:"",front_url:"",back_url:"",photo_url:""}));
       onRefresh();
@@ -954,10 +949,7 @@ function GarmentManager({ garmentList, onRefresh }) {
 
   async function deleteGarment(id){
     if(!confirm("Remove this garment?"))return;
-    await fetch(`${SUPABASE_URL}/rest/v1/garments?id=eq.${id}`,{
-      method:"DELETE",
-      headers:{"apikey":SUPABASE_KEY,"Authorization":`Bearer ${SUPABASE_KEY}`}
-    });
+    try{ await sb("DELETE",`/garments?id=eq.${id}`); onRefresh(); }catch(e){}
     onRefresh();
   }
 
