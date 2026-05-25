@@ -656,7 +656,8 @@ Instructions:
     } catch(e) { showToast("Work order error: " + e.message); }
   }
 
-  const totalUnits=ALL_SIZES.filter(s=>sizes[s]?.active).reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
+  const safeSizes = { ...emptySizes(), ...sizes };
+  const totalUnits=ALL_SIZES.filter(s=>safeSizes[s]?.active).reduce((sum,s)=>sum+(parseInt(safeSizes[s].qty)||0),0);
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  RENDER
@@ -856,21 +857,21 @@ Instructions:
                     {ALL_SIZES.filter(s=>s!=="One Size").map(s=>(
                       <label key={s} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer"}}>
                         <div style={{display:"flex",alignItems:"center",gap:4}}>
-                          <input type="checkbox" checked={sizes[s].active} onChange={e=>setSizes(z=>({...z,[s]:{...z[s],active:e.target.checked,qty:e.target.checked?z[s].qty:""}}))} style={{accentColor:"#c8372d",width:13,height:13}}/>
-                          <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".1em",textTransform:"uppercase",color:sizes[s].active?"#0f0f0f":"#aaa",fontWeight:sizes[s].active?600:400}}>{s}</span>
+                          <input type="checkbox" checked={safeSizes[s]?.active||false} onChange={e=>setSizes(z=>({...z,[s]:{...z[s],active:e.target.checked,qty:e.target.checked?z[s].qty:""}}))} style={{accentColor:"#c8372d",width:13,height:13}}/>
+                          <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".1em",textTransform:"uppercase",color:safeSizes[s]?.active?"#0f0f0f":"#aaa",fontWeight:safeSizes[s]?.active?600:400}}>{s}</span>
                         </div>
-                        <input type="number" min="0" placeholder="0" value={sizes[s].qty} disabled={!sizes[s].active} onChange={e=>setSizes(z=>({...z,[s]:{...z[s],qty:e.target.value}}))} style={{width:"100%",background:sizes[s].active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${sizes[s].active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 6px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:sizes[s].active?"#0f0f0f":"#ccc",outline:"none"}}/>
+                        <input type="number" min="0" placeholder="0" value={safeSizes[s]?.qty||""} disabled={!safeSizes[s]?.active} onChange={e=>setSizes(z=>({...z,[s]:{...z[s],qty:e.target.value}}))} style={{width:"100%",background:safeSizes[s]?.active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${safeSizes[s]?.active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 6px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:safeSizes[s]?.active?"#0f0f0f":"#ccc",outline:"none"}}/>
                       </label>
                     ))}
                   </div>
                   {/* One Size row */}
-                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"8px 10px",background:sizes["One Size"]?.active?"#fdf0ee":"#f5f0e8",border:`1px solid ${sizes["One Size"]?.active?"#c8372d":"#d4cdc0"}`,marginBottom:10}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"8px 10px",background:safeSizes["One Size"]?.active?"#fdf0ee":"#f5f0e8",border:`1px solid ${safeSizes["One Size"]?.active?"#c8372d":"#d4cdc0"}`,marginBottom:10}}>
                     <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}>
-                      <input type="checkbox" checked={sizes["One Size"]?.active||false} onChange={e=>setSizes(z=>({...z,["One Size"]:{...z["One Size"],active:e.target.checked,qty:e.target.checked?z["One Size"]?.qty:""}}))} style={{accentColor:"#c8372d",width:13,height:13}}/>
-                      <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".1em",textTransform:"uppercase",color:sizes["One Size"]?.active?"#c8372d":"#888",fontWeight:sizes["One Size"]?.active?600:400}}>One Size</span>
+                      <input type="checkbox" checked={safeSizes["One Size"]?.active||false} onChange={e=>setSizes(z=>({...z,["One Size"]:{...z["One Size"],active:e.target.checked,qty:e.target.checked?z["One Size"]?.qty:""}}))} style={{accentColor:"#c8372d",width:13,height:13}}/>
+                      <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".1em",textTransform:"uppercase",color:safeSizes["One Size"]?.active?"#c8372d":"#888",fontWeight:safeSizes["One Size"]?.active?600:400}}>One Size</span>
                     </label>
-                    <input type="number" min="0" placeholder="qty" value={sizes["One Size"]?.qty||""} disabled={!sizes["One Size"]?.active} onChange={e=>setSizes(z=>({...z,["One Size"]:{...z["One Size"],qty:e.target.value}}))} style={{width:80,background:sizes["One Size"]?.active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${sizes["One Size"]?.active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 8px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:sizes["One Size"]?.active?"#0f0f0f":"#ccc",outline:"none"}}/>
-                    {sizes["One Size"]?.active&&sizes["One Size"]?.qty&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",color:"#555"}}>{sizes["One Size"].qty} units</span>}
+                    <input type="number" min="0" placeholder="qty" value={safeSizes["One Size"]?.qty||""} disabled={!safeSizes["One Size"]?.active} onChange={e=>setSizes(z=>({...z,["One Size"]:{...z["One Size"],qty:e.target.value}}))} style={{width:80,background:safeSizes["One Size"]?.active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${safeSizes["One Size"]?.active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 8px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:safeSizes["One Size"]?.active?"#0f0f0f":"#ccc",outline:"none"}}/>
+                    {safeSizes["One Size"]?.active&&safeSizes["One Size"]?.qty&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",color:"#555"}}>{sizes["One Size"].qty} units</span>}
                   </div>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid #e8e2d8"}}>
                     <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>{ALL_SIZES.filter(s=>sizes[s].active&&sizes[s].qty).map(s=><span key={s} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",color:"#555"}}>{s}: <strong>{sizes[s].qty}</strong></span>)}</div>
