@@ -857,10 +857,10 @@ Instructions:
                     {ALL_SIZES.filter(s=>s!=="One Size").map(s=>(
                       <label key={s} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer"}}>
                         <div style={{display:"flex",alignItems:"center",gap:4}}>
-                          <input type="checkbox" checked={safeSizes[s]?.active||false} onChange={e=>setSizes(z=>({...z,[s]:{...z[s],active:e.target.checked,qty:e.target.checked?z[s].qty:""}}))} style={{accentColor:"#c8372d",width:13,height:13}}/>
+                          <input type="checkbox" checked={safeSizes[s]?.active||false} onChange={e=>setSizes(z=>({...z,[s]:{...(z[s]||{}),active:e.target.checked,qty:e.target.checked?(z[s]?.qty||""):""}}))} style={{accentColor:"#c8372d",width:13,height:13}}/>
                           <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".1em",textTransform:"uppercase",color:safeSizes[s]?.active?"#0f0f0f":"#aaa",fontWeight:safeSizes[s]?.active?600:400}}>{s}</span>
                         </div>
-                        <input type="number" min="0" placeholder="0" value={safeSizes[s]?.qty||""} disabled={!safeSizes[s]?.active} onChange={e=>setSizes(z=>({...z,[s]:{...z[s],qty:e.target.value}}))} style={{width:"100%",background:safeSizes[s]?.active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${safeSizes[s]?.active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 6px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:safeSizes[s]?.active?"#0f0f0f":"#ccc",outline:"none"}}/>
+                        <input type="number" min="0" placeholder="0" value={safeSizes[s]?.qty||""} disabled={!safeSizes[s]?.active} onChange={e=>setSizes(z=>({...z,[s]:{...(z[s]||{}),qty:e.target.value}}))} style={{width:"100%",background:safeSizes[s]?.active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${safeSizes[s]?.active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 6px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:safeSizes[s]?.active?"#0f0f0f":"#ccc",outline:"none"}}/>
                       </label>
                     ))}
                   </div>
@@ -871,10 +871,10 @@ Instructions:
                       <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".1em",textTransform:"uppercase",color:safeSizes["One Size"]?.active?"#c8372d":"#888",fontWeight:safeSizes["One Size"]?.active?600:400}}>One Size</span>
                     </label>
                     <input type="number" min="0" placeholder="qty" value={safeSizes["One Size"]?.qty||""} disabled={!safeSizes["One Size"]?.active} onChange={e=>setSizes(z=>({...z,["One Size"]:{...z["One Size"],qty:e.target.value}}))} style={{width:80,background:safeSizes["One Size"]?.active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${safeSizes["One Size"]?.active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 8px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:safeSizes["One Size"]?.active?"#0f0f0f":"#ccc",outline:"none"}}/>
-                    {safeSizes["One Size"]?.active&&safeSizes["One Size"]?.qty&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",color:"#555"}}>{sizes["One Size"].qty} units</span>}
+                    {safeSizes["One Size"]?.active&&safeSizes["One Size"]?.qty&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",color:"#555"}}>{safeSizes["One Size"].qty} units</span>}
                   </div>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid #e8e2d8"}}>
-                    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>{ALL_SIZES.filter(s=>sizes[s].active&&sizes[s].qty).map(s=><span key={s} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",color:"#555"}}>{s}: <strong>{sizes[s].qty}</strong></span>)}</div>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>{ALL_SIZES.filter(s=>safeSizes[s]?.active&&safeSizes[s]?.qty).map(s=><span key={s} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",color:"#555"}}>{s}: <strong>{safeSizes[s].qty}</strong></span>)}</div>
                     <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",color:"#0f0f0f",whiteSpace:"nowrap",marginLeft:16}}>Total: {totalUnits} units</div>
                   </div>
                 </div>
