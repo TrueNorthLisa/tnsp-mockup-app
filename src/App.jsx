@@ -5,7 +5,7 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const sb = async (method, path, body) => {
   if (!SUPABASE_URL || SUPABASE_URL === "undefined") {
-    throw new Error(`VITE_SUPABASE_URL is not set — check Netlify environment variables and redeploy.`);
+    throw new Error(`VITE_SUPABASE_URL is not set â€” check Netlify environment variables and redeploy.`);
   }
   const url = `${SUPABASE_URL}/rest/v1${path}`;
   const res = await fetch(url, {
@@ -25,7 +25,7 @@ const sb = async (method, path, body) => {
 
 const ALL_SIZES = ["YS","YM","YL","XS","S","M","L","XL","2XL","3XL","One Size"];
 const DEC_TYPES = ["Screen Print","Embroidery","Heat Transfer","DTG","Patch"];
-const PLACEMENT_OPTIONS = ["Left Chest","Right Chest","Centre Front","Full Front","Centre Back","Full Back","Sleeve — Left","Sleeve — Right","Neck / Collar","Left Hip","Right Hip","Shoulder","Custom"];
+const PLACEMENT_OPTIONS = ["Left Chest","Right Chest","Centre Front","Full Front","Centre Back","Full Back","Sleeve â€” Left","Sleeve â€” Right","Neck / Collar","Left Hip","Right Hip","Shoulder","Custom"];
 const VIEW_OPTIONS = ["Front","Back","Other"];
 const BRANDS = ["Gildan","Comfort Colors","Next Level","Bella+Canvas"];
 const CA_PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
@@ -57,7 +57,7 @@ const S = {
 
 function emptySizes() { return Object.fromEntries(ALL_SIZES.map(s=>[s,{active:false,qty:""}])); }
 
-// ── FINE-TUNE CANVAS ──
+// â”€â”€ FINE-TUNE CANVAS â”€â”€
 function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
   const loadedViews = ["front","back","other"].filter(k=>garments[k]);
   const [viewKey, setViewKey] = useState(loadedViews[0]||"front");
@@ -137,7 +137,7 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
   return (
     <div>
       <div style={S.sec}><span style={S.secn}>04</span> Fine-Tune Placements</div>
-      <div style={S.note("i")}>Drag artwork to reposition · Drag corner handles to resize · Scroll to scale</div>
+      <div style={S.note("i")}>Drag artwork to reposition Â· Drag corner handles to resize Â· Scroll to scale</div>
       <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
         <div style={{flex:1,minWidth:0}}>
           {loadedViews.length>1&&(
@@ -149,10 +149,10 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
             <canvas ref={canvasRef} width={640} height={750} style={{maxWidth:"100%",cursor:dragging?"grabbing":resizing?"nwse-resize":"default",display:"block"}} onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU} onWheel={onWhl}/>
           </div>
           <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
-            {[["←",-4,0],["→",4,0],["↑",0,-4],["↓",0,4]].map(([l,dx,dy])=><button key={l} onClick={()=>nudge(dx,dy)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>{l}</button>)}
-            <button onClick={()=>scaleStep(-1)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>− Size</button>
+            {[["â†",-4,0],["â†’",4,0],["â†‘",0,-4],["â†“",0,4]].map(([l,dx,dy])=><button key={l} onClick={()=>nudge(dx,dy)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>{l}</button>)}
+            <button onClick={()=>scaleStep(-1)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>âˆ’ Size</button>
             <button onClick={()=>scaleStep(1)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>+ Size</button>
-            <button onClick={()=>{if(selected!==null)setLayers(ls=>ls.map(l=>l.id===selected?{...l,flipped:!l.flipped}:l));}} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>⇆ Flip</button>
+            <button onClick={()=>{if(selected!==null)setLayers(ls=>ls.map(l=>l.id===selected?{...l,flipped:!l.flipped}:l));}} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>â‡† Flip</button>
           </div>
         </div>
         <div style={{width:210,flexShrink:0}}>
@@ -163,9 +163,9 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
               {art&&<img src={art.dataURL} style={{width:28,height:28,objectFit:"contain",background:"#f5f0e8",padding:2,flexShrink:0}}/>}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".08em",textTransform:"uppercase",color:isSel?"#f5f0e8":"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.placement}</div>
-                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:isSel?"#aaa":"#bbb",marginTop:2}}>{l.view.toUpperCase()} · {Math.round(l.scale)}%</div>
+                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:isSel?"#aaa":"#bbb",marginTop:2}}>{l.view.toUpperCase()} Â· {Math.round(l.scale)}%</div>
               </div>
-              <button onClick={e=>{e.stopPropagation();setLayers(ls=>ls.map(x=>x.id===l.id?{...x,visible:!x.visible}:x));}} style={{background:"none",border:"none",color:isSel?"#aaa":"#ccc",fontSize:".72rem",cursor:"pointer",padding:2}}>{l.visible?"👁":"🚫"}</button>
+              <button onClick={e=>{e.stopPropagation();setLayers(ls=>ls.map(x=>x.id===l.id?{...x,visible:!x.visible}:x));}} style={{background:"none",border:"none",color:isSel?"#aaa":"#ccc",fontSize:".72rem",cursor:"pointer",padding:2}}>{l.visible?"ðŸ‘":"ðŸš«"}</button>
             </div>;
           })}
           {selL&&<div style={{marginTop:12,background:"#fff",border:"1px solid #d4cdc0",padding:"10px 12px"}}>
@@ -175,8 +175,8 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
         </div>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20,flexWrap:"wrap"}}>
-        <button style={S.btn("o")} onClick={onBack}>← Back to AI Review</button>
-        <button style={S.btn()} onClick={handleConfirm}>Looks Good — Generate Final →</button>
+        <button style={S.btn("o")} onClick={onBack}>â† Back to AI Review</button>
+        <button style={S.btn()} onClick={handleConfirm}>Looks Good â€” Generate Final â†’</button>
       </div>
     </div>
   );
@@ -239,7 +239,7 @@ export default function App() {
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),2800);}
 
-  // ── JOBS ──
+  // â”€â”€ JOBS â”€â”€
   async function loadJobs(){
     setJobsLoading(true);
     try{const d=await sb("GET","/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date,updated_at&order=updated_at.desc");setJobs(Array.isArray(d)?d:[]);}
@@ -275,7 +275,7 @@ export default function App() {
     resetAll();
   }
 
-  // ── CUSTOMERS ──
+  // â”€â”€ CUSTOMERS â”€â”€
   async function loadCustomers(){
     try{const d=await sb("GET","/customers?select=*&order=company.asc");setCustomers(Array.isArray(d)?d:[]);}catch(e){}
   }
@@ -300,7 +300,7 @@ export default function App() {
     }catch(e){}
   }
 
-  // ── GARMENTS ──
+  // â”€â”€ GARMENTS â”€â”€
   async function loadGarmentList(){
     try{const d=await sb("GET","/garments?select=*&order=brand.asc,style_name.asc");setGarmentList(Array.isArray(d)?d:[]);}
     catch(e){console.error("loadGarmentList error",e);}
@@ -325,7 +325,7 @@ export default function App() {
     });
   }
 
-  // ── ARTWORK ──
+  // â”€â”€ ARTWORK â”€â”€
   function loadArtFiles(e){
     Array.from(e.target.files).forEach(file=>{
       const reader=new FileReader();
@@ -336,12 +336,12 @@ export default function App() {
   }
   function removeArt(id){setArtwork(a=>a.filter(x=>x.id!==id));}
 
-  // ── PLACEMENTS ──
+  // â”€â”€ PLACEMENTS â”€â”€
   function addRow(){setPlacements(p=>[...p,{_id:rowCounter,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(c=>c+1);}
   function removeRow(id){setPlacements(p=>p.filter(x=>x._id!==id));}
   function updateRow(id,key,val){setPlacements(p=>p.map(x=>x._id===id?{...x,[key]:val}:x));}
 
-  // ── AI ──
+  // â”€â”€ AI â”€â”€
   async function runAI(){
     setAiStatus("thinking");setAiPlan([]);setAiIntro("");setAiError("");
     if(!garments.front){setAiStatus("error");setAiError("No front garment photo loaded. Please select a garment in Step 2.");return;}
@@ -383,7 +383,7 @@ Instructions:
       let data;try{data=JSON.parse(text);}catch(e){throw new Error("Could not parse server response.");}
       if(data.error) throw new Error(data.error);
       const raw=data.content?.find(b=>b.type==="text")?.text||"";
-      if(!raw) throw new Error("Empty response — check ANTHROPIC_API_KEY in Netlify.");
+      if(!raw) throw new Error("Empty response â€” check ANTHROPIC_API_KEY in Netlify.");
       const clean=raw.replace(/```json|```/g,"").trim();
       let plan;try{plan=JSON.parse(clean);}catch(e){throw new Error("AI returned invalid JSON. Try again.");}
       setAiPlan(plan.placements||[]);setAiIntro(plan.intro||"Placement plan ready.");setAiStatus("done");
@@ -396,7 +396,7 @@ Instructions:
     setTimeout(()=>renderMockup(ap), 150);
   }
 
-  // ── SAVE JOB ──
+  // â”€â”€ SAVE JOB â”€â”€
   async function saveJob(status="draft",planOverride){
     setSaveStatus("saving");
     try{
@@ -419,11 +419,11 @@ Instructions:
       };
       if(savedJobId){await sb("PATCH",`/jobs?id=eq.${savedJobId}`,payload);}
       else{const r=await sb("POST","/jobs",payload);if(r?.[0]?.id)setSavedJobId(r[0].id);}
-      setSaveStatus("saved");showToast(status==="final"?"Saved as final ✓":"Draft saved ✓");
+      setSaveStatus("saved");showToast(status==="final"?"Saved as final âœ“":"Draft saved âœ“");
     }catch(e){setSaveStatus("error");showToast("Save failed: "+e.message);}
   }
 
-  // ── LOAD JOB ──
+  // â”€â”€ LOAD JOB â”€â”€
   async function loadJob(jobId){
     try{
       const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
@@ -453,7 +453,7 @@ Instructions:
     }catch(e){showToast("Could not load job: "+e.message);}
   }
 
-  // ── MOCKUP ──
+  // â”€â”€ MOCKUP â”€â”€
   function renderMockup(planOverride){
     const plan = planOverride || aiPlan;
     const lv=["front","back","other"].filter(k=>garments[k]);if(!lv.length)return;
@@ -601,7 +601,7 @@ Instructions:
     if(pressCheck||boldPrint||vintagePrint){
       wx.fillStyle="#0f0f0f";wx.fillRect(0,y,PW,36);
       let flagText="";
-      if(pressCheck) flagText+="⚠ PRESS CHECK REQUIRED    ";
+      if(pressCheck) flagText+="âš  PRESS CHECK REQUIRED    ";
       if(boldPrint) flagText+="BOLD PRINT    ";
       if(vintagePrint) flagText+="VINTAGE / DISTRESSED";
       wx.font="bold 13px IBM Plex Mono,monospace";wx.fillStyle=pressCheck?"#c8372d":"#f5f0e8";
@@ -659,28 +659,28 @@ Instructions:
   const safeSizes = { ...emptySizes(), ...sizes };
   const totalUnits=ALL_SIZES.filter(s=>safeSizes[s]?.active).reduce((sum,s)=>sum+(parseInt(safeSizes[s].qty)||0),0);
 
-  // ══════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  RENDER
-  // ══════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   return (
     <div style={S.body}>
       <div style={S.header}>
         <div><div style={S.brand}>TRUE<span style={S.bspan}>NORTH</span></div><div style={S.bsub}>Screen Printing & Embroidery</div></div>
         <div style={{display:"flex",gap:10,alignItems:"center"}}>
-          {page==="builder"&&<button style={{...S.tag,cursor:"pointer",color:"#aaa"}} onClick={()=>setPage("jobs")}>← All Jobs</button>}
+          {page==="builder"&&<button style={{...S.tag,cursor:"pointer",color:"#aaa"}} onClick={()=>setPage("jobs")}>â† All Jobs</button>}
           <div style={S.tag}>Job Builder</div>
         </div>
       </div>
 
-      {/* ══ JOBS PAGE ══ */}
+      {/* â•â• JOBS PAGE â•â• */}
       {page==="jobs"&&(
         <div style={S.wrap}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-            <div style={S.sec}><span style={S.secn}>✦</span> Jobs</div>
+            <div style={S.sec}><span style={S.secn}>âœ¦</span> Jobs</div>
             <button style={S.btn("r")} onClick={newJob}>+ New Job</button>
           </div>
           {jobsLoading&&<div style={S.note("i")}>Loading...</div>}
-          {!jobsLoading&&jobs.length===0&&<div style={S.note("i")}>No jobs yet — click New Job to get started.</div>}
+          {!jobsLoading&&jobs.length===0&&<div style={S.note("i")}>No jobs yet â€” click New Job to get started.</div>}
           {jobs.map(j=>(
             <div key={j.id} style={S.jcard} onClick={()=>loadJob(j.id)}
               onMouseEnter={e=>e.currentTarget.style.borderColor="#c8372d"}
@@ -697,19 +697,19 @@ Instructions:
               </div>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
                 <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",padding:"3px 8px",background:j.status==="final"?"#e6f4ec":"#fff8e6",color:j.status==="final"?"#2a7a4b":"#7a5500",border:`1px solid ${j.status==="final"?"#2a7a4b":"#b8892e"}`}}>{j.status||"draft"}</span>
-                <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>✕</button>
+                <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>âœ•</button>
               </div>
             </div>
           ))}
           {/* Garment library manager */}
           <hr style={S.div}/>
-          <div style={S.sec}><span style={S.secn}>⚙</span> Garment Library</div>
+          <div style={S.sec}><span style={S.secn}>âš™</span> Garment Library</div>
           <div style={S.note("i")}>Add garments here so they appear in the job builder dropdown. Upload front + back photos to Supabase storage and paste the public URLs.</div>
           <GarmentManager garmentList={garmentList} onRefresh={loadGarmentList}/>
         </div>
       )}
 
-      {/* ══ BUILDER PAGE ══ */}
+      {/* â•â• BUILDER PAGE â•â• */}
       {page==="builder"&&(
         <>
           {/* Step tabs */}
@@ -724,7 +724,7 @@ Instructions:
 
           <div style={S.wrap}>
 
-            {/* ── STEP 1: INTAKE ── */}
+            {/* â”€â”€ STEP 1: INTAKE â”€â”€ */}
             {step===1&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>01</span> Job Intake</div>
@@ -747,7 +747,7 @@ Instructions:
                   <label style={S.lbl}>Production Options</label>
                   <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                     {[
-                      [pressCheck, setPressCheck, "Press Check Required", "⚠", "#c8372d"],
+                      [pressCheck, setPressCheck, "Press Check Required", "âš ", "#c8372d"],
                       [boldPrint, setBoldPrint, "Bold Print", "B", "#0f0f0f"],
                       [vintagePrint, setVintagePrint, "Vintage / Distressed", "V", "#7a5500"],
                     ].map(([val, setter, label, icon, activeColor])=>(
@@ -789,36 +789,36 @@ Instructions:
                   <div><label style={S.lbl}>Postal Code</label><input style={S.inp} value={cust.postal} onChange={e=>setCust(c=>({...c,postal:e.target.value}))} placeholder="V6B 1A1"/></div>
                 </div>
                 <div style={{display:"flex",gap:10,marginTop:24}}>
-                  <button style={S.btn()} onClick={()=>{loadGarmentList();setStep(2);}}>Next - Garment Selection →</button>
+                  <button style={S.btn()} onClick={()=>{loadGarmentList();setStep(2);}}>Next - Garment Selection â†’</button>
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
             )}
 
-            {/* ── STEP 2: GARMENT ── */}
+            {/* â”€â”€ STEP 2: GARMENT â”€â”€ */}
             {step===2&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>02</span> Garment Selection</div>
-                <div style={S.note("i")}>Select brand, style, and colour — garment photos load automatically from the library.</div>
+                <div style={S.note("i")}>Select brand, style, and colour â€” garment photos load automatically from the library.</div>
                 <div style={S.g3}>
                   <div>
                     <label style={S.lbl}>Brand</label>
                     <select style={S.sel} value={selBrand} onChange={e=>{setSelBrand(e.target.value);setSelStyle("");setSelColour("");setGarmentId(null);}}>
-                      <option value="">— Select brand —</option>
+                      <option value="">â€” Select brand â€”</option>
                       {brands.map(b=><option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={S.lbl}>Style</label>
                     <select style={S.sel} value={selStyle} onChange={e=>{setSelStyle(e.target.value);setSelColour("");setGarmentId(null);}} disabled={!selBrand}>
-                      <option value="">— Select style —</option>
+                      <option value="">â€” Select style â€”</option>
                       {styles.map(s=><option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={S.lbl}>Colour</label>
                     <select style={S.sel} value={selColour} onChange={e=>{const g=colours.find(x=>x.colour===e.target.value);if(g)selectColour(g);}} disabled={!selStyle}>
-                      <option value="">— Select colour —</option>
+                      <option value="">â€” Select colour â€”</option>
                       {colours.map(c=><option key={c.id} value={c.colour}>{c.colour}</option>)}
                     </select>
                   </div>
@@ -843,8 +843,8 @@ Instructions:
                     {["front","back","other"].map(view=>(
                       <label key={view} style={{border:`2px ${garments[view]?"solid #4caf7d":"dashed #d4cdc0"}`,background:"#fffdf8",padding:12,textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:80,position:"relative",gap:4}}>
                         <input type="file" accept="image/*" style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>setGarments(g=>({...g,[view]:{img,name:file.name,dataURL:ev.target.result}}));img.src=ev.target.result;};reader.readAsDataURL(file);e.target.value="";}}/>
-                        {garments[view]?<img src={garments[view].dataURL} style={{maxHeight:44,maxWidth:"100%",objectFit:"contain"}}/>:<span style={{fontSize:"1.1rem"}}>👕</span>}
-                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:garments[view]?"#4caf7d":"#aaa"}}>{garments[view]?"✓ "+view:view+(view==="front"?" *":"")}</span>
+                        {garments[view]?<img src={garments[view].dataURL} style={{maxHeight:44,maxWidth:"100%",objectFit:"contain"}}/>:<span style={{fontSize:"1.1rem"}}>ðŸ‘•</span>}
+                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:garments[view]?"#4caf7d":"#aaa"}}>{garments[view]?"âœ“ "+view:view+(view==="front"?" *":"")}</span>
                       </label>
                     ))}
                   </div>
@@ -880,14 +880,14 @@ Instructions:
                 </div>
 
                 <div style={{display:"flex",gap:10,marginTop:24}}>
-                  <button style={S.btn("o")} onClick={()=>setStep(1)}>← Back</button>
-                  <button style={S.btn()} onClick={()=>setStep(3)}>Next - Artwork & Placements →</button>
+                  <button style={S.btn("o")} onClick={()=>setStep(1)}>â† Back</button>
+                  <button style={S.btn()} onClick={()=>setStep(3)}>Next - Artwork & Placements â†’</button>
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
             )}
 
-            {/* ── STEP 3: ARTWORK ── */}
+            {/* â”€â”€ STEP 3: ARTWORK â”€â”€ */}
             {step===3&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>03</span> Artwork & Placements</div>
@@ -897,7 +897,7 @@ Instructions:
                     <div key={a.id} style={{background:"#fffdf8",border:"2px solid #d4cdc0",padding:8,display:"flex",flexDirection:"column",alignItems:"center",gap:4,width:78,position:"relative"}}>
                       <img src={a.dataURL} style={{width:54,height:54,objectFit:"contain",background:"#fff",padding:2}}/>
                       <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".44rem",letterSpacing:".06em",textTransform:"uppercase",color:"#888",textAlign:"center",wordBreak:"break-all",lineHeight:1.3}}>{a.name.replace(/\.[^.]+$/,"").substring(0,10)}</div>
-                      <button onClick={()=>removeArt(a.id)} style={{position:"absolute",top:2,right:2,background:"none",border:"none",color:"#ccc",fontSize:".65rem",cursor:"pointer",padding:"1px 3px"}}>✕</button>
+                      <button onClick={()=>removeArt(a.id)} style={{position:"absolute",top:2,right:2,background:"none",border:"none",color:"#ccc",fontSize:".65rem",cursor:"pointer",padding:"1px 3px"}}>âœ•</button>
                     </div>
                   ))}
                   <label style={{width:78,minHeight:80,border:"2px dashed #d4cdc0",background:"#fffdf8",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",gap:3}}>
@@ -912,14 +912,14 @@ Instructions:
                   <div key={p._id} style={S.prow}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                       <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".14em",textTransform:"uppercase",color:"#c8372d"}}>Placement {idx+1}</span>
-                      <button onClick={()=>removeRow(p._id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".78rem"}}>✕ Remove</button>
+                      <button onClick={()=>removeRow(p._id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".78rem"}}>âœ• Remove</button>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr 1fr",gap:10}}>
                       {[["View","view","sel",VIEW_OPTIONS],["Placement","placement","sel",PLACEMENT_OPTIONS],["Artwork","artId","art",[]],["Decoration","decType","sel",DEC_TYPES]].map(([lbl,key,type,opts])=>(
                         <div key={key}>
                           <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:"#888",marginBottom:3}}>{lbl}</div>
                           {type==="art"
-                            ?<select style={S.sel} value={p.artId} onChange={e=>updateRow(p._id,"artId",e.target.value)}><option value="">— Select —</option>{artwork.map(a=><option key={a.id} value={a.id}>{a.name.replace(/\.[^.]+$/,"").substring(0,16)}</option>)}</select>
+                            ?<select style={S.sel} value={p.artId} onChange={e=>updateRow(p._id,"artId",e.target.value)}><option value="">â€” Select â€”</option>{artwork.map(a=><option key={a.id} value={a.id}>{a.name.replace(/\.[^.]+$/,"").substring(0,16)}</option>)}</select>
                             :<select style={S.sel} value={p[key]} onChange={e=>updateRow(p._id,key,e.target.value)}>{opts.map(o=><option key={o} value={o}>{o}</option>)}</select>}
                         </div>
                       ))}
@@ -934,28 +934,28 @@ Instructions:
                 ))}
                 <button onClick={addRow} style={{background:"none",border:"1px dashed #d4cdc0",color:"#aaa",fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:9,cursor:"pointer",textAlign:"center",width:"100%",marginBottom:4}}>+ Add Placement</button>
                 <div style={{display:"flex",gap:10,marginTop:24}}>
-                  <button style={S.btn("o")} onClick={()=>setStep(2)}>← Back</button>
-                  <button style={S.btn("r")} onClick={()=>{setStep(4);runAI();}}>Send to AI →</button>
+                  <button style={S.btn("o")} onClick={()=>setStep(2)}>â† Back</button>
+                  <button style={S.btn("r")} onClick={()=>{setStep(4);runAI();}}>Send to AI â†’</button>
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
             )}
 
-            {/* ── STEP 4: AI REVIEW ── */}
+            {/* â”€â”€ STEP 4: AI REVIEW â”€â”€ */}
             {step===4&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>04</span> AI Placement Review</div>
                 {aiStatus==="thinking"&&<div style={{...S.note("w"),display:"flex",alignItems:"center",gap:8}}><span style={{display:"inline-flex",gap:3}}>{[0,.2,.4].map((d,i)=><span key={i} style={{width:5,height:5,background:"currentColor",borderRadius:"50%",display:"inline-block",animation:`pulse 1.2s ${d}s infinite`}}/>)}</span>Calculating placements...<style>{`@keyframes pulse{0%,80%,100%{opacity:.2}40%{opacity:1}}`}</style></div>}
-                {aiStatus==="error"&&<div style={{...S.note("w"),borderColor:"#c8372d",background:"#fdf0ee",color:"#c8372d"}}>⚠ {aiError}</div>}
+                {aiStatus==="error"&&<div style={{...S.note("w"),borderColor:"#c8372d",background:"#fdf0ee",color:"#c8372d"}}>âš  {aiError}</div>}
                 {aiStatus==="done"&&(
                   <div>
-                    <div style={S.note("i")}>✓ {aiIntro}</div>
+                    <div style={S.note("i")}>âœ“ {aiIntro}</div>
                     {aiPlan.map((p,i)=>{
                       const art=artwork.find(a=>a.id==p.artId);
                       return <div key={i} style={S.card}>
                         <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:8}}>
                           <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",letterSpacing:".08em"}}>{p.placement}</div>
-                          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#c8372d"}}>{(p.view||"front").toUpperCase()} · {p.decType||""}</div>
+                          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#c8372d"}}>{(p.view||"front").toUpperCase()} Â· {p.decType||""}</div>
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"3px 16px"}}>
                           {[["Artwork",p.artName||(art?.name.replace(/\.[^.]+$/,"")||"")],p.specWidth&&["Art Width",p.specWidth+'"'],p.specFromCollar&&["From Collar",p.specFromCollar+'"'],p.colours&&["Colours",p.colours],["Position",`x:${Math.round(p.x*100)}%  y:${Math.round(p.y*100)}%  scale:${Math.round(p.scale)}%`]].filter(Boolean).map(([k,v],ki)=>(
@@ -969,35 +969,35 @@ Instructions:
                   </div>
                 )}
                 <div style={{display:"flex",gap:10,marginTop:24,flexWrap:"wrap"}}>
-                  <button style={S.btn("o")} onClick={()=>setStep(3)}>← Back</button>
-                  {aiStatus==="done"&&<button style={S.btn()} onClick={()=>setStep(5)}>Fine-Tune →</button>}
-                  {(aiStatus==="done"||aiStatus==="error")&&<button style={S.btn("o")} onClick={runAI}>↺ Re-run{revisionNotes?" with Changes":""}</button>}
+                  <button style={S.btn("o")} onClick={()=>setStep(3)}>â† Back</button>
+                  {aiStatus==="done"&&<button style={S.btn()} onClick={()=>setStep(5)}>Fine-Tune â†’</button>}
+                  {(aiStatus==="done"||aiStatus==="error")&&<button style={S.btn("o")} onClick={runAI}>â†º Re-run{revisionNotes?" with Changes":""}</button>}
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
             )}
 
-            {/* ── STEP 5: FINE-TUNE ── */}
+            {/* â”€â”€ STEP 5: FINE-TUNE â”€â”€ */}
             {step===5&&aiPlan.length>0&&(
               <FineTuneCanvas garments={garments} artwork={artwork} aiPlan={aiPlan} onConfirm={handleFineTuneConfirm} onBack={()=>setStep(4)}/>
             )}
 
-            {/* ── STEP 6: EXPORT ── */}
+            {/* â”€â”€ STEP 6: EXPORT â”€â”€ */}
             {step===6&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>06</span> Export</div>
-                {saveStatus==="saved"&&<div style={S.note("s")}>✓ Job saved</div>}
+                {saveStatus==="saved"&&<div style={S.note("s")}>âœ“ Job saved</div>}
                 <div style={{background:"#111",display:"flex",alignItems:"center",justifyContent:"center",minHeight:400,padding:16,backgroundImage:"linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px)",backgroundSize:"28px 28px"}}>
                   {!mockupBuilt&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".6rem",letterSpacing:".16em",textTransform:"uppercase",color:"#333"}}>Building...</span>}
                   <canvas ref={canvasRef} style={{display:mockupBuilt?"block":"none",maxWidth:"100%",boxShadow:"0 0 0 1px #2a2a2a,0 16px 48px rgba(0,0,0,.7)"}}/>
                 </div>
                 <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-                  <button style={S.btn()} onClick={exportPNG}>⬇ Client Mockup PNG</button>
-                  <button style={S.btn()} onClick={exportJPG}>⬇ Client Mockup JPG</button>
-                  <button style={S.btn()} onClick={exportWorkOrder}>⬇ Work Order PNG</button>
+                  <button style={S.btn()} onClick={exportPNG}>â¬‡ Client Mockup PNG</button>
+                  <button style={S.btn()} onClick={exportJPG}>â¬‡ Client Mockup JPG</button>
+                  <button style={S.btn()} onClick={exportWorkOrder}>â¬‡ Work Order PNG</button>
                   <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
-                  <button style={S.btn("o")} onClick={()=>setStep(5)}>← Fine-Tune</button>
+                  <button style={S.btn("o")} onClick={()=>setStep(5)}>â† Fine-Tune</button>
                 </div>
               </div>
             )}
@@ -1011,7 +1011,7 @@ Instructions:
   );
 }
 
-// ── GARMENT LIBRARY MANAGER (on jobs page) ──
+// â”€â”€ GARMENT LIBRARY MANAGER (on jobs page) â”€â”€
 function GarmentManager({ garmentList, onRefresh }) {
   const [form, setForm] = useState({brand:"Gildan",style_num:"",style_name:"",colour:"",colour_hex:"",front_url:"",back_url:"",photo_url:""});
   const [saving, setSaving] = useState(false);
@@ -1023,7 +1023,7 @@ function GarmentManager({ garmentList, onRefresh }) {
     setSaving(true);setMsg("");
     try{
       await sb("POST","/garments",form);
-      setMsg("Garment added successfully ✓");
+      setMsg("Garment added successfully âœ“");
       setForm(f=>({...f,style_num:"",colour:"",colour_hex:"",front_url:"",back_url:"",photo_url:""}));
       onRefresh();
     }catch(e){setMsg("Error: "+e.message);}
@@ -1061,7 +1061,7 @@ function GarmentManager({ garmentList, onRefresh }) {
           <div><label style={lblStyle}>Front Photo URL</label><input style={fldStyle} value={form.front_url} onChange={e=>setForm(f=>({...f,front_url:e.target.value}))} placeholder="https://...supabase.co/storage/v1/object/public/garments/..."/></div>
           <div><label style={lblStyle}>Back Photo URL</label><input style={fldStyle} value={form.back_url} onChange={e=>setForm(f=>({...f,back_url:e.target.value}))} placeholder="https://...supabase.co/storage/v1/object/public/garments/..."/></div>
         </div>
-        {msg&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".1em",textTransform:"uppercase",color:msg.includes("✓")?"#2a7a4b":"#c8372d",marginBottom:8,padding:"8px 10px",background:msg.includes("✓")?"#e6f4ec":"#fdf0ee",borderLeft:`3px solid ${msg.includes("✓")?"#2a7a4b":"#c8372d"}`}}>{msg}</div>}
+        {msg&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".1em",textTransform:"uppercase",color:msg.includes("âœ“")?"#2a7a4b":"#c8372d",marginBottom:8,padding:"8px 10px",background:msg.includes("âœ“")?"#e6f4ec":"#fdf0ee",borderLeft:`3px solid ${msg.includes("âœ“")?"#2a7a4b":"#c8372d"}`}}>{msg}</div>}
         <button onClick={addGarment} disabled={saving} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".14em",textTransform:"uppercase",padding:"10px 20px",cursor:saving?"not-allowed":"pointer",border:"2px solid #0f0f0f",background:saving?"#555":"#0f0f0f",color:"#f5f0e8"}}>
           {saving?"Adding...":"+ Add to Library"}
         </button>
@@ -1075,12 +1075,11 @@ function GarmentManager({ garmentList, onRefresh }) {
               <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".08em",textTransform:"uppercase",color:"#aaa",marginTop:2}}>{g.colour}</div>
               {g.front_url&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:"#ccc",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:400}}>{g.front_url}</div>}
             </div>
-            <button onClick={()=>deleteGarment(g.id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem",flexShrink:0}}>✕</button>
+            <button onClick={()=>deleteGarment(g.id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem",flexShrink:0}}>âœ•</button>
           </div>
         ))}
-        {garmentList.length===0&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb",padding:"10px 0"}}>No garments in library yet — add one above</div>}
+        {garmentList.length===0&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb",padding:"10px 0"}}>No garments in library yet â€” add one above</div>}
       </div>
     </div>
   );
 }
-
