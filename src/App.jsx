@@ -1,41 +1,41 @@
 import { useState, useEffect, useRef } from "react";
 
-// â”€â”€ Workflow definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Workflow definitions ─────────────────────────────────────────────────────
 const WORKFLOW = {
   screenprint_new: [
-    { id: "quote",        label: "Quote Sent",         icon: "ðŸ“‹", owner: "lisa" },
-    { id: "approved",     label: "Estimate Approved",  icon: "âœ…", owner: "lisa" },
-    { id: "deposit",      label: "Deposit Received",   icon: "ðŸ’°", owner: "lisa" },
-    { id: "blanks",       label: "Blanks Ordered",     icon: "ðŸ“¦", owner: "lisa" },
-    { id: "seps",         label: "Seps / Burn Folder", icon: "ðŸŽ¨", owner: "lisa" },
-    { id: "burn",         label: "Screens Burned",     icon: "ðŸ”¥", owner: "lead_printer" },
-    { id: "presscheck",   label: "Press Check",        icon: "ðŸ‘",  owner: "lead_printer" },
-    { id: "production",   label: "Full Production",    icon: "âš™ï¸", owner: "lead_printer" },
-    { id: "shipping",     label: "Shipped",            icon: "ðŸšš", owner: "brother" },
+    { id: "quote",        label: "Quote Sent",         icon: "📋", owner: "lisa" },
+    { id: "approved",     label: "Estimate Approved",  icon: "✅", owner: "lisa" },
+    { id: "deposit",      label: "Deposit Received",   icon: "💰", owner: "lisa" },
+    { id: "blanks",       label: "Blanks Ordered",     icon: "📦", owner: "lisa" },
+    { id: "seps",         label: "Seps / Burn Folder", icon: "🎨", owner: "lisa" },
+    { id: "burn",         label: "Screens Burned",     icon: "🔥", owner: "lead_printer" },
+    { id: "presscheck",   label: "Press Check",        icon: "👁",  owner: "lead_printer" },
+    { id: "production",   label: "Full Production",    icon: "⚙️", owner: "lead_printer" },
+    { id: "shipping",     label: "Shipped",            icon: "🚚", owner: "brother" },
   ],
   screenprint_reprint: [
-    { id: "quote",        label: "Quote Sent",         icon: "ðŸ“‹", owner: "lisa" },
-    { id: "approved",     label: "Estimate Approved",  icon: "âœ…", owner: "lisa" },
-    { id: "deposit",      label: "Deposit Received",   icon: "ðŸ’°", owner: "lisa" },
-    { id: "blanks",       label: "Blanks Ordered",     icon: "ðŸ“¦", owner: "lisa" },
-    { id: "production",   label: "Full Production",    icon: "âš™ï¸", owner: "lead_printer" },
-    { id: "shipping",     label: "Shipped",            icon: "ðŸšš", owner: "brother" },
+    { id: "quote",        label: "Quote Sent",         icon: "📋", owner: "lisa" },
+    { id: "approved",     label: "Estimate Approved",  icon: "✅", owner: "lisa" },
+    { id: "deposit",      label: "Deposit Received",   icon: "💰", owner: "lisa" },
+    { id: "blanks",       label: "Blanks Ordered",     icon: "📦", owner: "lisa" },
+    { id: "production",   label: "Full Production",    icon: "⚙️", owner: "lead_printer" },
+    { id: "shipping",     label: "Shipped",            icon: "🚚", owner: "brother" },
   ],
   embroidery: [
-    { id: "quote",        label: "Quote Sent",         icon: "ðŸ“‹", owner: "lisa" },
-    { id: "approved",     label: "Estimate Approved",  icon: "âœ…", owner: "lisa" },
-    { id: "deposit",      label: "Deposit Received",   icon: "ðŸ’°", owner: "lisa" },
-    { id: "blanks",       label: "Blanks Ordered",     icon: "ðŸ“¦", owner: "lisa" },
-    { id: "digitizing",   label: "Sent to Harrison",   icon: "ðŸ§µ", owner: "lisa" },
-    { id: "sewout",       label: "Sew Out",            icon: "ðŸª¡", owner: "lead_printer" },
-    { id: "production",   label: "Full Production",    icon: "âš™ï¸", owner: "lead_printer" },
-    { id: "shipping",     label: "Shipped",            icon: "ðŸšš", owner: "brother" },
+    { id: "quote",        label: "Quote Sent",         icon: "📋", owner: "lisa" },
+    { id: "approved",     label: "Estimate Approved",  icon: "✅", owner: "lisa" },
+    { id: "deposit",      label: "Deposit Received",   icon: "💰", owner: "lisa" },
+    { id: "blanks",       label: "Blanks Ordered",     icon: "📦", owner: "lisa" },
+    { id: "digitizing",   label: "Sent to Harrison",   icon: "🧵", owner: "lisa" },
+    { id: "sewout",       label: "Sew Out",            icon: "🪡", owner: "lead_printer" },
+    { id: "production",   label: "Full Production",    icon: "⚙️", owner: "lead_printer" },
+    { id: "shipping",     label: "Shipped",            icon: "🚚", owner: "brother" },
   ],
 };
 
 const JOB_TYPES = [
-  { value: "screenprint_new",    label: "Screen Print â€“ New" },
-  { value: "screenprint_reprint",label: "Screen Print â€“ Reprint" },
+  { value: "screenprint_new",    label: "Screen Print – New" },
+  { value: "screenprint_reprint",label: "Screen Print – Reprint" },
   { value: "embroidery",         label: "Embroidery" },
 ];
 
@@ -46,7 +46,7 @@ const ROLES = [
   { id: "press_assist",   label: "Press Assistant", color: "#f79e7e", desc: "Floor" },
 ];
 
-// â”€â”€ Supabase client â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Supabase client ───────────────────────────────────────────────────────────
 const SUPABASE_URL  = "https://piiyxripiynzoabazhjd.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpaXl4cmlwaXluem9hYmF6aGpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NTg3NzYsImV4cCI6MjA5NTAzNDc3Nn0.uizOdL2vseQwVjpQgFONlDkEleHQosGZxt4QbzVQVbk";
 
@@ -88,7 +88,7 @@ const sb = {
   },
 };
 
-// â”€â”€ DB â†” App field mapping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── DB ↔ App field mapping ────────────────────────────────────────────────────
 function dbToJob(r) {
   return {
     id:           r.id,
@@ -124,7 +124,7 @@ function jobToDb(j) {
   };
 }
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function getStepIndex(job) {
   const steps = WORKFLOW[job.type];
   return steps.findIndex(s => s.id === job.currentStep);
@@ -157,7 +157,7 @@ function roleColor(roleId) {
   return ROLES.find(r => r.id === roleId)?.color || "#888";
 }
 
-// â”€â”€ Main App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -181,7 +181,7 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // â”€â”€ Load jobs from Supabase â”€â”€
+  // ── Load jobs from Supabase ──
   const loadJobs = async () => {
     const data = await sb.select("jobs", "?order=priority.asc");
     if (data?.error) { setDbError(data.error.message); return; }
@@ -189,7 +189,7 @@ export default function App() {
     setLoading(false);
   };
 
-  // â”€â”€ Load runsheet from Supabase â”€â”€
+  // ── Load runsheet from Supabase ──
   const loadRunsheet = async () => {
     const today = new Date().toISOString().slice(0, 10);
     const data = await sb.select("runsheets", `?date=eq.${today}&order=id.desc&limit=1`);
@@ -215,7 +215,7 @@ export default function App() {
     return stop;
   }, []);
 
-  // â”€â”€ Daily auto-reset â”€â”€
+  // ── Daily auto-reset ──
   const todayKey = new Date().toISOString().slice(0, 10);
   useEffect(() => {
     const lastReset = localStorage.getItem("tnsp_last_reset");
@@ -226,7 +226,7 @@ export default function App() {
     localStorage.setItem("tnsp_last_reset", todayKey);
   }, []);
 
-  // â”€â”€ Save runsheet to Supabase whenever it changes â”€â”€
+  // ── Save runsheet to Supabase whenever it changes ──
   const saveRunsheet = async (sheet, notes) => {
     const today = new Date().toISOString().slice(0, 10);
     await sb.upsert("runsheets", {
@@ -248,7 +248,7 @@ export default function App() {
     saveRunsheet(todaySheet, notes);
   };
 
-  // â”€â”€ Advance job step â”€â”€
+  // ── Advance job step ──
   const advanceJob = async (jobId) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
@@ -256,14 +256,14 @@ export default function App() {
     if (!next) return;
     // Optimistic update
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, currentStep: next.id } : j));
-    notify(`${job.customer} â†’ ${next.label}`);
+    notify(`${job.customer} → ${next.label}`);
     // Write to DB
     await sb.update("jobs", { current_step: next.id }, { id: jobId });
     // Log history
     await sb.insert("job_history", { job_id: jobId, from_step: job.currentStep, to_step: next.id, changed_by: activeRole });
   };
 
-  // â”€â”€ Toggle deposit â”€â”€
+  // ── Toggle deposit ──
   const toggleDeposit = async (jobId) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
@@ -273,7 +273,7 @@ export default function App() {
     await sb.update("jobs", { deposit_paid: newVal }, { id: jobId });
   };
 
-  // â”€â”€ Toggle urgency â”€â”€
+  // ── Toggle urgency ──
   const toggleUrgency = async (jobId) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
@@ -282,14 +282,14 @@ export default function App() {
     await sb.update("jobs", { urgency: newVal }, { id: jobId });
   };
 
-  // â”€â”€ Update assignment â”€â”€
+  // ── Update assignment ──
   const updateAssign = async (jobId, person) => {
     setJobs(prev => prev.map(j => j.id === jobId ? { ...j, assignedTo: person } : j));
     notify(`Job assigned to ${ROLES.find(r => r.id === person)?.label}`);
     await sb.update("jobs", { assigned_to: person }, { id: jobId });
   };
 
-  // â”€â”€ Drag to reprioritize â”€â”€
+  // ── Drag to reprioritize ──
   const handleDragStart = (jobId) => { dragJob.current = jobId; };
   const handleDrop = async (targetId) => {
     if (!dragJob.current || dragJob.current === targetId) return;
@@ -306,7 +306,7 @@ export default function App() {
     await Promise.all(reordered.map(j => sb.update("jobs", { priority: j.priority }, { id: j.id })));
   };
 
-  // â”€â”€ Add new job â”€â”€
+  // ── Add new job ──
   const addJob = async (job) => {
     const maxPriority = jobs.length > 0 ? Math.max(...jobs.map(j => j.priority)) : 0;
     const newJob = { ...job, priority: maxPriority + 1 };
@@ -317,7 +317,7 @@ export default function App() {
     }
   };
 
-  // â”€â”€ Reset runsheet â”€â”€
+  // ── Reset runsheet ──
   const resetRunsheet = async () => {
     const hasJobs = todaySheet.lead_printer.length + todaySheet.press_assist.length > 0;
     if (hasJobs) {
@@ -327,7 +327,7 @@ export default function App() {
     setTodaySheet(empty);
     setTodayNotes("");
     await saveRunsheet(empty, "");
-    notify("Runsheet cleared â€” ready for a new day");
+    notify("Runsheet cleared — ready for a new day");
   };
 
   // Filter jobs by role
@@ -350,7 +350,7 @@ export default function App() {
   if (loading) return (
     <div style={{minHeight:"100vh",background:"#0d0d0d",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
       <div style={{width:42,height:42,background:"#e8c547",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:16,clipPath:"polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)"}}>TN</div>
-      <div style={{color:"#555",fontSize:13,letterSpacing:2}}>LOADING PRODUCTION DATAâ€¦</div>
+      <div style={{color:"#555",fontSize:13,letterSpacing:2}}>LOADING PRODUCTION DATA…</div>
     </div>
   );
 
@@ -364,17 +364,17 @@ export default function App() {
 
   return (
     <div style={styles.root}>
-      {/* â”€â”€ Background â”€â”€ */}
+      {/* ── Background ── */}
       <div style={styles.bgGrid} />
 
-      {/* â”€â”€ Notification â”€â”€ */}
+      {/* ── Notification ── */}
       {notification && (
         <div style={{...styles.notification, background: notification.type==="error"?"#ff4d4d":"#4ec9a0"}}>
           {notification.msg}
         </div>
       )}
 
-      {/* â”€â”€ Header â”€â”€ */}
+      {/* ── Header ── */}
       <header style={styles.header}>
         <div style={styles.headerLeft}>
           <div style={styles.logo}>
@@ -382,7 +382,7 @@ export default function App() {
             <div>
               <div style={styles.logoTitle}>TRUE NORTH</div>
               <div style={styles.logoSub}>PRODUCTION BOARD</div>
-              <div style={{fontSize:9,color:"#4ec9a0",letterSpacing:1,marginTop:1}}>â— LIVE SYNC</div>
+              <div style={{fontSize:9,color:"#4ec9a0",letterSpacing:1,marginTop:1}}>● LIVE SYNC</div>
             </div>
           </div>
         </div>
@@ -404,14 +404,14 @@ export default function App() {
         </button>
       </header>
 
-      {/* â”€â”€ Stats bar â”€â”€ */}
+      {/* ── Stats bar ── */}
       <div style={styles.statsBar}>
         {[
           { label: "Active Jobs",   value: jobs.length,   color: "#7eb8f7" },
           { label: "Rush",          value: rushJobs,      color: "#ff9f43" },
           { label: "Due This Week", value: dueThisWeek,   color: "#e8c547" },
           { label: "Overdue",       value: overdueJobs,   color: "#ff4d4d" },
-          { label: "âš  No Deposit",  value: noDeposit,    color: "#f79e7e" },
+          { label: "⚠ No Deposit",  value: noDeposit,    color: "#f79e7e" },
         ].map(s => (
           <div key={s.label} style={styles.stat}>
             <div style={{...styles.statValue, color: s.color}}>{s.value}</div>
@@ -420,7 +420,7 @@ export default function App() {
         ))}
       </div>
 
-      {/* â”€â”€ Toolbar â”€â”€ */}
+      {/* ── Toolbar ── */}
       <div style={styles.toolbar}>
         <div style={styles.filters}>
           <select style={styles.select} value={filterUrgency} onChange={e=>setFilterUrgency(e.target.value)}>
@@ -435,9 +435,9 @@ export default function App() {
         </div>
         <div style={styles.viewToggle}>
           {[
-            {id:"board", label:"â¬› Board"},
-            {id:"list",  label:"â˜° List"},
-            {id:"today", label:"ðŸ“‹ Today's Run"},
+            {id:"board", label:"⬛ Board"},
+            {id:"list",  label:"☰ List"},
+            {id:"today", label:"📋 Today's Run"},
           ].map(v=>(
             <button key={v.id} style={{
               ...styles.viewBtn,
@@ -452,7 +452,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* â”€â”€ Main content â”€â”€ */}
+      {/* ── Main content ── */}
       <main style={styles.main}>
         {view === "board" ? (
           <BoardView jobs={visibleJobs} activeRole={activeRole}
@@ -480,7 +480,7 @@ export default function App() {
         )}
       </main>
 
-      {/* â”€â”€ Detail modal â”€â”€ */}
+      {/* ── Detail modal ── */}
       {view==="detail" && selectedJob && (
         <DetailModal job={jobs.find(j=>j.id===selectedJob.id)||selectedJob}
           activeRole={activeRole}
@@ -489,7 +489,7 @@ export default function App() {
           onClose={()=>{setView("board");setSelectedJob(null);}} />
       )}
 
-      {/* â”€â”€ Add job modal â”€â”€ */}
+      {/* ── Add job modal ── */}
       {showAddModal && (
         <AddJobModal
           onAdd={(job)=>{
@@ -502,7 +502,7 @@ export default function App() {
   );
 }
 
-// â”€â”€ Board View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Board View ───────────────────────────────────────────────────────────────
 function BoardView({ jobs, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onSelect, dragOver, setDragOver, onDragStart, onDrop }) {
   // Group by workflow stage bucket
   const buckets = [
@@ -544,7 +544,7 @@ function BoardView({ jobs, activeRole, onAdvance, onToggleDeposit, onToggleUrgen
   );
 }
 
-// â”€â”€ List View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── List View ────────────────────────────────────────────────────────────────
 function ListView({ jobs, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onSelect, dragOver, setDragOver, onDragStart, onDrop }) {
   return (
     <div style={styles.listView}>
@@ -571,7 +571,7 @@ function ListView({ jobs, activeRole, onAdvance, onToggleDeposit, onToggleUrgenc
   );
 }
 
-// â”€â”€ Job Card (Board) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Job Card (Board) ─────────────────────────────────────────────────────────
 function JobCard({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onSelect, isDragOver, onDragStart, onDragOver, onDrop }) {
   const step = getStep(job);
   const next = getNextStep(job);
@@ -594,7 +594,7 @@ function JobCard({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency,
       <div style={styles.cardTop}>
         <span style={styles.priorityBadge}>#{job.priority}</span>
         {job.urgency==="rush" && <span style={styles.rushBadge}>RUSH</span>}
-        {!job.depositPaid && <span style={styles.depositBadge}>ðŸ’° DEP</span>}
+        {!job.depositPaid && <span style={styles.depositBadge}>💰 DEP</span>}
         <span style={{...styles.typeBadge, background: job.type==="embroidery"?"#7eb8f720":"#f79e7e20",
           color: job.type==="embroidery"?"#7eb8f7":"#f79e7e"}}>
           {job.type==="embroidery"?"EMB":"SP"}
@@ -603,7 +603,7 @@ function JobCard({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency,
 
       {/* Customer */}
       <div style={styles.cardCustomer}>{job.customer}</div>
-      <div style={styles.cardProduct}>{job.product} Â· {job.qty} pcs</div>
+      <div style={styles.cardProduct}>{job.product} · {job.qty} pcs</div>
 
       {/* Current step */}
       <div style={styles.cardStep}>
@@ -619,9 +619,9 @@ function JobCard({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency,
 
       {/* Due date */}
       <div style={{...styles.dueDate, color: dc}}>
-        {days < 0 ? `âš  ${Math.abs(days)}d overdue` :
+        {days < 0 ? `⚠ ${Math.abs(days)}d overdue` :
          days === 0 ? "Due today!" :
-         `Due in ${days}d Â· ${job.dueDate}`}
+         `Due in ${days}d · ${job.dueDate}`}
       </div>
 
       {/* Assigned */}
@@ -632,12 +632,12 @@ function JobCard({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency,
         </div>
       )}
 
-      {/* Actions â€” stop propagation so card click doesn't fire */}
+      {/* Actions — stop propagation so card click doesn't fire */}
       {(activeRole==="lisa"||activeRole==="brother") && (
         <div style={styles.cardActions} onClick={e=>e.stopPropagation()}>
           {next && canAdvance && (
             <button style={styles.advanceBtn} onClick={()=>onAdvance(job.id)}>
-              â†’ {next.label}
+              → {next.label}
             </button>
           )}
         </div>
@@ -646,7 +646,7 @@ function JobCard({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency,
   );
 }
 
-// â”€â”€ List Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── List Row ─────────────────────────────────────────────────────────────────
 function ListRow({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onSelect, isDragOver, onDragStart, onDragOver, onDrop }) {
   const step = getStep(job);
   const next = getNextStep(job);
@@ -667,7 +667,7 @@ function ListRow({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency,
 
       <span style={{flex:2,cursor:"pointer"}} onClick={()=>onSelect(job)}>
         <div style={{fontWeight:600,color:"#f0ede8"}}>{job.customer}</div>
-        <div style={{fontSize:12,color:"#888"}}>{job.product} Â· {job.qty} pcs</div>
+        <div style={{fontSize:12,color:"#888"}}>{job.product} · {job.qty} pcs</div>
       </span>
 
       <span style={{flex:1,fontSize:12,color: job.type==="embroidery"?"#7eb8f7":"#f79e7e"}}>
@@ -680,7 +680,7 @@ function ListRow({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency,
           <span>{step?.icon}</span>
           <span style={{fontSize:13,color:"#d4d0c8"}}>{step?.label}</span>
         </div>
-        {!job.depositPaid && <div style={{fontSize:11,color:"#f79e7e"}}>âš  Deposit pending</div>}
+        {!job.depositPaid && <div style={{fontSize:11,color:"#f79e7e"}}>⚠ Deposit pending</div>}
       </span>
 
       <span style={{flex:1,fontSize:13,color:dc}}>
@@ -700,25 +700,25 @@ function ListRow({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency,
           </select>
         ) : (
           <span style={{fontSize:13,color:roleColor(job.assignedTo)}}>
-            {ROLES.find(r=>r.id===job.assignedTo)?.label||"â€”"}
+            {ROLES.find(r=>r.id===job.assignedTo)?.label||"—"}
           </span>
         )}
       </span>
 
       <span style={{flex:1,display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
         {next && (activeRole==="lisa"||activeRole==="brother") && (
-          <button style={styles.advanceBtnSm} onClick={()=>onAdvance(job.id)}>â†’</button>
+          <button style={styles.advanceBtnSm} onClick={()=>onAdvance(job.id)}>→</button>
         )}
         <button style={{...styles.advanceBtnSm, background:"#ffffff10"}}
           onClick={()=>onToggleUrgency(job.id)}>
-          {job.urgency==="rush"?"ðŸ”¥":"â¬œ"}
+          {job.urgency==="rush"?"🔥":"⬜"}
         </button>
       </span>
     </div>
   );
 }
 
-// â”€â”€ Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Detail Modal ─────────────────────────────────────────────────────────────
 function DetailModal({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onClose }) {
   const steps = WORKFLOW[job.type];
   const currentIdx = getStepIndex(job);
@@ -732,11 +732,11 @@ function DetailModal({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrge
           <div>
             <div style={styles.modalOrderNum}>Order #{job.id}</div>
             <div style={styles.modalCustomer}>{job.customer}</div>
-            <div style={styles.modalProduct}>{job.product} Â· {job.qty} pcs</div>
+            <div style={styles.modalProduct}>{job.product} · {job.qty} pcs</div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
             {job.urgency==="rush" && <span style={styles.rushBadge}>RUSH</span>}
-            <button style={styles.closeBtn} onClick={onClose}>âœ•</button>
+            <button style={styles.closeBtn} onClick={onClose}>✕</button>
           </div>
         </div>
 
@@ -750,7 +750,7 @@ function DetailModal({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrge
                             i === currentIdx ? "#e8c547" : "#333",
                 border: i===currentIdx?"2px solid #e8c547":"2px solid transparent",
               }}>
-                {i < currentIdx ? "âœ“" : step.icon}
+                {i < currentIdx ? "✓" : step.icon}
               </div>
               {i < steps.length-1 && (
                 <div style={{...styles.timelineLine,
@@ -769,13 +769,13 @@ function DetailModal({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrge
           <DetailField label="Job Type" value={JOB_TYPES.find(t=>t.value===job.type)?.label} />
           <DetailField label="Due Date" value={job.dueDate}
             valueStyle={{color: dueDateColor(job.dueDate)}} />
-          <DetailField label="Deposit" value={job.depositPaid?"âœ… Received":"âš  Pending"}
+          <DetailField label="Deposit" value={job.depositPaid?"✅ Received":"⚠ Pending"}
             valueStyle={{color: job.depositPaid?"#4ec9a0":"#f79e7e"}} />
           <DetailField label="Priority" value={`#${job.priority}`} />
           <DetailField label="Assigned To"
             value={ROLES.find(r=>r.id===job.assignedTo)?.label||"Unassigned"} />
           <DetailField label="Urgency"
-            value={job.urgency==="rush"?"ðŸ”¥ Rush":"Normal"}
+            value={job.urgency==="rush"?"🔥 Rush":"Normal"}
             valueStyle={{color: job.urgency==="rush"?"#ff9f43":"#888"}} />
         </div>
 
@@ -791,14 +791,14 @@ function DetailModal({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrge
           <div style={styles.modalActions}>
             {next && (
               <button style={styles.modalAdvanceBtn} onClick={()=>{onAdvance(job.id);onClose();}}>
-                Advance â†’ {next.label}
+                Advance → {next.label}
               </button>
             )}
             <button style={styles.modalSecBtn} onClick={()=>onToggleDeposit(job.id)}>
               {job.depositPaid?"Mark Deposit Unpaid":"Mark Deposit Paid"}
             </button>
             <button style={styles.modalSecBtn} onClick={()=>onToggleUrgency(job.id)}>
-              {job.urgency==="rush"?"Remove Rush Flag":"Mark as Rush ðŸ”¥"}
+              {job.urgency==="rush"?"Remove Rush Flag":"Mark as Rush 🔥"}
             </button>
           </div>
         )}
@@ -834,7 +834,7 @@ function DetailField({ label, value, valueStyle }) {
   );
 }
 
-// â”€â”€ Add Job Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Add Job Modal ─────────────────────────────────────────────────────────────
 function AddJobModal({ onAdd, onClose }) {
   const [form, setForm] = useState({
     id: `JOB-${Date.now()}`,
@@ -855,7 +855,7 @@ function AddJobModal({ onAdd, onClose }) {
       <div style={{...styles.modal, maxWidth:500}} onClick={e=>e.stopPropagation()}>
         <div style={styles.modalHeader}>
           <div style={styles.modalCustomer}>Add New Job</div>
-          <button style={styles.closeBtn} onClick={onClose}>âœ•</button>
+          <button style={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
 
         <div style={{display:"flex",flexDirection:"column",gap:12,marginTop:16}}>
@@ -891,7 +891,7 @@ function AddJobModal({ onAdd, onClose }) {
             <span style={styles.formLabelText}>Urgency</span>
             <select style={styles.formInput} value={form.urgency} onChange={e=>set("urgency",e.target.value)}>
               <option value="normal">Normal</option>
-              <option value="rush">Rush ðŸ”¥</option>
+              <option value="rush">Rush 🔥</option>
             </select>
           </label>
 
@@ -911,7 +911,7 @@ function AddJobModal({ onAdd, onClose }) {
   );
 }
 
-// â”€â”€ Today's Runsheet View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Today's Runsheet View ────────────────────────────────────────────────────
 function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, setTodayNotes, onAdvance, onSelect, onReset, history, notify }) {
   const isManager = activeRole === "lisa" || activeRole === "brother";
   const today = new Date().toLocaleDateString("en-CA", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
@@ -971,8 +971,8 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
 
         {myJobs.length === 0 ? (
           <div style={todayStyles.emptyState}>
-            <div style={{fontSize:40, marginBottom:12}}>â˜•</div>
-            <div style={{color:"#555", fontSize:14}}>No jobs assigned yet â€” check back soon.</div>
+            <div style={{fontSize:40, marginBottom:12}}>☕</div>
+            <div style={{color:"#555", fontSize:14}}>No jobs assigned yet — check back soon.</div>
           </div>
         ) : (
           <div style={todayStyles.floorJobList}>
@@ -987,7 +987,7 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
                   </div>
                   <div style={todayStyles.floorJobMain}>
                     <div style={todayStyles.floorJobCustomer}>{job.customer}</div>
-                    <div style={todayStyles.floorJobProduct}>{job.product} Â· {job.qty} pcs</div>
+                    <div style={todayStyles.floorJobProduct}>{job.product} · {job.qty} pcs</div>
                     <div style={todayStyles.floorJobStep}>
                       <span>{step?.icon}</span> {step?.label}
                     </div>
@@ -1001,11 +1001,11 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
                     </div>
                     {next && (
                       <button style={todayStyles.floorAdvanceBtn} onClick={()=>onAdvance(job.id)}>
-                        âœ“ Mark {next.label}
+                        ✓ Mark {next.label}
                       </button>
                     )}
                     <button style={todayStyles.floorDetailBtn} onClick={()=>onSelect(job)}>
-                      Details â†’
+                      Details →
                     </button>
                   </div>
                 </div>
@@ -1016,7 +1016,7 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
 
         {todayNotes && (
           <div style={todayStyles.managerNote}>
-            <div style={todayStyles.managerNoteLabel}>ðŸ“Œ NOTE FROM MANAGER</div>
+            <div style={todayStyles.managerNoteLabel}>📌 NOTE FROM MANAGER</div>
             <div style={todayStyles.managerNoteText}>{todayNotes}</div>
           </div>
         )}
@@ -1041,14 +1041,14 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
         <div style={{display:"flex", gap:10, alignItems:"center"}}>
           {history.length > 0 && (
             <button style={todayStyles.historyBtn} onClick={()=>setShowHistoryPanel(true)}>
-              ðŸ“… History ({history.length})
+              📅 History ({history.length})
             </button>
           )}
           <div style={todayStyles.assignedCount}>
             {assignedIds.length} jobs assigned
           </div>
           <button style={todayStyles.resetBtn} onClick={onReset}>
-            â†º Reset Day
+            ↺ Reset Day
           </button>
         </div>
       </div>
@@ -1056,7 +1056,7 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
       {/* Manager note */}
       <div style={todayStyles.noteArea}>
         <div style={todayStyles.noteLabelRow}>
-          <span style={todayStyles.noteAreaLabel}>ðŸ“Œ Note to floor team</span>
+          <span style={todayStyles.noteAreaLabel}>📌 Note to floor team</span>
           <span style={{fontSize:11,color:"#555"}}>Visible to all floor roles</span>
         </div>
         <textarea style={todayStyles.noteTextarea}
@@ -1067,7 +1067,7 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
       <div style={todayStyles.managerGrid}>
         {/* Left: job pool */}
         <div style={todayStyles.jobPool}>
-          <div style={todayStyles.poolHeader}>ALL ACTIVE JOBS Â· Drag or click + to assign</div>
+          <div style={todayStyles.poolHeader}>ALL ACTIVE JOBS · Drag or click + to assign</div>
           {eligible.map(job => {
             const step = getStep(job);
             const alreadyIn = assignedIds.includes(job.id);
@@ -1078,7 +1078,7 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
                   {job.urgency==="rush" && <span style={styles.rushBadge}>RUSH</span>}
                   <div>
                     <div style={todayStyles.poolJobCustomer}>{job.customer}</div>
-                    <div style={todayStyles.poolJobProduct}>{job.product} Â· {step?.icon} {step?.label}</div>
+                    <div style={todayStyles.poolJobProduct}>{job.product} · {step?.icon} {step?.label}</div>
                   </div>
                 </div>
                 {!alreadyIn && (
@@ -1091,7 +1091,7 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
                     ))}
                   </div>
                 )}
-                {alreadyIn && <span style={todayStyles.assignedTick}>âœ“ Assigned</span>}
+                {alreadyIn && <span style={todayStyles.assignedTick}>✓ Assigned</span>}
               </div>
             );
           })}
@@ -1108,7 +1108,7 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
                   <span style={todayStyles.boardCount}>{roleJobs.length}</span>
                 </div>
                 {roleJobs.length === 0 && (
-                  <div style={todayStyles.runsheetEmpty}>No jobs yet â€” add from the pool â†’</div>
+                  <div style={todayStyles.runsheetEmpty}>No jobs yet — add from the pool →</div>
                 )}
                 {roleJobs.map((job, idx) => {
                   const step = getStep(job);
@@ -1117,17 +1117,17 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
                       <div style={todayStyles.runsheetJobSeq}>
                         <span style={{...todayStyles.floorSeq, background: role.color+"22", color: role.color}}>{idx+1}</span>
                         <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                          <button style={todayStyles.nudgeBtn} onClick={()=>moveUp(role.id,idx)}>â–²</button>
-                          <button style={todayStyles.nudgeBtn} onClick={()=>moveDown(role.id,idx)}>â–¼</button>
+                          <button style={todayStyles.nudgeBtn} onClick={()=>moveUp(role.id,idx)}>▲</button>
+                          <button style={todayStyles.nudgeBtn} onClick={()=>moveDown(role.id,idx)}>▼</button>
                         </div>
                       </div>
                       <div style={{flex:1}}>
                         <div style={todayStyles.runsheetJobCustomer}>{job.customer}</div>
-                        <div style={todayStyles.runsheetJobProduct}>{job.product} Â· {step?.icon} {step?.label}</div>
+                        <div style={todayStyles.runsheetJobProduct}>{job.product} · {step?.icon} {step?.label}</div>
                         {job.urgency==="rush" && <span style={styles.rushBadge}>RUSH</span>}
                       </div>
                       <button style={todayStyles.removeBtn}
-                        onClick={()=>removeFromRunsheet(role.id, job.id)}>âœ•</button>
+                        onClick={()=>removeFromRunsheet(role.id, job.id)}>✕</button>
                     </div>
                   );
                 })}
@@ -1142,7 +1142,7 @@ function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, se
   );
 }
 
-// â”€â”€ History Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── History Panel ─────────────────────────────────────────────────────────────
 function HistoryPanel({ history, jobs, onClose }) {
   const [expanded, setExpanded] = useState(null);
   const floorRoles = [
@@ -1158,10 +1158,10 @@ function HistoryPanel({ history, jobs, onClose }) {
     // Try snapshot first, fall back to live jobs
     if (entry.jobSnapshots?.[id]) {
       const j = entry.jobSnapshots[id];
-      return `${j.customer} â€” ${j.product}`;
+      return `${j.customer} — ${j.product}`;
     }
     const j = jobs.find(j => j.id === id);
-    return j ? `${j.customer} â€” ${j.product}` : `Job #${id}`;
+    return j ? `${j.customer} — ${j.product}` : `Job #${id}`;
   };
 
   return (
@@ -1172,12 +1172,12 @@ function HistoryPanel({ history, jobs, onClose }) {
           <div style={historyStyles.headerTitle}>HISTORY LOG</div>
         </div>
         <button style={{...styles.closeBtn, width:"auto", padding:"6px 16px", fontSize:13}}
-          onClick={onClose}>â† Back to Today</button>
+          onClick={onClose}>← Back to Today</button>
       </div>
 
       {history.length === 0 && (
         <div style={{padding:"60px 0", textAlign:"center", color:"#555"}}>
-          No history yet â€” completed runsheets will appear here.
+          No history yet — completed runsheets will appear here.
         </div>
       )}
 
@@ -1191,13 +1191,13 @@ function HistoryPanel({ history, jobs, onClose }) {
                 <div style={historyStyles.entryDate}>{formatDate(entry.date)}</div>
                 <div style={historyStyles.entrySummary}>
                   {totalJobs} jobs assigned
-                  {entry.lead_printer?.length > 0 && ` Â· Lead: ${entry.lead_printer.length}`}
-                  {entry.press_assist?.length > 0 && ` Â· Press: ${entry.press_assist.length}`}
+                  {entry.lead_printer?.length > 0 && ` · Lead: ${entry.lead_printer.length}`}
+                  {entry.press_assist?.length > 0 && ` · Press: ${entry.press_assist.length}`}
                 </div>
               </div>
               <div style={{display:"flex", alignItems:"center", gap:10}}>
-                {entry.notes && <span style={historyStyles.hasNote}>ðŸ“Œ Note</span>}
-                <span style={historyStyles.chevron}>{isOpen ? "â–²" : "â–¼"}</span>
+                {entry.notes && <span style={historyStyles.hasNote}>📌 Note</span>}
+                <span style={historyStyles.chevron}>{isOpen ? "▲" : "▼"}</span>
               </div>
             </div>
 
@@ -1216,7 +1216,7 @@ function HistoryPanel({ history, jobs, onClose }) {
                     return (
                       <div key={role.id} style={historyStyles.roleCol}>
                         <div style={{...historyStyles.roleHeader, color: role.color, borderColor: role.color}}>
-                          {role.label} Â· {roleJobs.length} jobs
+                          {role.label} · {roleJobs.length} jobs
                         </div>
                         {roleJobs.map((id, idx) => (
                           <div key={id} style={historyStyles.historyJob}>
@@ -1408,7 +1408,7 @@ const historyStyles = {
   },
 };
 
-// â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Styles ───────────────────────────────────────────────────────────────────
 const styles = {
   root: {
     minHeight:"100vh", background:"#0d0d0d", color:"#f0ede8",
