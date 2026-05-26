@@ -1291,6 +1291,8 @@ const historyStyles = {
   },
   historyJobName: { fontSize:13, color:"#888" },
 };
+
+const todayStyles = {
   root: { maxWidth: 1100, margin: "0 auto" },
   floorHeader: { marginBottom: 24, display:"flex", flexDirection:"column", gap:6 },
   floorDate: { fontSize:11, color:"#555", letterSpacing:2, textTransform:"uppercase" },
