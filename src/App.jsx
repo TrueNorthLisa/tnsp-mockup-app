@@ -1,1670 +1,1086 @@
-import { useState, useEffect, useRef } from "react";
-
-// ── Workflow definitions ─────────────────────────────────────────────────────
-const WORKFLOW = {
-  screenprint_new: [
-    { id: "quote",        label: "Quote Sent",         icon: "📋", owner: "lisa" },
-    { id: "approved",     label: "Estimate Approved",  icon: "✅", owner: "lisa" },
-    { id: "deposit",      label: "Deposit Received",   icon: "💰", owner: "lisa" },
-    { id: "blanks",       label: "Blanks Ordered",     icon: "📦", owner: "lisa" },
-    { id: "seps",         label: "Seps / Burn Folder", icon: "🎨", owner: "lisa" },
-    { id: "burn",         label: "Screens Burned",     icon: "🔥", owner: "lead_printer" },
-    { id: "presscheck",   label: "Press Check",        icon: "👁",  owner: "lead_printer" },
-    { id: "production",   label: "Full Production",    icon: "⚙️", owner: "lead_printer" },
-    { id: "shipping",     label: "Shipped",            icon: "🚚", owner: "brother" },
-  ],
-  screenprint_reprint: [
-    { id: "quote",        label: "Quote Sent",         icon: "📋", owner: "lisa" },
-    { id: "approved",     label: "Estimate Approved",  icon: "✅", owner: "lisa" },
-    { id: "deposit",      label: "Deposit Received",   icon: "💰", owner: "lisa" },
-    { id: "blanks",       label: "Blanks Ordered",     icon: "📦", owner: "lisa" },
-    { id: "production",   label: "Full Production",    icon: "⚙️", owner: "lead_printer" },
-    { id: "shipping",     label: "Shipped",            icon: "🚚", owner: "brother" },
-  ],
-  embroidery: [
-    { id: "quote",        label: "Quote Sent",         icon: "📋", owner: "lisa" },
-    { id: "approved",     label: "Estimate Approved",  icon: "✅", owner: "lisa" },
-    { id: "deposit",      label: "Deposit Received",   icon: "💰", owner: "lisa" },
-    { id: "blanks",       label: "Blanks Ordered",     icon: "📦", owner: "lisa" },
-    { id: "digitizing",   label: "Sent to Harrison",   icon: "🧵", owner: "lisa" },
-    { id: "sewout",       label: "Sew Out",            icon: "🪡", owner: "lead_printer" },
-    { id: "production",   label: "Full Production",    icon: "⚙️", owner: "lead_printer" },
-    { id: "shipping",     label: "Shipped",            icon: "🚚", owner: "brother" },
-  ],
-};
-
-const JOB_TYPES = [
-  { value: "screenprint_new",    label: "Screen Print – New" },
-  { value: "screenprint_reprint",label: "Screen Print – Reprint" },
-  { value: "embroidery",         label: "Embroidery" },
-];
-
-const ROLES = [
-  { id: "lisa",           label: "Lisa",            color: "#e8c547", desc: "Office / Remote" },
-  { id: "brother",        label: "Shop Manager",    color: "#4ec9a0", desc: "On-Site Manager" },
-  { id: "lead_printer",   label: "Lead Printer",    color: "#7eb8f7", desc: "Floor" },
-  { id: "press_assist",   label: "Press Assistant", color: "#f79e7e", desc: "Floor" },
-];
-
-// ── Supabase client ───────────────────────────────────────────────────────────
-const SUPABASE_URL  = "https://piiyxripiynzoabazhjd.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpaXl4cmlwaXluem9hYmF6aGpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NTg3NzYsImV4cCI6MjA5NTAzNDc3Nn0.uizOdL2vseQwVjpQgFONlDkEleHQosGZxt4QbzVQVbk";
-
-const sb = {
-  headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}`, "Content-Type": "application/json", "Prefer": "return=representation" },
-
-  async select(table, query = "") {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, { headers: this.headers });
-    return r.json();
-  },
-  async insert(table, data) {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-      method: "POST", headers: this.headers, body: JSON.stringify(data),
-    });
-    return r.json();
-  },
-  async update(table, data, match) {
-    const params = Object.entries(match).map(([k,v])=>`${k}=eq.${v}`).join("&");
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
-      method: "PATCH", headers: this.headers, body: JSON.stringify(data),
-    });
-    return r.json();
-  },
-  async upsert(table, data) {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-      method: "POST",
-      headers: { ...this.headers, "Prefer": "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify(data),
-    });
-    return r.json();
-  },
-  // Realtime via polling (no ws needed)
-  poll(table, cb, interval = 4000) {
-    const id = setInterval(async () => {
-      const data = await this.select(table, "?order=priority.asc");
-      if (!data?.error) cb(data);
-    }, interval);
-    return () => clearInterval(id);
-  },
-};
-
-// ── DB ↔ App field mapping ────────────────────────────────────────────────────
-function dbToJob(r) {
-  return {
-    id:           r.id,
-    customer:     r.customer     || "",
-    product:      r.product      || "",
-    qty:          r.qty          || 0,
-    type:         r.type         || "screenprint_new",
-    currentStep:  r.current_step || "quote",
-    dueDate:      r.due_date     || "",
-    urgency:      r.urgency      || "normal",
-    priority:     r.priority     || 99,
-    depositPaid:  r.deposit_paid || false,
-    assignedTo:   r.assigned_to  || null,
-    notes:        r.notes        || "",
-    mockupUrl:    r.mockup_url   || null,
-    approvalStatus: r.approval_status || "pending",
-  };
-}
-
-function jobToDb(j) {
-  return {
-    customer:      j.customer,
-    product:       j.product,
-    qty:           j.qty,
-    type:          j.type,
-    current_step:  j.currentStep,
-    due_date:      j.dueDate || null,
-    urgency:       j.urgency,
-    priority:      j.priority,
-    deposit_paid:  j.depositPaid,
-    assigned_to:   j.assignedTo,
-    notes:         j.notes,
-  };
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function getStepIndex(job) {
-  const steps = WORKFLOW[job.type];
-  return steps.findIndex(s => s.id === job.currentStep);
-}
-function getStep(job) {
-  return WORKFLOW[job.type][getStepIndex(job)];
-}
-function getNextStep(job) {
-  const steps = WORKFLOW[job.type];
-  const idx = getStepIndex(job);
-  return steps[idx + 1] || null;
-}
-function progressPct(job) {
-  const steps = WORKFLOW[job.type];
-  const idx = getStepIndex(job);
-  return Math.round(((idx + 1) / steps.length) * 100);
-}
-function daysUntil(dateStr) {
-  const diff = new Date(dateStr) - new Date();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-function dueDateColor(dateStr) {
-  const d = daysUntil(dateStr);
-  if (d < 0)  return "#ff4d4d";
-  if (d <= 3) return "#ff9f43";
-  if (d <= 7) return "#e8c547";
-  return "#4ec9a0";
-}
-function roleColor(roleId) {
-  return ROLES.find(r => r.id === roleId)?.color || "#888";
-}
-
-// ── Main App ─────────────────────────────────────────────────────────────────
-export default function App() {
-  const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState(null);
-  const [activeRole, setActiveRole] = useState("lisa");
-  const [view, setView] = useState("board");
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [filterUrgency, setFilterUrgency] = useState("all");
-  const [filterType, setFilterType] = useState("all");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [notification, setNotification] = useState(null);
-  const [dragOver, setDragOver] = useState(null);
-  const dragJob = useRef(null);
-  const [todaySheet, setTodaySheet] = useState({ lead_printer: [], press_assist: [] });
-  const [todayNotes, setTodayNotes] = useState("");
-  const [history, setHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
-
-  const notify = (msg, type = "success") => {
-    setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  // ── Load jobs from Supabase ──
-  const loadJobs = async () => {
-    const data = await sb.select("jobs", "?order=priority.asc");
-    if (data?.error) { setDbError(data.error.message); return; }
-    setJobs((data || []).map(dbToJob));
-    setLoading(false);
-  };
-
-  // ── Load runsheet from Supabase ──
-  const loadRunsheet = async () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const data = await sb.select("runsheets", `?date=eq.${today}&order=id.desc&limit=1`);
-    if (data?.[0]) {
-      setTodaySheet({ lead_printer: data[0].lead_printer || [], press_assist: data[0].press_assist || [] });
-      setTodayNotes(data[0].manager_note || "");
-    }
-    // Load history (past runsheets)
-    const hist = await sb.select("runsheets", `?date=neq.${today}&order=date.desc&limit=30`);
-    if (Array.isArray(hist)) setHistory(hist.map(r => ({
-      date: r.date, notes: r.manager_note || "",
-      lead_printer: r.lead_printer || [], press_assist: r.press_assist || [],
-    })));
-  };
-
-  useEffect(() => {
-    loadJobs();
-    loadRunsheet();
-    // Poll for real-time updates every 5 seconds
-    const stop = sb.poll("jobs", (data) => {
-      setJobs((data || []).map(dbToJob));
-    }, 5000);
-    return stop;
-  }, []);
-
-  // ── Daily auto-reset ──
-  const todayKey = new Date().toISOString().slice(0, 10);
-  useEffect(() => {
-    const lastReset = localStorage.getItem("tnsp_last_reset");
-    if (lastReset && lastReset !== todayKey) {
-      setTodaySheet({ lead_printer: [], press_assist: [] });
-      setTodayNotes("");
-    }
-    localStorage.setItem("tnsp_last_reset", todayKey);
-  }, []);
-
-  // ── Save runsheet to Supabase whenever it changes ──
-  const saveRunsheet = async (sheet, notes) => {
-    const today = new Date().toISOString().slice(0, 10);
-    await sb.upsert("runsheets", {
-      date: today,
-      lead_printer: sheet.lead_printer,
-      press_assist: sheet.press_assist,
-      manager_note: notes,
-      created_by: activeRole,
-    });
-  };
-
-  const updateTodaySheet = (newSheet) => {
-    setTodaySheet(newSheet);
-    saveRunsheet(newSheet, todayNotes);
-  };
-
-  const updateTodayNotes = (notes) => {
-    setTodayNotes(notes);
-    saveRunsheet(todaySheet, notes);
-  };
-
-  // ── Advance job step ──
-  const advanceJob = async (jobId) => {
-    const job = jobs.find(j => j.id === jobId);
-    if (!job) return;
-    const next = getNextStep(job);
-    if (!next) return;
-    // Optimistic update
-    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, currentStep: next.id } : j));
-    notify(`${job.customer} → ${next.label}`);
-    // Write to DB
-    await sb.update("jobs", { current_step: next.id }, { id: jobId });
-    // Log history
-    await sb.insert("job_history", { job_id: jobId, from_step: job.currentStep, to_step: next.id, changed_by: activeRole });
-  };
-
-  // ── Toggle deposit ──
-  const toggleDeposit = async (jobId) => {
-    const job = jobs.find(j => j.id === jobId);
-    if (!job) return;
-    const newVal = !job.depositPaid;
-    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, depositPaid: newVal } : j));
-    notify("Deposit status updated");
-    await sb.update("jobs", { deposit_paid: newVal }, { id: jobId });
-  };
-
-  // ── Toggle urgency ──
-  const toggleUrgency = async (jobId) => {
-    const job = jobs.find(j => j.id === jobId);
-    if (!job) return;
-    const newVal = job.urgency === "rush" ? "normal" : "rush";
-    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, urgency: newVal } : j));
-    await sb.update("jobs", { urgency: newVal }, { id: jobId });
-  };
-
-  // ── Update assignment ──
-  const updateAssign = async (jobId, person) => {
-    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, assignedTo: person } : j));
-    notify(`Job assigned to ${ROLES.find(r => r.id === person)?.label}`);
-    await sb.update("jobs", { assigned_to: person }, { id: jobId });
-  };
-
-  // ── Drag to reprioritize ──
-  const handleDragStart = (jobId) => { dragJob.current = jobId; };
-  const handleDrop = async (targetId) => {
-    if (!dragJob.current || dragJob.current === targetId) return;
-    const sorted = [...jobs].sort((a, b) => a.priority - b.priority);
-    const fromIdx = sorted.findIndex(j => j.id === dragJob.current);
-    const toIdx   = sorted.findIndex(j => j.id === targetId);
-    const moved = sorted.splice(fromIdx, 1)[0];
-    sorted.splice(toIdx, 0, moved);
-    const reordered = sorted.map((j, i) => ({ ...j, priority: i + 1 }));
-    setJobs(reordered);
-    setDragOver(null);
-    dragJob.current = null;
-    // Batch update priorities
-    await Promise.all(reordered.map(j => sb.update("jobs", { priority: j.priority }, { id: j.id })));
-  };
-
-  // ── Add new job ──
-  const addJob = async (job) => {
-    const maxPriority = jobs.length > 0 ? Math.max(...jobs.map(j => j.priority)) : 0;
-    const newJob = { ...job, priority: maxPriority + 1 };
-    const [created] = await sb.insert("jobs", jobToDb(newJob));
-    if (created) {
-      setJobs(prev => [...prev, dbToJob(created)]);
-      notify(`${job.customer} added to queue`);
-    }
-  };
-
-  // ── Reset runsheet ──
-  const resetRunsheet = async () => {
-    const hasJobs = todaySheet.lead_printer.length + todaySheet.press_assist.length > 0;
-    if (hasJobs) {
-      setHistory(prev => [{ date: todayKey, notes: todayNotes, lead_printer: todaySheet.lead_printer, press_assist: todaySheet.press_assist }, ...prev]);
-    }
-    const empty = { lead_printer: [], press_assist: [] };
-    setTodaySheet(empty);
-    setTodayNotes("");
-    await saveRunsheet(empty, "");
-    notify("Runsheet cleared — ready for a new day");
-  };
-
-  // Filter jobs by role
-  const visibleJobs = jobs
-    .filter(j => filterUrgency === "all" || j.urgency === filterUrgency)
-    .filter(j => filterType === "all" || j.type === filterType)
-    .filter(j => {
-      if (activeRole === "lisa") return true;
-      if (activeRole === "brother") return true;
-      return j.assignedTo === activeRole || j.assignedTo === null;
-    })
-    .sort((a, b) => a.priority - b.priority);
-
-  // Stats
-  const rushJobs    = jobs.filter(j=>j.urgency==="rush").length;
-  const overdueJobs = jobs.filter(j=>j.dueDate && daysUntil(j.dueDate)<0).length;
-  const dueThisWeek = jobs.filter(j=>{if(!j.dueDate) return false; const d=daysUntil(j.dueDate);return d>=0&&d<=7;}).length;
-  const noDeposit   = jobs.filter(j=>!j.depositPaid&&j.currentStep!=="quote").length;
-
-  if (loading) return (
-    <div style={{minHeight:"100vh",background:"#0d0d0d",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
-      <div style={{width:42,height:42,background:"#e8c547",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:16,clipPath:"polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)"}}>TN</div>
-      <div style={{color:"#555",fontSize:13,letterSpacing:2}}>LOADING PRODUCTION DATA…</div>
-    </div>
-  );
-
-  if (dbError) return (
-    <div style={{minHeight:"100vh",background:"#0d0d0d",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12,padding:40}}>
-      <div style={{color:"#ff4d4d",fontSize:16,fontWeight:700}}>Database connection error</div>
-      <div style={{color:"#555",fontSize:13,maxWidth:400,textAlign:"center"}}>{dbError}</div>
-      <button style={{padding:"8px 20px",background:"#e8c547",color:"#0d0d0d",border:"none",borderRadius:4,fontWeight:700,cursor:"pointer"}} onClick={loadJobs}>Retry</button>
-    </div>
-  );
-
-  return (
-    <div style={styles.root}>
-      {/* ── Background ── */}
-      <div style={styles.bgGrid} />
-
-      {/* ── Notification ── */}
-      {notification && (
-        <div style={{...styles.notification, background: notification.type==="error"?"#ff4d4d":"#4ec9a0"}}>
-          {notification.msg}
-        </div>
-      )}
-
-      {/* ── Header ── */}
-      <header style={styles.header}>
-        <div style={styles.headerLeft}>
-          <div style={styles.logo}>
-            <span style={styles.logoMark}>TN</span>
-            <div>
-              <div style={styles.logoTitle}>TRUE NORTH</div>
-              <div style={styles.logoSub}>PRODUCTION BOARD</div>
-              <div style={{fontSize:9,color:"#4ec9a0",letterSpacing:1,marginTop:1}}>● LIVE SYNC</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Role switcher */}
-        <div style={styles.roleBar}>
-          {ROLES.map(r => (
-            <button key={r.id}
-              style={{...styles.roleBtn, ...(activeRole===r.id ? {background: r.color, color:"#0d0d0d"} : {})}}
-              onClick={()=>setActiveRole(r.id)}>
-              <span style={styles.roleName}>{r.label}</span>
-              <span style={styles.roleDesc}>{r.desc}</span>
-            </button>
-          ))}
-        </div>
-
-        <button style={styles.addBtn} onClick={()=>setShowAddModal(true)}>
-          + New Job
-        </button>
-      </header>
-
-      {/* ── Stats bar ── */}
-      <div style={styles.statsBar}>
-        {[
-          { label: "Active Jobs",   value: jobs.length,   color: "#7eb8f7" },
-          { label: "Rush",          value: rushJobs,      color: "#ff9f43" },
-          { label: "Due This Week", value: dueThisWeek,   color: "#e8c547" },
-          { label: "Overdue",       value: overdueJobs,   color: "#ff4d4d" },
-          { label: "⚠ No Deposit",  value: noDeposit,    color: "#f79e7e" },
-        ].map(s => (
-          <div key={s.label} style={styles.stat}>
-            <div style={{...styles.statValue, color: s.color}}>{s.value}</div>
-            <div style={styles.statLabel}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Toolbar ── */}
-      <div style={styles.toolbar}>
-        <div style={styles.filters}>
-          <select style={styles.select} value={filterUrgency} onChange={e=>setFilterUrgency(e.target.value)}>
-            <option value="all">All Urgency</option>
-            <option value="rush">Rush Only</option>
-            <option value="normal">Normal Only</option>
-          </select>
-          <select style={styles.select} value={filterType} onChange={e=>setFilterType(e.target.value)}>
-            <option value="all">All Types</option>
-            {JOB_TYPES.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </div>
-        <div style={styles.viewToggle}>
-          {[
-            {id:"board", label:"⬛ Board"},
-            {id:"list",  label:"☰ List"},
-            {id:"today", label:"📋 Today's Run"},
-          ].map(v=>(
-            <button key={v.id} style={{
-              ...styles.viewBtn,
-              ...(view===v.id ? styles.viewBtnActive : {}),
-              ...(v.id==="today" ? {borderColor:"#e8c54760", color: view==="today"?"#0d0d0d":"#e8c547"} : {}),
-              ...(v.id==="today" && view==="today" ? {background:"#e8c547"} : {}),
-            }}
-              onClick={()=>setView(v.id)}>
-              {v.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Main content ── */}
-      <main style={styles.main}>
-        {view === "board" ? (
-          <BoardView jobs={visibleJobs} activeRole={activeRole}
-            onAdvance={advanceJob} onToggleDeposit={toggleDeposit}
-            onToggleUrgency={toggleUrgency} onAssign={updateAssign}
-            onSelect={j=>{setSelectedJob(j);setView("detail");}}
-            dragOver={dragOver} setDragOver={setDragOver}
-            onDragStart={handleDragStart} onDrop={handleDrop} />
-        ) : view === "list" ? (
-          <ListView jobs={visibleJobs} activeRole={activeRole}
-            onAdvance={advanceJob} onToggleDeposit={toggleDeposit}
-            onToggleUrgency={toggleUrgency} onAssign={updateAssign}
-            onSelect={j=>{setSelectedJob(j);setView("detail");}}
-            dragOver={dragOver} setDragOver={setDragOver}
-            onDragStart={handleDragStart} onDrop={handleDrop} />
-        ) : (
-          <TodayView jobs={jobs} activeRole={activeRole}
-            todaySheet={todaySheet} setTodaySheet={updateTodaySheet}
-            todayNotes={todayNotes} setTodayNotes={updateTodayNotes}
-            onAdvance={advanceJob}
-            onSelect={j=>{setSelectedJob(j);setView("detail");}}
-            onReset={resetRunsheet}
-            history={history}
-            notify={notify} />
-        )}
-      </main>
-
-      {/* ── Detail modal ── */}
-      {view==="detail" && selectedJob && (
-        <DetailModal job={jobs.find(j=>j.id===selectedJob.id)||selectedJob}
-          activeRole={activeRole}
-          onAdvance={advanceJob} onToggleDeposit={toggleDeposit}
-          onToggleUrgency={toggleUrgency} onAssign={updateAssign}
-          onClose={()=>{setView("board");setSelectedJob(null);}} />
-      )}
-
-      {/* ── Add job modal ── */}
-      {showAddModal && (
-        <AddJobModal
-          onAdd={(job)=>{
-            addJob(job);
-            setShowAddModal(false);
-          }}
-          onClose={()=>setShowAddModal(false)} />
-      )}
-    </div>
-  );
-}
-
-// ── Board View ───────────────────────────────────────────────────────────────
-function BoardView({ jobs, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onSelect, dragOver, setDragOver, onDragStart, onDrop }) {
-  // Group by workflow stage bucket
-  const buckets = [
-    { key: "pre",        label: "Pre-Production",  steps: ["quote","approved","deposit","blanks"] },
-    { key: "artwork",    label: "Artwork / Setup",  steps: ["seps","burn","digitizing"] },
-    { key: "production", label: "Production",       steps: ["presscheck","sewout","production"] },
-    { key: "done",       label: "Outgoing",         steps: ["shipping"] },
-  ];
-
-  return (
-    <div style={styles.boardGrid}>
-      {buckets.map(bucket => {
-        const bucketJobs = jobs.filter(j => bucket.steps.includes(j.currentStep));
-        return (
-          <div key={bucket.key} style={styles.boardCol}>
-            <div style={styles.boardColHeader}>
-              <span>{bucket.label}</span>
-              <span style={styles.boardCount}>{bucketJobs.length}</span>
-            </div>
-            <div style={styles.boardColBody}>
-              {bucketJobs.length === 0 && (
-                <div style={styles.emptyCol}>No jobs here</div>
-              )}
-              {bucketJobs.map(job => (
-                <JobCard key={job.id} job={job} activeRole={activeRole}
-                  onAdvance={onAdvance} onToggleDeposit={onToggleDeposit}
-                  onToggleUrgency={onToggleUrgency} onAssign={onAssign}
-                  onSelect={onSelect}
-                  isDragOver={dragOver===job.id}
-                  onDragStart={()=>onDragStart(job.id)}
-                  onDragOver={e=>{e.preventDefault();setDragOver(job.id);}}
-                  onDrop={()=>onDrop(job.id)} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── List View ────────────────────────────────────────────────────────────────
-function ListView({ jobs, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onSelect, dragOver, setDragOver, onDragStart, onDrop }) {
-  return (
-    <div style={styles.listView}>
-      <div style={styles.listHeader}>
-        <span style={{width:36}}>#</span>
-        <span style={{flex:2}}>Customer / Product</span>
-        <span style={{flex:1}}>Type</span>
-        <span style={{flex:1.5}}>Current Step</span>
-        <span style={{flex:1}}>Due</span>
-        <span style={{flex:1}}>Assigned</span>
-        <span style={{flex:1}}>Actions</span>
-      </div>
-      {jobs.map(job => (
-        <ListRow key={job.id} job={job} activeRole={activeRole}
-          onAdvance={onAdvance} onToggleDeposit={onToggleDeposit}
-          onToggleUrgency={onToggleUrgency} onAssign={onAssign}
-          onSelect={onSelect}
-          isDragOver={dragOver===job.id}
-          onDragStart={()=>onDragStart(job.id)}
-          onDragOver={e=>{e.preventDefault();setDragOver(job.id);}}
-          onDrop={()=>onDrop(job.id)} />
-      ))}
-    </div>
-  );
-}
-
-// ── Job Card (Board) ─────────────────────────────────────────────────────────
-function JobCard({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onSelect, isDragOver, onDragStart, onDragOver, onDrop }) {
-  const step = getStep(job);
-  const next = getNextStep(job);
-  const pct  = progressPct(job);
-  const days = daysUntil(job.dueDate);
-  const dc   = dueDateColor(job.dueDate);
-  const canAdvance = activeRole === "lisa" || activeRole === "brother" ||
-    (step && step.owner === activeRole);
-
-  return (
-    <div style={{
-      ...styles.card,
-      ...(isDragOver ? styles.cardDragOver : {}),
-      ...(job.urgency==="rush" ? styles.cardRush : {}),
-    }}
-      draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}
-      onClick={()=>onSelect(job)}>
-
-      {/* Priority + urgency */}
-      <div style={styles.cardTop}>
-        <span style={styles.priorityBadge}>#{job.priority}</span>
-        {job.urgency==="rush" && <span style={styles.rushBadge}>RUSH</span>}
-        {!job.depositPaid && <span style={styles.depositBadge}>💰 DEP</span>}
-        <span style={{...styles.typeBadge, background: job.type==="embroidery"?"#7eb8f720":"#f79e7e20",
-          color: job.type==="embroidery"?"#7eb8f7":"#f79e7e"}}>
-          {job.type==="embroidery"?"EMB":"SP"}
-        </span>
-      </div>
-
-      {/* Customer */}
-      <div style={styles.cardCustomer}>{job.customer}</div>
-      <div style={styles.cardProduct}>{job.product} · {job.qty} pcs</div>
-
-      {/* Current step */}
-      <div style={styles.cardStep}>
-        <span style={styles.stepIcon}>{step?.icon}</span>
-        <span style={styles.stepLabel}>{step?.label}</span>
-      </div>
-
-      {/* Progress bar */}
-      <div style={styles.progressBar}>
-        <div style={{...styles.progressFill, width:`${pct}%`,
-          background: pct===100?"#4ec9a0":job.urgency==="rush"?"#ff9f43":"#e8c547"}} />
-      </div>
-
-      {/* Due date */}
-      <div style={{...styles.dueDate, color: dc}}>
-        {days < 0 ? `⚠ ${Math.abs(days)}d overdue` :
-         days === 0 ? "Due today!" :
-         `Due in ${days}d · ${job.dueDate}`}
-      </div>
-
-      {/* Assigned */}
-      {job.assignedTo && (
-        <div style={styles.assignedTag}>
-          <span style={{...styles.assignedDot, background: roleColor(job.assignedTo)}} />
-          {ROLES.find(r=>r.id===job.assignedTo)?.label}
-        </div>
-      )}
-
-      {/* Actions — stop propagation so card click doesn't fire */}
-      {(activeRole==="lisa"||activeRole==="brother") && (
-        <div style={styles.cardActions} onClick={e=>e.stopPropagation()}>
-          {next && canAdvance && (
-            <button style={styles.advanceBtn} onClick={()=>onAdvance(job.id)}>
-              → {next.label}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── List Row ─────────────────────────────────────────────────────────────────
-function ListRow({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onSelect, isDragOver, onDragStart, onDragOver, onDrop }) {
-  const step = getStep(job);
-  const next = getNextStep(job);
-  const days = daysUntil(job.dueDate);
-  const dc   = dueDateColor(job.dueDate);
-
-  return (
-    <div style={{
-      ...styles.listRow,
-      ...(isDragOver ? styles.cardDragOver : {}),
-      ...(job.urgency==="rush" ? {borderLeft:`3px solid #ff9f43`} : {borderLeft:`3px solid transparent`}),
-    }}
-      draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}>
-
-      <span style={{width:36,display:"flex",alignItems:"center",gap:4}}>
-        <span style={styles.priorityBadge}>#{job.priority}</span>
-      </span>
-
-      <span style={{flex:2,cursor:"pointer"}} onClick={()=>onSelect(job)}>
-        <div style={{fontWeight:600,color:"#f0ede8"}}>{job.customer}</div>
-        <div style={{fontSize:12,color:"#888"}}>{job.product} · {job.qty} pcs</div>
-      </span>
-
-      <span style={{flex:1,fontSize:12,color: job.type==="embroidery"?"#7eb8f7":"#f79e7e"}}>
-        {job.type==="embroidery"?"Embroidery":"Screen Print"}
-        {job.type==="screenprint_reprint"?" (Reprint)":""}
-      </span>
-
-      <span style={{flex:1.5}}>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          <span>{step?.icon}</span>
-          <span style={{fontSize:13,color:"#d4d0c8"}}>{step?.label}</span>
-        </div>
-        {!job.depositPaid && <div style={{fontSize:11,color:"#f79e7e"}}>⚠ Deposit pending</div>}
-      </span>
-
-      <span style={{flex:1,fontSize:13,color:dc}}>
-        {days<0 ? `${Math.abs(days)}d over` : `${days}d`}
-        <div style={{fontSize:11,color:"#666"}}>{job.dueDate}</div>
-      </span>
-
-      <span style={{flex:1}} onClick={e=>e.stopPropagation()}>
-        {(activeRole==="lisa"||activeRole==="brother") ? (
-          <select style={styles.assignSelect}
-            value={job.assignedTo||""}
-            onChange={e=>onAssign(job.id,e.target.value)}>
-            <option value="">Unassigned</option>
-            {ROLES.filter(r=>r.id!=="lisa").map(r=>(
-              <option key={r.id} value={r.id}>{r.label}</option>
-            ))}
-          </select>
-        ) : (
-          <span style={{fontSize:13,color:roleColor(job.assignedTo)}}>
-            {ROLES.find(r=>r.id===job.assignedTo)?.label||"—"}
-          </span>
-        )}
-      </span>
-
-      <span style={{flex:1,display:"flex",gap:6}} onClick={e=>e.stopPropagation()}>
-        {next && (activeRole==="lisa"||activeRole==="brother") && (
-          <button style={styles.advanceBtnSm} onClick={()=>onAdvance(job.id)}>→</button>
-        )}
-        <button style={{...styles.advanceBtnSm, background:"#ffffff10"}}
-          onClick={()=>onToggleUrgency(job.id)}>
-          {job.urgency==="rush"?"🔥":"⬜"}
-        </button>
-      </span>
-    </div>
-  );
-}
-
-// ── Detail Modal ─────────────────────────────────────────────────────────────
-function DetailModal({ job, activeRole, onAdvance, onToggleDeposit, onToggleUrgency, onAssign, onClose }) {
-  const steps = WORKFLOW[job.type];
-  const currentIdx = getStepIndex(job);
-  const next = getNextStep(job);
-  const canAdvance = activeRole==="lisa"||activeRole==="brother";
-
-  return (
-    <div style={styles.modalOverlay} onClick={onClose}>
-      <div style={styles.modal} onClick={e=>e.stopPropagation()}>
-        <div style={styles.modalHeader}>
-          <div>
-            <div style={styles.modalOrderNum}>Order #{job.id}</div>
-            <div style={styles.modalCustomer}>{job.customer}</div>
-            <div style={styles.modalProduct}>{job.product} · {job.qty} pcs</div>
-          </div>
-          <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-            {job.urgency==="rush" && <span style={styles.rushBadge}>RUSH</span>}
-            <button style={styles.closeBtn} onClick={onClose}>✕</button>
-          </div>
-        </div>
-
-        {/* Workflow timeline */}
-        <div style={styles.timeline}>
-          {steps.map((step, i) => (
-            <div key={step.id} style={styles.timelineStep}>
-              <div style={{
-                ...styles.timelineDot,
-                background: i < currentIdx ? "#4ec9a0" :
-                            i === currentIdx ? "#e8c547" : "#333",
-                border: i===currentIdx?"2px solid #e8c547":"2px solid transparent",
-              }}>
-                {i < currentIdx ? "✓" : step.icon}
-              </div>
-              {i < steps.length-1 && (
-                <div style={{...styles.timelineLine,
-                  background: i < currentIdx?"#4ec9a0":"#333"}} />
-              )}
-              <div style={{...styles.timelineLabel,
-                color: i===currentIdx?"#e8c547": i<currentIdx?"#4ec9a0":"#555"}}>
-                {step.label}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Details grid */}
-        <div style={styles.detailGrid}>
-          <DetailField label="Job Type" value={JOB_TYPES.find(t=>t.value===job.type)?.label} />
-          <DetailField label="Due Date" value={job.dueDate}
-            valueStyle={{color: dueDateColor(job.dueDate)}} />
-          <DetailField label="Deposit" value={job.depositPaid?"✅ Received":"⚠ Pending"}
-            valueStyle={{color: job.depositPaid?"#4ec9a0":"#f79e7e"}} />
-          <DetailField label="Priority" value={`#${job.priority}`} />
-          <DetailField label="Assigned To"
-            value={ROLES.find(r=>r.id===job.assignedTo)?.label||"Unassigned"} />
-          <DetailField label="Urgency"
-            value={job.urgency==="rush"?"🔥 Rush":"Normal"}
-            valueStyle={{color: job.urgency==="rush"?"#ff9f43":"#888"}} />
-        </div>
-
-        {job.notes && (
-          <div style={styles.notesBox}>
-            <div style={styles.notesLabel}>Notes</div>
-            <div style={styles.notesText}>{job.notes}</div>
-          </div>
-        )}
-
-        {/* Actions */}
-        {canAdvance && (
-          <div style={styles.modalActions}>
-            {next && (
-              <button style={styles.modalAdvanceBtn} onClick={()=>{onAdvance(job.id);onClose();}}>
-                Advance → {next.label}
-              </button>
-            )}
-            <button style={styles.modalSecBtn} onClick={()=>onToggleDeposit(job.id)}>
-              {job.depositPaid?"Mark Deposit Unpaid":"Mark Deposit Paid"}
-            </button>
-            <button style={styles.modalSecBtn} onClick={()=>onToggleUrgency(job.id)}>
-              {job.urgency==="rush"?"Remove Rush Flag":"Mark as Rush 🔥"}
-            </button>
-          </div>
-        )}
-
-        {/* Assign (manager only) */}
-        {(activeRole==="lisa"||activeRole==="brother") && (
-          <div style={styles.assignRow}>
-            <span style={styles.assignLabel}>Assign to:</span>
-            {ROLES.filter(r=>r.id!=="lisa").map(r=>(
-              <button key={r.id}
-                style={{...styles.assignBtn,
-                  background: job.assignedTo===r.id ? r.color+"33" : "#ffffff08",
-                  borderColor: job.assignedTo===r.id ? r.color : "transparent",
-                  color: job.assignedTo===r.id ? r.color : "#888",
-                }}
-                onClick={()=>onAssign(job.id,r.id)}>
-                {r.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DetailField({ label, value, valueStyle }) {
-  return (
-    <div style={styles.detailField}>
-      <div style={styles.detailLabel}>{label}</div>
-      <div style={{...styles.detailValue, ...valueStyle}}>{value}</div>
-    </div>
-  );
-}
-
-// ── Add Job Modal ─────────────────────────────────────────────────────────────
-function AddJobModal({ onAdd, onClose }) {
-  const [form, setForm] = useState({
-    id: `JOB-${Date.now()}`,
-    customer: "", product: "", qty: "",
-    type: "screenprint_new", dueDate: "",
-    urgency: "normal", currentStep: "quote",
-    depositPaid: false, notes: "", assignedTo: null,
+import { useState, useRef, useEffect } from "react";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+const sb = async (method, path, body) => {
+  if (!SUPABASE_URL || SUPABASE_URL === "undefined") {
+    throw new Error(`VITE_SUPABASE_URL is not set — check Netlify environment variables and redeploy.`);
+  }
+  const url = `${SUPABASE_URL}/rest/v1${path}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Prefer": "return=representation",
+    },
+    body: body ? JSON.stringify(body) : undefined,
   });
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Supabase ${res.status} at ${path}: ${text.substring(0,200)}`);
+  return text ? JSON.parse(text) : [];
+};
 
-  const handleSubmit = () => {
-    if (!form.customer || !form.product || !form.dueDate) return;
-    onAdd({...form, qty: parseInt(form.qty)||0});
-  };
+const ALL_SIZES = ["YS","YM","YL","XS","S","M","L","XL","2XL","3XL","One Size"];
+const DEC_TYPES = ["Screen Print","Embroidery","Heat Transfer","DTG","Patch"];
+const PLACEMENT_OPTIONS = ["Left Chest","Right Chest","Centre Front","Full Front","Centre Back","Full Back","Sleeve — Left","Sleeve — Right","Neck / Collar","Left Hip","Right Hip","Shoulder","Custom"];
+const VIEW_OPTIONS = ["Front","Back","Other"];
+const BRANDS = ["Gildan","Comfort Colors","Next Level","Bella+Canvas"];
+const CA_PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
 
-  return (
-    <div style={styles.modalOverlay} onClick={onClose}>
-      <div style={{...styles.modal, maxWidth:500}} onClick={e=>e.stopPropagation()}>
-        <div style={styles.modalHeader}>
-          <div style={styles.modalCustomer}>Add New Job</div>
-          <button style={styles.closeBtn} onClick={onClose}>✕</button>
-        </div>
+const S = {
+  body:    {fontFamily:"'IBM Plex Sans',sans-serif",background:"#f5f0e8",minHeight:"100vh",color:"#0f0f0f"},
+  header:  {background:"#0f0f0f",borderBottom:"3px solid #c8372d",padding:"12px 28px",display:"flex",alignItems:"center",justifyContent:"space-between"},
+  brand:   {fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.7rem",letterSpacing:".08em",color:"#f5f0e8"},
+  bspan:   {color:"#c8372d"},
+  bsub:    {fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".18em",textTransform:"uppercase",color:"#444",marginTop:2},
+  tag:     {fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".14em",textTransform:"uppercase",border:"1px solid #333",color:"#666",padding:"5px 11px"},
+  wrap:    {maxWidth:880,margin:"0 auto",padding:"28px 20px 80px"},
+  sec:     {fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.2rem",letterSpacing:".1em",borderBottom:"2px solid #0f0f0f",paddingBottom:5,marginBottom:14,display:"flex",alignItems:"baseline",gap:10},
+  secn:    {fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",color:"#c8372d"},
+  lbl:     {fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".14em",textTransform:"uppercase",color:"#555",display:"block",marginBottom:3},
+  inp:     {background:"#fffdf8",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"8px 10px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".88rem",color:"#0f0f0f",outline:"none",width:"100%"},
+  sel:     {background:"#fffdf8",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 10px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".84rem",color:"#0f0f0f",outline:"none",width:"100%",appearance:"none"},
+  ta:      {background:"#fffdf8",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 10px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",color:"#0f0f0f",outline:"none",width:"100%",resize:"vertical",minHeight:64},
+  btn:     (v="p")=>({fontFamily:"'IBM Plex Mono',monospace",fontSize:".6rem",letterSpacing:".14em",textTransform:"uppercase",padding:"11px 22px",cursor:"pointer",border:"2px solid #0f0f0f",background:v==="p"?"#0f0f0f":v==="r"?"#c8372d":v==="g"?"#2a7a4b":"transparent",color:v==="o"?"#0f0f0f":"#f5f0e8"}),
+  note:    (t)=>({fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".1em",textTransform:"uppercase",padding:"9px 13px",marginBottom:14,borderLeft:`3px solid ${t==="i"?"#2a5abd":t==="w"?"#b8892e":t==="s"?"#2a7a4b":"#c8372d"}`,background:t==="i"?"#e8f0fe":t==="w"?"#fff8e6":t==="s"?"#e6f4ec":"#fdf0ee",color:t==="i"?"#2a5abd":t==="w"?"#7a5500":t==="s"?"#1b5e38":"#c8372d"}),
+  g2:      {display:"grid",gridTemplateColumns:"1fr 1fr",gap:14},
+  g3:      {display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12},
+  g4:      {display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10},
+  div:     {border:"none",borderTop:"1px solid #d4cdc0",margin:"20px 0"},
+  card:    {background:"#fff",border:"1px solid #d4cdc0",borderLeft:"3px solid #c8372d",padding:"14px 16px",marginBottom:10},
+  prow:    {background:"#fffdf8",border:"1px solid #d4cdc0",borderLeft:"3px solid #c8372d",padding:"12px 14px",marginBottom:10},
+  jcard:   {background:"#fff",border:"1px solid #d4cdc0",padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"},
+};
 
-        <div style={{display:"flex",flexDirection:"column",gap:12,marginTop:16}}>
-          {[
-            ["Customer", "customer", "text"],
-            ["Product / Description", "product", "text"],
-            ["Quantity", "qty", "number"],
-            ["Due Date", "dueDate", "date"],
-            ["Notes", "notes", "text"],
-          ].map(([label, key, type]) => (
-            <label key={key} style={styles.formLabel}>
-              <span style={styles.formLabelText}>{label}</span>
-              <input style={styles.formInput} type={type}
-                value={form[key]} onChange={e=>set(key,e.target.value)} />
-            </label>
-          ))}
+function emptySizes() { return Object.fromEntries(ALL_SIZES.map(s=>[s,{active:false,qty:""}])); }
 
-          <label style={styles.formLabel}>
-            <span style={styles.formLabelText}>Job Type</span>
-            <select style={styles.formInput} value={form.type} onChange={e=>set("type",e.target.value)}>
-              {JOB_TYPES.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </label>
+// ── FINE-TUNE CANVAS ──
+function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
+  const loadedViews = ["front","back","other"].filter(k=>garments[k]);
+  const [viewKey, setViewKey] = useState(loadedViews[0]||"front");
+  const [layers, setLayers] = useState(()=>aiPlan.map((p,i)=>({id:i,placement:p.placement,view:(p.view||"front").toLowerCase(),artId:p.artId,x:p.x||.5,y:p.y||.4,scale:p.scale||20,flipped:false,visible:true})));
+  const [selected, setSelected] = useState(null);
+  const [dragging, setDragging] = useState(false);
+  const [resizing, setResizing] = useState(false);
+  const [dragOX, setDragOX] = useState(0);
+  const [dragOY, setDragOY] = useState(0);
+  const [rsScale, setRsScale] = useState(0);
+  const [rsDist, setRsDist] = useState(0);
+  const canvasRef = useRef(null);
 
-          <label style={styles.formLabel}>
-            <span style={styles.formLabelText}>Starting Step</span>
-            <select style={styles.formInput} value={form.currentStep} onChange={e=>set("currentStep",e.target.value)}>
-              {WORKFLOW[form.type].map(s=><option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
-            </select>
-          </label>
+  useEffect(()=>{ renderCanvas(); },[layers,selected,viewKey,garments,artwork]);
 
-          <label style={styles.formLabel}>
-            <span style={styles.formLabelText}>Urgency</span>
-            <select style={styles.formInput} value={form.urgency} onChange={e=>set("urgency",e.target.value)}>
-              <option value="normal">Normal</option>
-              <option value="rush">Rush 🔥</option>
-            </select>
-          </label>
-
-          <label style={{display:"flex",alignItems:"center",gap:10,color:"#888",fontSize:14}}>
-            <input type="checkbox" checked={form.depositPaid}
-              onChange={e=>set("depositPaid",e.target.checked)} />
-            Deposit already received
-          </label>
-        </div>
-
-        <div style={{display:"flex",gap:10,marginTop:20}}>
-          <button style={styles.modalAdvanceBtn} onClick={handleSubmit}>Add to Queue</button>
-          <button style={styles.modalSecBtn} onClick={onClose}>Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Today's Runsheet View ────────────────────────────────────────────────────
-function TodayView({ jobs, activeRole, todaySheet, setTodaySheet, todayNotes, setTodayNotes, onAdvance, onSelect, onReset, history, notify }) {
-  const isManager = activeRole === "lisa" || activeRole === "brother";
-  const today = new Date().toLocaleDateString("en-CA", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
-
-  const floorRoles = [
-    { id: "lead_printer",  label: "Lead Printer",    color: "#7eb8f7" },
-    { id: "press_assist",  label: "Press Assistant",  color: "#f79e7e" },
-  ];
-
-  // Jobs eligible to assign: not shipped, has a due date, not already in today sheet
-  const assignedIds = [...todaySheet.lead_printer, ...todaySheet.press_assist];
-  const eligible = jobs
-    .filter(j => j.currentStep !== "shipping")
-    .sort((a,b) => a.priority - b.priority);
-
-  const addToRunsheet = (roleId, jobId) => {
-    if (todaySheet[roleId]?.includes(jobId)) return;
-    setTodaySheet(prev => ({ ...prev, [roleId]: [...(prev[roleId]||[]), jobId] }));
-    notify(`Added to ${floorRoles.find(r=>r.id===roleId)?.label}'s runsheet`);
-  };
-
-  const removeFromRunsheet = (roleId, jobId) => {
-    setTodaySheet(prev => ({ ...prev, [roleId]: prev[roleId].filter(id=>id!==jobId) }));
-  };
-
-  const moveUp = (roleId, idx) => {
-    setTodaySheet(prev => {
-      const arr = [...prev[roleId]];
-      if (idx === 0) return prev;
-      [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]];
-      return { ...prev, [roleId]: arr };
+  function renderCanvas() {
+    const canvas=canvasRef.current; if(!canvas) return;
+    const g=garments[viewKey]; if(!g) return;
+    const ctx=canvas.getContext("2d"); const cw=canvas.width,ch=canvas.height;
+    ctx.clearRect(0,0,cw,ch); ctx.fillStyle="#fff"; ctx.fillRect(0,0,cw,ch);
+    ctx.drawImage(g.img,0,0,cw,ch);
+    layers.filter(l=>l.view===viewKey&&l.visible).forEach(l=>{
+      const art=artwork.find(a=>a.id==l.artId); if(!art) return;
+      const aw=(l.scale/100)*cw, ah=aw*(art.img.naturalHeight/art.img.naturalWidth);
+      const ax=l.x*cw, ay=l.y*ch;
+      ctx.save(); ctx.translate(ax,ay); if(l.flipped) ctx.scale(-1,1);
+      ctx.drawImage(art.img,-aw/2,-ah/2,aw,ah); ctx.restore();
+      if(l.id===selected){
+        ctx.save(); ctx.translate(ax,ay);
+        ctx.strokeStyle="rgba(200,55,45,.8)"; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+        ctx.strokeRect(-aw/2-4,-ah/2-4,aw+8,ah+8); ctx.setLineDash([]);
+        [[-aw/2-4,-ah/2-4],[aw/2+4,-ah/2-4],[-aw/2-4,ah/2+4],[aw/2+4,ah/2+4]].forEach(([hx,hy])=>{
+          ctx.fillStyle="#c8372d"; ctx.fillRect(hx-7,hy-7,14,14);
+          ctx.strokeStyle="#fff"; ctx.lineWidth=1.5; ctx.strokeRect(hx-7,hy-7,14,14);
+        });
+        ctx.font=`bold ${Math.max(9,cw*.014)}px IBM Plex Mono,monospace`;
+        ctx.fillStyle="rgba(200,55,45,.9)"; ctx.fillText(l.placement,-aw/2-4,-ah/2-9);
+        ctx.restore();
+      }
     });
-  };
-
-  const moveDown = (roleId, idx) => {
-    setTodaySheet(prev => {
-      const arr = [...prev[roleId]];
-      if (idx === arr.length-1) return prev;
-      [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]];
-      return { ...prev, [roleId]: arr };
-    });
-  };
-
-  // Floor view: just see your own jobs for today
-  if (!isManager) {
-    const myJobs = (todaySheet[activeRole] || []).map(id => jobs.find(j=>j.id===id)).filter(Boolean);
-    return (
-      <div style={todayStyles.root}>
-        <div style={todayStyles.floorHeader}>
-          <div style={todayStyles.floorDate}>{today}</div>
-          <div style={{...todayStyles.floorRoleTag, background: floorRoles.find(r=>r.id===activeRole)?.color+"22",
-            color: floorRoles.find(r=>r.id===activeRole)?.color}}>
-            {floorRoles.find(r=>r.id===activeRole)?.label}
-          </div>
-          <div style={todayStyles.floorTitle}>YOUR JOBS TODAY</div>
-        </div>
-
-        {myJobs.length === 0 ? (
-          <div style={todayStyles.emptyState}>
-            <div style={{fontSize:40, marginBottom:12}}>☕</div>
-            <div style={{color:"#555", fontSize:14}}>No jobs assigned yet — check back soon.</div>
-          </div>
-        ) : (
-          <div style={todayStyles.floorJobList}>
-            {myJobs.map((job, i) => {
-              const step = getStep(job);
-              const next = getNextStep(job);
-              return (
-                <div key={job.id} style={todayStyles.floorJobCard}>
-                  <div style={todayStyles.floorJobNum}>
-                    <span style={todayStyles.floorSeq}>{i+1}</span>
-                    {job.urgency==="rush" && <span style={styles.rushBadge}>RUSH</span>}
-                  </div>
-                  <div style={todayStyles.floorJobMain}>
-                    <div style={todayStyles.floorJobCustomer}>{job.customer}</div>
-                    <div style={todayStyles.floorJobProduct}>{job.product} · {job.qty} pcs</div>
-                    <div style={todayStyles.floorJobStep}>
-                      <span>{step?.icon}</span> {step?.label}
-                    </div>
-                    {job.notes && <div style={todayStyles.floorJobNotes}>{job.notes}</div>}
-                  </div>
-                  <div style={todayStyles.floorJobRight}>
-                    <div style={{...todayStyles.floorDue, color: dueDateColor(job.dueDate)}}>
-                      {daysUntil(job.dueDate) < 0 ? "OVERDUE" :
-                       daysUntil(job.dueDate) === 0 ? "DUE TODAY" :
-                       `${daysUntil(job.dueDate)}d left`}
-                    </div>
-                    {next && (
-                      <button style={todayStyles.floorAdvanceBtn} onClick={()=>onAdvance(job.id)}>
-                        ✓ Mark {next.label}
-                      </button>
-                    )}
-                    <button style={todayStyles.floorDetailBtn} onClick={()=>onSelect(job)}>
-                      Details →
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {todayNotes && (
-          <div style={todayStyles.managerNote}>
-            <div style={todayStyles.managerNoteLabel}>📌 NOTE FROM MANAGER</div>
-            <div style={todayStyles.managerNoteText}>{todayNotes}</div>
-          </div>
-        )}
-      </div>
-    );
   }
 
-  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+  function gpt(e){const r=canvasRef.current.getBoundingClientRect();return{x:(e.clientX-r.left)*canvasRef.current.width/r.width,y:(e.clientY-r.top)*canvasRef.current.height/r.height};}
+  function hitCorner(p,l){
+    const art=artwork.find(a=>a.id==l.artId); if(!art) return false;
+    const cw=canvasRef.current.width,ch=canvasRef.current.height;
+    const aw=(l.scale/100)*cw,ah=aw*(art.img.naturalHeight/art.img.naturalWidth);
+    const ax=l.x*cw,ay=l.y*ch;
+    return [[-aw/2-4,-ah/2-4],[aw/2+4,-ah/2-4],[-aw/2-4,ah/2+4],[aw/2+4,ah/2+4]].some(([hx,hy])=>Math.abs(p.x-(ax+hx))<12&&Math.abs(p.y-(ay+hy))<12);
+  }
+  function hitLayer(p,l){
+    const art=artwork.find(a=>a.id==l.artId); if(!art) return false;
+    const cw=canvasRef.current.width,ch=canvasRef.current.height;
+    const aw=(l.scale/100)*cw,ah=aw*(art.img.naturalHeight/art.img.naturalWidth);
+    const ax=l.x*cw,ay=l.y*ch;
+    return p.x>=ax-aw/2-10&&p.x<=ax+aw/2+10&&p.y>=ay-ah/2-10&&p.y<=ay+ah/2+10;
+  }
+  function onMD(e){
+    const p=gpt(e);
+    if(selected!==null){const sel=layers.find(l=>l.id===selected);if(sel&&sel.view===viewKey&&hitCorner(p,sel)){const cw=canvasRef.current.width,ch=canvasRef.current.height;const dist=Math.sqrt((p.x-sel.x*cw)**2+(p.y-sel.y*ch)**2);setResizing(true);setRsScale(sel.scale);setRsDist(dist);return;}}
+    const vl=layers.filter(l=>l.view===viewKey&&l.visible).reverse();
+    for(const l of vl){if(hitLayer(p,l)){setSelected(l.id);const cw=canvasRef.current.width,ch=canvasRef.current.height;setDragging(true);setDragOX(p.x-l.x*cw);setDragOY(p.y-l.y*ch);return;}}
+    setSelected(null);
+  }
+  function onMM(e){
+    const p=gpt(e);const cw=canvasRef.current.width,ch=canvasRef.current.height;
+    if(resizing&&selected!==null){const sel=layers.find(l=>l.id===selected);if(!sel)return;const dist=Math.sqrt((p.x-sel.x*cw)**2+(p.y-sel.y*ch)**2);if(rsDist>0){const ns=Math.max(2,Math.min(200,rsScale*(dist/rsDist)));setLayers(ls=>ls.map(l=>l.id===selected?{...l,scale:Math.round(ns)}:l));}return;}
+    if(dragging&&selected!==null){setLayers(ls=>ls.map(l=>l.id===selected?{...l,x:Math.max(.05,Math.min(.95,(p.x-dragOX)/cw)),y:Math.max(.05,Math.min(.95,(p.y-dragOY)/ch))}:l));}
+  }
+  function onMU(){setDragging(false);setResizing(false);}
+  function onWhl(e){e.preventDefault();if(selected===null)return;setLayers(ls=>ls.map(l=>l.id===selected?{...l,scale:Math.max(2,Math.min(200,l.scale+(e.deltaY>0?-1:1)))}:l));}
+  function nudge(dx,dy){if(selected===null)return;const cw=canvasRef.current?.width||600,ch=canvasRef.current?.height||700;setLayers(ls=>ls.map(l=>l.id===selected?{...l,x:Math.max(.05,Math.min(.95,l.x+dx/cw)),y:Math.max(.05,Math.min(.95,l.y+dy/ch))}:l));}
+  function scaleStep(d){if(selected===null)return;setLayers(ls=>ls.map(l=>l.id===selected?{...l,scale:Math.max(2,Math.min(200,l.scale+d))}:l));}
+  function handleConfirm(){onConfirm(aiPlan.map((p,i)=>{const l=layers.find(l=>l.id===i);return l?{...p,x:l.x,y:l.y,scale:l.scale}:p;}));}
+  const selL=selected!==null?layers.find(l=>l.id===selected):null;
 
-  // Manager view: build the runsheet
   return (
-    <div style={todayStyles.root}>
-      {showHistoryPanel ? (
-        <HistoryPanel history={history} jobs={jobs} onClose={()=>setShowHistoryPanel(false)} />
-      ) : (
-      <>
-      <div style={todayStyles.managerHeader}>
-        <div>
-          <div style={todayStyles.floorDate}>{today}</div>
-          <div style={todayStyles.managerTitle}>BUILD TODAY'S RUNSHEET</div>
-        </div>
-        <div style={{display:"flex", gap:10, alignItems:"center"}}>
-          {history.length > 0 && (
-            <button style={todayStyles.historyBtn} onClick={()=>setShowHistoryPanel(true)}>
-              📅 History ({history.length})
-            </button>
+    <div>
+      <div style={S.sec}><span style={S.secn}>04</span> Fine-Tune Placements</div>
+      <div style={S.note("i")}>Drag artwork to reposition · Drag corner handles to resize · Scroll to scale</div>
+      <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+        <div style={{flex:1,minWidth:0}}>
+          {loadedViews.length>1&&(
+            <div style={{display:"flex",gap:0,marginBottom:10,border:"1px solid #d4cdc0",width:"fit-content"}}>
+              {loadedViews.map(v=><button key={v} onClick={()=>setViewKey(v)} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:"7px 16px",background:viewKey===v?"#0f0f0f":"transparent",color:viewKey===v?"#f5f0e8":"#888",border:"none",borderRight:v!==loadedViews[loadedViews.length-1]?"1px solid #d4cdc0":"none",cursor:"pointer"}}>{v.charAt(0).toUpperCase()+v.slice(1)}</button>)}
+            </div>
           )}
-          <div style={todayStyles.assignedCount}>
-            {assignedIds.length} jobs assigned
+          <div style={{background:"#111",lineHeight:0}}>
+            <canvas ref={canvasRef} width={640} height={750} style={{maxWidth:"100%",cursor:dragging?"grabbing":resizing?"nwse-resize":"default",display:"block"}} onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU} onWheel={onWhl}/>
           </div>
-          <button style={todayStyles.resetBtn} onClick={onReset}>
-            ↺ Reset Day
-          </button>
+          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+            {[["←",-4,0],["→",4,0],["↑",0,-4],["↓",0,4]].map(([l,dx,dy])=><button key={l} onClick={()=>nudge(dx,dy)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>{l}</button>)}
+            <button onClick={()=>scaleStep(-1)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>− Size</button>
+            <button onClick={()=>scaleStep(1)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>+ Size</button>
+            <button onClick={()=>{if(selected!==null)setLayers(ls=>ls.map(l=>l.id===selected?{...l,flipped:!l.flipped}:l));}} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>⇆ Flip</button>
+          </div>
+        </div>
+        <div style={{width:210,flexShrink:0}}>
+          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".14em",textTransform:"uppercase",color:"#c8372d",marginBottom:8}}>Placements</div>
+          {layers.map(l=>{
+            const art=artwork.find(a=>a.id==l.artId);const isSel=l.id===selected;
+            return <div key={l.id} onClick={()=>{setSelected(l.id);setViewKey(l.view);}} style={{background:isSel?"#0f0f0f":"#fff",border:`1px solid ${isSel?"#c8372d":"#d4cdc0"}`,borderLeft:`3px solid ${isSel?"#c8372d":"#d4cdc0"}`,padding:"8px 10px",marginBottom:6,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+              {art&&<img src={art.dataURL} style={{width:28,height:28,objectFit:"contain",background:"#f5f0e8",padding:2,flexShrink:0}}/>}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".08em",textTransform:"uppercase",color:isSel?"#f5f0e8":"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.placement}</div>
+                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:isSel?"#aaa":"#bbb",marginTop:2}}>{l.view.toUpperCase()} · {Math.round(l.scale)}%</div>
+              </div>
+              <button onClick={e=>{e.stopPropagation();setLayers(ls=>ls.map(x=>x.id===l.id?{...x,visible:!x.visible}:x));}} style={{background:"none",border:"none",color:isSel?"#aaa":"#ccc",fontSize:".72rem",cursor:"pointer",padding:2}}>{l.visible?"👁":"🚫"}</button>
+            </div>;
+          })}
+          {selL&&<div style={{marginTop:12,background:"#fff",border:"1px solid #d4cdc0",padding:"10px 12px"}}>
+            <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#c8372d",marginBottom:8}}>Selected</div>
+            {[["X",Math.round(selL.x*100)+"%"],["Y",Math.round(selL.y*100)+"%"],["Scale",Math.round(selL.scale)+"%"]].map(([k,v])=><div key={k} style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".08em",textTransform:"uppercase",color:"#aaa"}}>{k}</span><span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",color:"#0f0f0f",fontWeight:500}}>{v}</span></div>)}
+          </div>}
+        </div>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:20,flexWrap:"wrap"}}>
+        <button style={S.btn("o")} onClick={onBack}>← Back to AI Review</button>
+        <button style={S.btn()} onClick={handleConfirm}>Looks Good — Generate Final →</button>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [page, setPage] = useState("jobs");
+  // Job intake state
+  const [jobNum, setJobNum] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [decTypes, setDecTypes] = useState([]);
+  const [specialInstructions, setSpecialInstructions] = useState("");
+  const [pressCheck, setPressCheck] = useState(false);
+  const [boldPrint, setBoldPrint] = useState(false);
+  const [vintagePrint, setVintagePrint] = useState(false);
+  // Customer state
+  const [customers, setCustomers] = useState([]);
+  const [custSearch, setCustSearch] = useState("");
+  const [custId, setCustId] = useState(null);
+  const [cust, setCust] = useState({company:"",contact_name:"",email:"",phone:"",address:"",city:"",province:"BC",postal:""});
+  const [custSuggestions, setCustSuggestions] = useState([]);
+  // Garment state
+  const [garmentList, setGarmentList] = useState([]);
+  const [selBrand, setSelBrand] = useState("");
+  const [selStyle, setSelStyle] = useState("");
+  const [selStyleNum, setSelStyleNum] = useState("");
+  const [selColour, setSelColour] = useState("");
+  const [garmentId, setGarmentId] = useState(null);
+  const [garments, setGarments] = useState({front:null,back:null,other:null});
+  const [sizes, setSizes] = useState(emptySizes());
+  // Artwork + placements
+  const [artwork, setArtwork] = useState([]);
+  const [artCounter, setArtCounter] = useState(1);
+  const [placements, setPlacements] = useState([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);
+  const [rowCounter, setRowCounter] = useState(2);
+  // AI + mockup
+  const [aiStatus, setAiStatus] = useState("idle");
+  const [aiPlan, setAiPlan] = useState([]);
+  const [aiIntro, setAiIntro] = useState("");
+  const [aiError, setAiError] = useState("");
+  const [revisionNotes, setRevisionNotes] = useState("");
+  const [mockupBuilt, setMockupBuilt] = useState(false);
+  // Saved jobs
+  const [jobs, setJobs] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [savedJobId, setSavedJobId] = useState(null);
+  const [saveStatus, setSaveStatus] = useState("");
+  const [toast, setToast] = useState("");
+  const [step, setStep] = useState(1);
+  const canvasRef = useRef(null);
+  const exportRef = useRef(null);
+
+  useEffect(()=>{
+    const link=document.createElement("link");link.rel="stylesheet";
+    link.href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap";
+    document.head.appendChild(link);
+  },[]);
+  useEffect(()=>{ if(page==="jobs") loadJobs(); },[page]);
+  useEffect(()=>{ loadGarmentList(); loadCustomers(); },[]);
+
+  function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),2800);}
+
+  // ── JOBS ──
+  async function loadJobs(){
+    setJobsLoading(true);
+    try{const d=await sb("GET","/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date,updated_at&order=updated_at.desc");setJobs(Array.isArray(d)?d:[]);}
+    catch(e){showToast("Could not load jobs");}
+    setJobsLoading(false);
+  }
+
+  async function deleteJob(id,e){
+    e.stopPropagation();if(!confirm("Delete this job?"))return;
+    await sb("DELETE",`/jobs?id=eq.${id}`);setJobs(j=>j.filter(x=>x.id!==id));showToast("Job deleted");
+  }
+
+  function resetAll(){
+    setJobNum("");setDueDate("");setDecTypes([]);setSpecialInstructions("");setPressCheck(false);setBoldPrint(false);setVintagePrint(false);
+    setCustId(null);setCustSearch("");setCust({company:"",contact_name:"",email:"",phone:"",address:"",city:"",province:"BC",postal:""});
+    setSelBrand("");setSelStyle("");setSelStyleNum("");setSelColour("");setGarmentId(null);
+    setGarments({front:null,back:null,other:null});setSizes(emptySizes());
+    setArtwork([]);setArtCounter(1);
+    setPlacements([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(2);
+    setAiPlan([]);setAiStatus("idle");setAiIntro("");setAiError("");setRevisionNotes("");
+    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");
+    setStep(1);setPage("builder");
+  }
+
+  async function newJob(){
+    // Auto-increment job number
+    try{
+      const d=await sb("GET","/settings?key=eq.last_job_num&select=value");
+      const last=parseInt(d?.[0]?.value||"26300");
+      setJobNum(String(last+1));
+      await sb("PATCH","/settings?key=eq.last_job_num",{value:String(last+1)});
+    }catch(e){setJobNum("");}
+    resetAll();
+  }
+
+  // ── CUSTOMERS ──
+  async function loadCustomers(){
+    try{const d=await sb("GET","/customers?select=*&order=company.asc");setCustomers(Array.isArray(d)?d:[]);}catch(e){}
+  }
+
+  function searchCustomers(q){
+    setCustSearch(q);
+    if(!q){setCustSuggestions([]);return;}
+    const matches=customers.filter(c=>(c.company||"").toLowerCase().includes(q.toLowerCase())||(c.contact_name||"").toLowerCase().includes(q.toLowerCase()));
+    setCustSuggestions(matches.slice(0,6));
+  }
+
+  function selectCustomer(c){
+    setCustId(c.id);setCust({company:c.company||"",contact_name:c.contact_name||"",email:c.email||"",phone:c.phone||"",address:c.address||"",city:c.city||"",province:c.province||"BC",postal:c.postal||""});
+    setCustSearch(c.company||c.contact_name||"");setCustSuggestions([]);
+  }
+
+  async function saveCustomer(){
+    try{
+      if(custId){await sb("PATCH",`/customers?id=eq.${custId}`,{...cust,updated_at:new Date().toISOString()});}
+      else{const r=await sb("POST","/customers",cust);if(r?.[0]?.id){setCustId(r[0].id);}}
+      await loadCustomers();
+    }catch(e){}
+  }
+
+  // ── GARMENTS ──
+  async function loadGarmentList(){
+    try{const d=await sb("GET","/garments?select=*&order=brand.asc,style_name.asc");setGarmentList(Array.isArray(d)?d:[]);}
+    catch(e){console.error("loadGarmentList error",e);}
+  }
+
+  const brands=[...new Set(garmentList.map(g=>g.brand))].filter(Boolean);
+  const styles=[...new Set(garmentList.filter(g=>g.brand===selBrand).map(g=>g.style_name))].filter(Boolean);
+  const colours=garmentList.filter(g=>g.brand===selBrand&&g.style_name===selStyle);
+
+  function selectColour(g){
+    setSelColour(g.colour);setGarmentId(g.id);setSelStyleNum(g.style_num||"");
+    // Load garment photos from Supabase storage URLs
+    const newG={front:null,back:null,other:null};
+    const loadImg=(url,view)=>new Promise(res=>{
+      if(!url){res();return;}
+      const img=new Image();img.crossOrigin="anonymous";
+      img.onload=()=>{newG[view]={img,name:view+" view",dataURL:url};res();};
+      img.onerror=()=>res();img.src=url;
+    });
+    Promise.all([loadImg(g.front_url,"front"),loadImg(g.back_url,"back"),loadImg(g.photo_url,"other")]).then(()=>{
+      setGarments({...newG});showToast("Garment loaded");
+    });
+  }
+
+  // ── ARTWORK ──
+  function loadArtFiles(e){
+    Array.from(e.target.files).forEach(file=>{
+      const reader=new FileReader();
+      reader.onload=ev=>{const img=new Image();img.onload=()=>setArtwork(prev=>[...prev,{id:artCounter+prev.length,img,name:file.name,dataURL:ev.target.result}]);img.src=ev.target.result;};
+      reader.readAsDataURL(file);
+    });
+    setArtCounter(c=>c+e.target.files.length);e.target.value="";
+  }
+  function removeArt(id){setArtwork(a=>a.filter(x=>x.id!==id));}
+
+  // ── PLACEMENTS ──
+  function addRow(){setPlacements(p=>[...p,{_id:rowCounter,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(c=>c+1);}
+  function removeRow(id){setPlacements(p=>p.filter(x=>x._id!==id));}
+  function updateRow(id,key,val){setPlacements(p=>p.map(x=>x._id===id?{...x,[key]:val}:x));}
+
+  // ── AI ──
+  async function runAI(){
+    setAiStatus("thinking");setAiPlan([]);setAiIntro("");setAiError("");
+    if(!garments.front){setAiStatus("error");setAiError("No front garment photo loaded. Please select a garment in Step 2.");return;}
+    if(!placements.length){setAiStatus("error");setAiError("Please add at least one placement.");return;}
+    const artNames=artwork.map(a=>`ID ${a.id}: "${a.name.replace(/\.[^.]+$/,"")}"`).join(", ")||"none";
+    const pd=placements.map((p,i)=>{const an=artwork.find(a=>a.id==p.artId)?.name.replace(/\.[^.]+$/,"")||"unassigned";return `Placement ${i+1}:\n  - View: ${p.view}\n  - Position: ${p.placement}\n  - Artwork: "${an}" (ID: ${p.artId||"none"})\n  - Art width: ${p.width||"not specified"} inches\n  - From low collar point: ${p.fromCollar||"not specified"} inches\n  - Decoration: ${p.decType}\n  - Colours: ${p.colours||"not specified"}\n  - Notes: ${p.notes||"none"}`;}).join("\n\n");
+    const lv=Object.entries(garments).filter(([,v])=>v).map(([k])=>k).join(", ");
+    const prompt=`You are a production assistant at True North Screen Printing & Embroidery in Vancouver, BC.
+Interpret this mockup placement brief and return a confirmed placement plan as JSON only.
+
+JOB: ${jobNum||"n/a"} | Client: ${cust.company||"n/a"} | Garment: ${selBrand} ${selStyle}${selStyleNum?` (${selStyleNum})`:""} - ${selColour}
+Loaded views: ${lv}
+
+GARMENT DIMENSIONS (standard Large, laid flat):
+- Chest width: 22 inches | Body length: 30 inches
+
+GARMENT PHOTO CALIBRATION:
+- ~12% blank space above shoulder. Shoulder at y=0.12.
+- Front collar low point: y=0.22. Back collar low point: y=0.19. Hem: y=0.88.
+
+STANDARD POSITIONS: Left Chest: x=0.65,y=0.33 | Right Chest: x=0.32,y=0.33 | Centre Front: x=0.50,y=0.38 | Full Front: x=0.50,y=0.45 | Centre Back: x=0.50,y=0.30 | Full Back: x=0.50,y=0.38
+
+ARTWORK: ${artNames}
+PLACEMENTS:
+${pd}
+${revisionNotes?`REVISION NOTES: ${revisionNotes}`:""}
+
+Instructions:
+1. scale% = (art width / 22) * 100
+2. X: Left Chest=0.65, Right Chest=0.32, Centre=0.50
+3. Y Front: 0.22+(fromCollar/30)*0.66 | Y Back: 0.19+(fromCollar/30)*0.69
+4. Return ONLY valid JSON, no markdown.
+
+{"intro":"summary","placements":[{"placement":"Left Chest","view":"front","artId":1,"artName":"logo","x":0.65,"y":0.33,"scale":15.9,"decType":"Screen Print","colours":"PMS 185","specWidth":"3.5","specFromCollar":"3","notes":""}]}`;
+
+    try{
+      const r=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:prompt}]})});
+      const text=await r.text();if(!r.ok) throw new Error(`Server error ${r.status}: ${text.substring(0,300)}`);
+      let data;try{data=JSON.parse(text);}catch(e){throw new Error("Could not parse server response.");}
+      if(data.error) throw new Error(data.error);
+      const raw=data.content?.find(b=>b.type==="text")?.text||"";
+      if(!raw) throw new Error("Empty response — check ANTHROPIC_API_KEY in Netlify.");
+      const clean=raw.replace(/```json|```/g,"").trim();
+      let plan;try{plan=JSON.parse(clean);}catch(e){throw new Error("AI returned invalid JSON. Try again.");}
+      setAiPlan(plan.placements||[]);setAiIntro(plan.intro||"Placement plan ready.");setAiStatus("done");
+    }catch(err){setAiStatus("error");setAiError(err.message);}
+  }
+
+  function handleFineTuneConfirm(ap){
+    setAiPlan(ap);
+    setStep(6);
+    setTimeout(()=>renderMockup(ap), 150);
+  }
+
+  // ── SAVE JOB ──
+  async function saveJob(status="draft",planOverride){
+    setSaveStatus("saving");
+    try{
+      const garmentUrls={};
+      for(const [view,g] of Object.entries(garments)){
+        if(!g||typeof g.dataURL==="string"&&g.dataURL.startsWith("http")){if(g) garmentUrls[view]=g.dataURL;continue;}
+        const c=document.createElement("canvas");const ratio=Math.min(400/g.img.naturalWidth,1);
+        c.width=Math.round(g.img.naturalWidth*ratio);c.height=Math.round(g.img.naturalHeight*ratio);
+        c.getContext("2d").drawImage(g.img,0,0,c.width,c.height);garmentUrls[view]=c.toDataURL("image/jpeg",.6);
+      }
+      const artData=artwork.map(a=>{const c=document.createElement("canvas");const r=Math.min(300/a.img.naturalWidth,1);c.width=Math.round(a.img.naturalWidth*r);c.height=Math.round(a.img.naturalHeight*r);c.getContext("2d").drawImage(a.img,0,0,c.width,c.height);return{id:a.id,name:a.name,dataURL:c.toDataURL("image/png")};});
+      await saveCustomer();
+      const payload={
+        job_num:jobNum,client:cust.company||cust.contact_name,garment_style:`${selBrand} ${selStyle}`.trim(),garment_colour:selColour,
+        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,bold_print:boldPrint,vintage_print:vintagePrint,
+        customer_id:custId,garment_id:garmentId,
+        shipping_address:{address:cust.address,city:cust.city,province:cust.province,postal:cust.postal},
+        placements,ai_plan:planOverride||aiPlan,sizes,garment_urls:garmentUrls,artwork_data:artData,
+        updated_at:new Date().toISOString(),
+      };
+      if(savedJobId){await sb("PATCH",`/jobs?id=eq.${savedJobId}`,payload);}
+      else{const r=await sb("POST","/jobs",payload);if(r?.[0]?.id)setSavedJobId(r[0].id);}
+      setSaveStatus("saved");showToast(status==="final"?"Saved as final ✓":"Draft saved ✓");
+    }catch(e){setSaveStatus("error");showToast("Save failed: "+e.message);}
+  }
+
+  // ── LOAD JOB ──
+  async function loadJob(jobId){
+    try{
+      const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
+      setJobNum(j.job_num||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);
+      setSavedJobId(j.id);setSaveStatus("saved");setPlacements(j.placements||[]);setAiPlan(j.ai_plan||[]);
+      setAiStatus(j.ai_plan?.length?"done":"idle");setSizes(j.sizes||emptySizes());
+      // Load customer
+      if(j.customer_id){const cd=await sb("GET",`/customers?id=eq.${j.customer_id}&select=*`);if(cd?.[0]){selectCustomer(cd[0]);}}
+      else{setCust({company:j.client||"",contact_name:"",email:"",phone:"",address:(j.shipping_address?.address||""),city:(j.shipping_address?.city||""),province:(j.shipping_address?.province||"BC"),postal:(j.shipping_address?.postal||"")});}
+      // Load garment
+      const gUrls=j.garment_urls||{};const newG={front:null,back:null,other:null};
+      await Promise.all(Object.entries(gUrls).map(([view,url])=>new Promise(res=>{
+        if(!url){res();return;}const img=new Image();img.crossOrigin="anonymous";
+        img.onload=()=>{newG[view]={img,name:view+" view",dataURL:url};res();};img.onerror=()=>res();img.src=url;
+      })));
+      setGarments(newG);
+      // Load garment meta
+      if(j.garment_style){const parts=j.garment_style.split(" ");setSelBrand(parts[0]||"");setSelStyle(parts.slice(1).join(" ")||"");}
+      setSelColour(j.garment_colour||"");setGarmentId(j.garment_id||null);
+      // Restore style num from garment list
+      if(j.garment_id){const gm=garmentList.find(g=>g.id===j.garment_id);if(gm)setSelStyleNum(gm.style_num||"");}
+      // Load artwork
+      const artData=j.artwork_data||[];const newArt=[];
+      await Promise.all(artData.map((a,idx)=>new Promise(res=>{const img=new Image();img.onload=()=>{newArt[idx]={id:a.id,img,name:a.name,dataURL:a.dataURL};res();};img.src=a.dataURL;})));
+      setArtwork(newArt.filter(Boolean));if(newArt.length)setArtCounter(Math.max(...newArt.map(a=>a.id))+1);
+      setStep(1);setPage("builder");showToast("Job loaded");
+    }catch(e){showToast("Could not load job: "+e.message);}
+  }
+
+  // ── MOCKUP ──
+  function renderMockup(planOverride){
+    const plan = planOverride || aiPlan;
+    const lv=["front","back","other"].filter(k=>garments[k]);if(!lv.length)return;
+    const GAP=14;const vcs=lv.map(k=>buildVC(k,plan)).filter(Boolean);
+    const tw=vcs.reduce((s,c)=>s+c.width,0)+(vcs.length-1)*GAP;const mh=Math.max(...vcs.map(c=>c.height));
+    const specC=buildSpec(mh);const comb=document.createElement("canvas");
+    comb.width=tw+GAP+specC.width;comb.height=mh;const cc=comb.getContext("2d");
+    cc.fillStyle="#ede8df";cc.fillRect(0,0,comb.width,comb.height);
+    let xOff=0;vcs.forEach(vc=>{cc.drawImage(vc,xOff,Math.round((mh-vc.height)/2));xOff+=vc.width+GAP;});
+    cc.drawImage(specC,xOff,0);exportRef.current=comb;
+    const canvas=canvasRef.current;if(!canvas)return;
+    canvas.width=comb.width;canvas.height=comb.height;canvas.getContext("2d").drawImage(comb,0,0);setMockupBuilt(true);
+  }
+
+  function buildVC(vk, plan){
+    const activePlan = plan || aiPlan;
+    const g=garments[vk];if(!g)return null;const img=g.img;
+    const r=Math.min(680/img.naturalWidth,800/img.naturalHeight);
+    const vw=Math.round(img.naturalWidth*r),vh=Math.round(img.naturalHeight*r);
+    const vc=document.createElement("canvas");vc.width=vw;vc.height=vh;const vx=vc.getContext("2d");
+    vx.fillStyle="#fff";vx.fillRect(0,0,vw,vh);vx.drawImage(img,0,0,vw,vh);
+    activePlan.filter(p=>(p.view||"front").toLowerCase()===vk).forEach(p=>{
+      const art=artwork.find(a=>a.id==p.artId);if(!art)return;
+      const aw=(Math.max(2,Math.min(200,p.scale||22))/100)*vw,ah=aw*(art.img.naturalHeight/art.img.naturalWidth);
+      vx.save();vx.translate((p.x||.5)*vw,(p.y||.4)*vh);vx.drawImage(art.img,-aw/2,-ah/2,aw,ah);vx.restore();
+    });
+    const fs=Math.max(10,vw*.018);
+    vx.fillStyle="rgba(0,0,0,.5)";vx.fillRect(0,0,vw,fs*1.8);
+    vx.font=`500 ${fs*.88}px IBM Plex Mono,monospace`;vx.fillStyle="rgba(245,240,232,.9)";vx.fillText(vk.toUpperCase()+" VIEW",10,fs*1.3);
+    vx.fillStyle="rgba(0,0,0,.38)";vx.fillRect(0,vh-fs*2.8,vw,fs*2.8);
+    vx.font=`500 ${fs*.9}px IBM Plex Mono,monospace`;vx.fillStyle="rgba(245,240,232,.82)";vx.fillText("TRUE NORTH SCREEN PRINTING",10,vh-fs*1.75);
+    vx.font=`${fs*.74}px IBM Plex Mono,monospace`;vx.fillStyle="rgba(200,55,45,.85)";
+    const meta=[jobNum&&"JOB #"+jobNum,cust.company&&cust.company.toUpperCase()].filter(Boolean).join("  .  ");
+    if(meta)vx.fillText(meta,10,vh-fs*.78);return vc;
+  }
+
+  function buildSpec(height){
+    const PW=400;const sc=document.createElement("canvas");sc.width=PW;sc.height=height;const sx=sc.getContext("2d");
+    sx.fillStyle="#f5f0e8";sx.fillRect(0,0,PW,height);sx.fillStyle="#c8372d";sx.fillRect(0,0,3,height);
+    sx.fillStyle="#0f0f0f";sx.fillRect(0,0,PW,66);
+    sx.font="bold 24px Bebas Neue,sans-serif";sx.fillStyle="#f5f0e8";sx.fillText("TRUE NORTH",14,27);
+    sx.font="10px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText("SCREEN PRINTING & EMBROIDERY",14,44);
+    sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#555";sx.fillText("PLACEMENT SPECIFICATION SHEET",14,59);
+    let y=82;
+    const mr=(k,v)=>{sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#aaa";sx.fillText(k.toUpperCase(),14,y);sx.font="500 11px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(v||"",115,y);y+=17;};
+    if(jobNum)mr("Job #",jobNum);if(cust.company)mr("Client",cust.company);if(cust.contact_name)mr("Contact",cust.contact_name);
+    if(cust.email)mr("Email",cust.email);if(cust.phone)mr("Phone",cust.phone);
+    const ga=[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`,selColour].filter(Boolean).join(" ");if(ga)mr("Garment",ga);
+    if(dueDate)mr("Due Date",new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}));
+    if(decTypes.length)mr("Decoration",decTypes.join(", "));
+    // Production flags
+    const flags=[];
+    if(pressCheck) flags.push("PRESS CHECK REQUIRED");
+    if(boldPrint) flags.push("BOLD PRINT");
+    if(vintagePrint) flags.push("VINTAGE / DISTRESSED");
+    if(flags.length) mr("Print Options", flags.join("  |  "));
+    const lv=Object.entries(garments).filter(([,v])=>v).map(([k])=>k.charAt(0).toUpperCase()+k.slice(1));
+    if(lv.length)mr("Views",lv.join(" + "));
+    // Sizes
+    const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
+    if(asSizes.length){
+      const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
+      mr("Total Units",String(total));
+      sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#aaa";sx.fillText("SIZE BREAKDOWN",14,y);
+      const sstr=asSizes.map(s=>`${s}:${sizes[s].qty}`).join("  ");
+      sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#0f0f0f";
+      let line="";let ly=y;const words=sstr.split("  ");
+      words.forEach(w=>{const t=line?line+"  "+w:w;if(sx.measureText(t).width>PW-30&&line){sx.fillText(line,14,ly+12);line=w;ly+=13;}else{line=t;}});
+      if(line)sx.fillText(line,14,ly+12);y=ly+26;
+    }
+    if(specialInstructions){mr("Notes",specialInstructions.substring(0,60));}
+    y+=4;sx.fillStyle="#d4cdc0";sx.fillRect(14,y,PW-28,1);y+=12;
+    aiPlan.forEach((p,i)=>{
+      const ch=ehH(p);
+      sx.fillStyle="#fff";sx.fillRect(11,y-2,PW-22,ch+6);sx.strokeStyle="#e0dbd3";sx.lineWidth=1;sx.strokeRect(11,y-2,PW-22,ch+6);sx.fillStyle="#c8372d";sx.fillRect(11,y-2,3,ch+6);
+      sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(`PLACEMENT ${i+1} - ${(p.view||"FRONT").toUpperCase()}`,20,y+11);
+      sx.font="bold 13px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(p.placement||"",20,y+26);
+      if(p.decType){sx.fillStyle="rgba(200,55,45,.12)";const tw=sx.measureText(p.decType.toUpperCase()).width+10;sx.fillRect(20,y+30,tw,13);sx.font="8px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(p.decType.toUpperCase(),25,y+40);}
+      let ry=y+(p.decType?50:38);
+      const sr=(k,v)=>{if(!v)return;sx.font="8px IBM Plex Mono,monospace";sx.fillStyle="#999";sx.fillText(k.toUpperCase(),20,ry);sx.font="11px IBM Plex Sans,sans-serif";sx.fillStyle="#222";const words=v.split(" ");let line="";const mw=PW-155;words.forEach(w=>{const t=line?line+" "+w:w;if(sx.measureText(t).width>mw&&line){sx.fillText(line,128,ry);line=w;ry+=13;}else{line=t;}});if(line)sx.fillText(line,128,ry);ry+=15;};
+      if(p.artName)sr("Artwork",p.artName);if(p.specWidth)sr("Art Width",p.specWidth+'"');if(p.specFromCollar)sr("From Collar",p.specFromCollar+'"');if(p.colours)sr("Colours",p.colours);if(p.notes)sr("Notes",p.notes);
+      y+=ch+13;
+    });
+    const fY=height-24;sx.fillStyle="#0f0f0f";sx.fillRect(0,fY,PW,24);
+    sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#555";
+    sx.fillText("truenorthscreenprinting.ca - Vancouver, BC",14,fY+15);
+    sx.fillText(new Date().toLocaleDateString("en-CA"),PW-66,fY+15);
+    return sc;
+  }
+
+  function buildWorkOrder(){
+    // A4-ish printable work order canvas
+    const PW=860,PH=1100;const wc=document.createElement("canvas");wc.width=PW;wc.height=PH;const wx=wc.getContext("2d");
+    wx.fillStyle="#ffffff";wx.fillRect(0,0,PW,PH);
+    // Header band
+    wx.fillStyle="#0f0f0f";wx.fillRect(0,0,PW,80);
+    wx.font="bold 44px Bebas Neue,sans-serif";wx.fillStyle="#f5f0e8";wx.fillText("TRUE NORTH",24,52);
+    wx.font="12px IBM Plex Mono,monospace";wx.fillStyle="#c8372d";wx.fillText("SCREEN PRINTING & EMBROIDERY  |  PRODUCTION WORK ORDER",24,68);
+    // Rush / job number top right
+    wx.font="bold 22px Bebas Neue,sans-serif";wx.fillStyle="#c8372d";wx.textAlign="right";wx.fillText(`JOB #${jobNum||""}`,PW-24,48);
+    wx.font="10px IBM Plex Mono,monospace";wx.fillStyle="#888";wx.fillText(new Date().toLocaleDateString("en-CA"),PW-24,66);
+    wx.textAlign="left";
+    let y=104;
+    function section(title){wx.fillStyle="#f5f0e8";wx.fillRect(0,y,PW,22);wx.fillStyle="#c8372d";wx.fillRect(0,y,4,22);wx.font="bold 13px Bebas Neue,sans-serif";wx.fillStyle="#0f0f0f";wx.letterSpacing="2px";wx.fillText(title,12,y+15);wx.letterSpacing="0px";y+=30;}
+    function row(k,v,col2k,col2v){
+      wx.font="8px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.fillText(k.toUpperCase(),24,y);
+      wx.font="12px IBM Plex Sans,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(v||"",24,y+14);
+      if(col2k){wx.font="8px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.fillText(col2k.toUpperCase(),PW/2+20,y);wx.font="12px IBM Plex Sans,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(col2v||"",PW/2+20,y+14);}
+      y+=32;
+    }
+    section("CUSTOMER & JOB");
+    row("Client",cust.company||cust.contact_name,"Contact",cust.contact_name);
+    row("Email",cust.email,"Phone",cust.phone);
+    row("Ship To",[cust.address,cust.city,cust.province,cust.postal].filter(Boolean).join(", "),"Due Date",dueDate?new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}):"");
+    section("GARMENT");
+    row("Style",[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" "),"Colour",selColour);
+    row("Decoration",decTypes.join(", "),"","");
+    // Sizes table
+    section("SIZES & QUANTITIES");
+    const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
+    if(asSizes.length){
+      const colW=Math.floor((PW-48)/asSizes.length);
+      // Header row
+      wx.fillStyle="#f5f0e8";wx.fillRect(24,y,PW-48,24);
+      asSizes.forEach((s,i)=>{wx.font="bold 10px IBM Plex Mono,monospace";wx.fillStyle="#0f0f0f";wx.fillText(s,24+i*colW+8,y+16);});
+      y+=24;
+      wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,32);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,32);
+      asSizes.forEach((s,i)=>{wx.font="bold 16px IBM Plex Sans,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(sizes[s].qty,24+i*colW+8,y+22);});
+      y+=32;
+      const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
+      wx.font="bold 12px IBM Plex Mono,monospace";wx.fillStyle="#c8372d";wx.fillText(`TOTAL: ${total} UNITS`,24,y+16);y+=28;
+    }
+    // Placements
+    section("PRINT / EMBROIDERY PLACEMENTS");
+    aiPlan.forEach((p,i)=>{
+      wx.fillStyle="#f5f0e8";wx.fillRect(24,y,PW-48,20);wx.fillStyle="#c8372d";wx.fillRect(24,y,3,20);
+      wx.font="bold 10px IBM Plex Mono,monospace";wx.fillStyle="#c8372d";wx.fillText(`PLACEMENT ${i+1} - ${(p.view||"FRONT").toUpperCase()} - ${p.placement||""}`,30,y+14);y+=22;
+      wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,56);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,56);
+      const cols=[[`Artwork: ${p.artName||""}`],[`Art Width: ${p.specWidth?p.specWidth+'"':""}`],[`From Collar: ${p.specFromCollar?p.specFromCollar+'"':""}`],[`Colours: ${p.colours||""}`]];
+      cols.forEach(([txt],ci)=>{wx.font="10px IBM Plex Sans,sans-serif";wx.fillStyle="#333";wx.fillText(txt,(PW-48)/4*ci+30,y+20);});
+      if(p.notes){wx.font="italic 10px IBM Plex Sans,sans-serif";wx.fillStyle="#666";wx.fillText("Notes: "+p.notes,30,y+44);}
+      y+=60;
+    });
+    // Production flags banner
+    if(pressCheck||boldPrint||vintagePrint){
+      wx.fillStyle="#0f0f0f";wx.fillRect(0,y,PW,36);
+      let flagText="";
+      if(pressCheck) flagText+="⚠ PRESS CHECK REQUIRED    ";
+      if(boldPrint) flagText+="BOLD PRINT    ";
+      if(vintagePrint) flagText+="VINTAGE / DISTRESSED";
+      wx.font="bold 13px IBM Plex Mono,monospace";wx.fillStyle=pressCheck?"#c8372d":"#f5f0e8";
+      wx.fillText(flagText.trim(),24,y+24);y+=44;
+    }
+    // Special instructions
+    if(specialInstructions){
+      section("SPECIAL INSTRUCTIONS");
+      wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,50);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,50);
+      wx.font="11px IBM Plex Sans,sans-serif";wx.fillStyle="#333";wx.fillText(specialInstructions,30,y+20);y+=54;
+    }
+    // Ink swatch + sign-off row
+    y=Math.max(y,PH-180);
+    section("QC & SIGN-OFF");
+    // Ink swatch box (4x4 inches at ~96dpi = 384px, but we scale to fit)
+    const swatchSize = 110;
+    wx.fillStyle="#fff";wx.fillRect(24,y,swatchSize,swatchSize);
+    wx.strokeStyle="#0f0f0f";wx.lineWidth=1.5;wx.strokeRect(24,y,swatchSize,swatchSize);
+    // Diagonal lines to show it's empty
+    wx.strokeStyle="#e0dbd3";wx.lineWidth=1;
+    wx.beginPath();wx.moveTo(24,y);wx.lineTo(24+swatchSize,y+swatchSize);wx.stroke();
+    wx.beginPath();wx.moveTo(24+swatchSize,y);wx.lineTo(24,y+swatchSize);wx.stroke();
+    wx.font="8px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.textAlign="center";
+    wx.fillText("INK SWATCH",24+swatchSize/2,y+swatchSize+12);
+    wx.fillText("(apply sample here)",24+swatchSize/2,y+swatchSize+24);
+    wx.textAlign="left";
+    // Sign-off lines to the right of swatch
+    const soy = y+20;
+    wx.fillStyle="#d4cdc0";wx.fillRect(160,soy+20,280,1);wx.fillRect(160,soy+70,280,1);wx.fillRect(160,soy+120,280,1);
+    wx.font="8px IBM Plex Mono,monospace";wx.fillStyle="#aaa";
+    wx.fillText("PRODUCTION SIGN-OFF",160,soy+32);
+    wx.fillText("QC CHECK",160,soy+82);
+    wx.fillText("DATE COMPLETED",160,soy+132);
+    y+=swatchSize+40;
+    return wc;
+  }
+
+  function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13;return Math.max(h,55);}
+
+  function exportPNG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=exportRef.current.toDataURL("image/png");a.click();}
+  function exportJPG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.jpg`;a.href=exportRef.current.toDataURL("image/jpeg",.93);a.click();}
+  async function exportWorkOrder(){
+    try {
+      // Ensure fonts are loaded before drawing to canvas
+      await document.fonts.ready;
+      const wo = buildWorkOrder();
+      if (!wo) { showToast("Could not build work order"); return; }
+      const a = document.createElement("a");
+      a.download = `TNSP-WorkOrder-${jobNum||"draft"}.png`;
+      a.href = wo.toDataURL("image/png");
+      a.click();
+    } catch(e) { showToast("Work order error: " + e.message); }
+  }
+
+  const safeSizes = { ...emptySizes(), ...sizes };
+  const totalUnits=ALL_SIZES.filter(s=>safeSizes[s]?.active).reduce((sum,s)=>sum+(parseInt(safeSizes[s].qty)||0),0);
+
+  // ══════════════════════════════════════════
+  //  RENDER
+  // ══════════════════════════════════════════
+  return (
+    <div style={S.body}>
+      <div style={S.header}>
+        <div><div style={S.brand}>TRUE<span style={S.bspan}>NORTH</span></div><div style={S.bsub}>Screen Printing & Embroidery</div></div>
+        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+          {page==="builder"&&<button style={{...S.tag,cursor:"pointer",color:"#aaa"}} onClick={()=>setPage("jobs")}>← All Jobs</button>}
+          <div style={S.tag}>Job Builder</div>
         </div>
       </div>
 
-      {/* Manager note */}
-      <div style={todayStyles.noteArea}>
-        <div style={todayStyles.noteLabelRow}>
-          <span style={todayStyles.noteAreaLabel}>📌 Note to floor team</span>
-          <span style={{fontSize:11,color:"#555"}}>Visible to all floor roles</span>
+      {/* ══ JOBS PAGE ══ */}
+      {page==="jobs"&&(
+        <div style={S.wrap}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+            <div style={S.sec}><span style={S.secn}>✦</span> Jobs</div>
+            <button style={S.btn("r")} onClick={newJob}>+ New Job</button>
+          </div>
+          {jobsLoading&&<div style={S.note("i")}>Loading...</div>}
+          {!jobsLoading&&jobs.length===0&&<div style={S.note("i")}>No jobs yet — click New Job to get started.</div>}
+          {jobs.map(j=>(
+            <div key={j.id} style={S.jcard} onClick={()=>loadJob(j.id)}
+              onMouseEnter={e=>e.currentTarget.style.borderColor="#c8372d"}
+              onMouseLeave={e=>e.currentTarget.style.borderColor="#d4cdc0"}>
+              <div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.15rem",letterSpacing:".06em"}}>
+                  {j.client||"Unnamed"}
+                  {j.job_num&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",color:"#c8372d",marginLeft:10}}>#{j.job_num}</span>}
+                </div>
+                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",color:"#aaa",marginTop:2}}>
+                  {j.garment_style}{j.garment_colour?" - "+j.garment_colour:""}
+                  {j.due_date&&<span style={{marginLeft:10,color:"#888"}}>Due: {new Date(j.due_date+"T00:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"})}</span>}
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",padding:"3px 8px",background:j.status==="final"?"#e6f4ec":"#fff8e6",color:j.status==="final"?"#2a7a4b":"#7a5500",border:`1px solid ${j.status==="final"?"#2a7a4b":"#b8892e"}`}}>{j.status||"draft"}</span>
+                <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>✕</button>
+              </div>
+            </div>
+          ))}
+          {/* Garment library manager */}
+          <hr style={S.div}/>
+          <div style={S.sec}><span style={S.secn}>⚙</span> Garment Library</div>
+          <div style={S.note("i")}>Add garments here so they appear in the job builder dropdown. Upload front + back photos to Supabase storage and paste the public URLs.</div>
+          <GarmentManager garmentList={garmentList} onRefresh={loadGarmentList}/>
         </div>
-        <textarea style={todayStyles.noteTextarea}
-          placeholder="e.g. Start with rush jobs first. Ink mix for Pac Surf is in the back cabinet. Check with Andrew before lunch."
-          value={todayNotes} onChange={e=>setTodayNotes(e.target.value)} rows={2} />
-      </div>
+      )}
 
-      <div style={todayStyles.managerGrid}>
-        {/* Left: job pool */}
-        <div style={todayStyles.jobPool}>
-          <div style={todayStyles.poolHeader}>ALL ACTIVE JOBS · Drag or click + to assign</div>
-          {eligible.map(job => {
-            const step = getStep(job);
-            const alreadyIn = assignedIds.includes(job.id);
-            return (
-              <div key={job.id} style={{...todayStyles.poolJob, opacity: alreadyIn?0.35:1}}>
-                <div style={todayStyles.poolJobLeft}>
-                  <span style={styles.priorityBadge}>#{job.priority}</span>
-                  {job.urgency==="rush" && <span style={styles.rushBadge}>RUSH</span>}
-                  <div>
-                    <div style={todayStyles.poolJobCustomer}>{job.customer}</div>
-                    <div style={todayStyles.poolJobProduct}>{job.product} · {step?.icon} {step?.label}</div>
+      {/* ══ BUILDER PAGE ══ */}
+      {page==="builder"&&(
+        <>
+          {/* Step tabs */}
+          <div style={{display:"flex",background:"#0f0f0f",borderBottom:"2px solid #0f0f0f"}}>
+            {[["01","Intake"],["02","Garment"],["03","Artwork"],["04","AI Review"],["05","Fine-Tune"],["06","Export"]].map(([n,lbl],i)=>(
+              <div key={i} style={{flex:1,padding:"10px 12px",borderRight:"1px solid #2a2a2a",background:step===i+1?"#1a1a1a":step>i+1?"#111":"transparent",cursor:"pointer"}} onClick={()=>step>i+1&&setStep(i+1)}>
+                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".14em",textTransform:"uppercase",color:step===i+1?"#c8372d":"#3a3a3a"}}>{`Step ${n}`}</div>
+                <div style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".76rem",fontWeight:500,color:step===i+1?"#f5f0e8":step>i+1?"#3a3a3a":"#555",marginTop:2}}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={S.wrap}>
+
+            {/* ── STEP 1: INTAKE ── */}
+            {step===1&&(
+              <div>
+                <div style={S.sec}><span style={S.secn}>01</span> Job Intake</div>
+                <div style={S.g2}>
+                  <div><label style={S.lbl}>Job # <span style={{color:"#c8372d"}}>*</span></label><input style={S.inp} value={jobNum} onChange={e=>setJobNum(e.target.value)} placeholder="Auto-filled"/></div>
+                  <div><label style={S.lbl}>Due Date</label><input type="date" style={S.inp} value={dueDate} onChange={e=>setDueDate(e.target.value)}/></div>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <label style={S.lbl}>Decoration Type(s)</label>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {DEC_TYPES.map(t=>(
+                      <label key={t} style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",padding:"6px 12px",border:`1px solid ${decTypes.includes(t)?"#c8372d":"#d4cdc0"}`,background:decTypes.includes(t)?"#fdf0ee":"#fffdf8"}}>
+                        <input type="checkbox" checked={decTypes.includes(t)} onChange={e=>setDecTypes(d=>e.target.checked?[...d,t]:d.filter(x=>x!==t))} style={{accentColor:"#c8372d"}}/>
+                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".1em",textTransform:"uppercase",color:decTypes.includes(t)?"#c8372d":"#666"}}>{t}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
-                {!alreadyIn && (
-                  <div style={todayStyles.poolBtns}>
-                    {floorRoles.map(r => (
-                      <button key={r.id} style={{...todayStyles.poolAssignBtn, borderColor:r.color+"60", color:r.color}}
-                        onClick={()=>addToRunsheet(r.id, job.id)}>
-                        + {r.label.split(" ")[0]}
-                      </button>
+                <div style={{marginBottom:14}}>
+                  <label style={S.lbl}>Production Options</label>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    {[
+                      [pressCheck, setPressCheck, "Press Check Required", "⚠", "#c8372d"],
+                      [boldPrint, setBoldPrint, "Bold Print", "B", "#0f0f0f"],
+                      [vintagePrint, setVintagePrint, "Vintage / Distressed", "V", "#7a5500"],
+                    ].map(([val, setter, label, icon, activeColor])=>(
+                      <label key={label} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"10px 14px",border:`2px solid ${val?activeColor:"#d4cdc0"}`,background:val?"#fdf8f0":"#fffdf8",transition:"all .15s"}}>
+                        <input type="checkbox" checked={val} onChange={e=>setter(e.target.checked)} style={{accentColor:activeColor,width:15,height:15}}/>
+                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:val?activeColor:"#888",fontWeight:val?600:400}}>{icon} {label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div style={{marginBottom:14}}><label style={S.lbl}>Special Instructions</label><textarea style={S.ta} value={specialInstructions} onChange={e=>setSpecialInstructions(e.target.value)} placeholder="Any special notes for production..."/></div>
+
+                <hr style={S.div}/>
+                <div style={S.sec}><span style={S.secn}>+</span> Customer</div>
+                <div style={{position:"relative",marginBottom:14}}>
+                  <label style={S.lbl}>Search Existing Customers</label>
+                  <input style={S.inp} value={custSearch} onChange={e=>searchCustomers(e.target.value)} placeholder="Type company or contact name..."/>
+                  {custSuggestions.length>0&&(
+                    <div style={{position:"absolute",top:"100%",left:0,right:0,background:"#fff",border:"1px solid #d4cdc0",zIndex:100,boxShadow:"0 4px 12px rgba(0,0,0,.1)"}}>
+                      {custSuggestions.map(c=>(
+                        <div key={c.id} onClick={()=>selectCustomer(c)} style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f0ece4",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".86rem"}} onMouseEnter={e=>e.currentTarget.style.background="#f5f0e8"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                          <strong>{c.company}</strong>{c.contact_name&&<span style={{color:"#888",marginLeft:8,fontSize:".8rem"}}>{c.contact_name}</span>}
+                          {c.email&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",color:"#aaa"}}>{c.email}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div style={S.g2}>
+                  <div><label style={S.lbl}>Company Name</label><input style={S.inp} value={cust.company} onChange={e=>setCust(c=>({...c,company:e.target.value}))} placeholder="e.g. Coastal Fitness Co."/></div>
+                  <div><label style={S.lbl}>Contact Name</label><input style={S.inp} value={cust.contact_name} onChange={e=>setCust(c=>({...c,contact_name:e.target.value}))} placeholder="e.g. Jamie Lee"/></div>
+                  <div><label style={S.lbl}>Email</label><input style={S.inp} value={cust.email} onChange={e=>setCust(c=>({...c,email:e.target.value}))} placeholder="jamie@example.com"/></div>
+                  <div><label style={S.lbl}>Phone</label><input style={S.inp} value={cust.phone} onChange={e=>setCust(c=>({...c,phone:e.target.value}))} placeholder="604-000-0000"/></div>
+                </div>
+                <div style={{marginBottom:14}}><label style={S.lbl}>Shipping Address</label><input style={S.inp} value={cust.address} onChange={e=>setCust(c=>({...c,address:e.target.value}))} placeholder="Street address"/></div>
+                <div style={S.g3}>
+                  <div><label style={S.lbl}>City</label><input style={S.inp} value={cust.city} onChange={e=>setCust(c=>({...c,city:e.target.value}))} placeholder="Vancouver"/></div>
+                  <div><label style={S.lbl}>Province</label><select style={S.sel} value={cust.province} onChange={e=>setCust(c=>({...c,province:e.target.value}))}>{CA_PROVINCES.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
+                  <div><label style={S.lbl}>Postal Code</label><input style={S.inp} value={cust.postal} onChange={e=>setCust(c=>({...c,postal:e.target.value}))} placeholder="V6B 1A1"/></div>
+                </div>
+                <div style={{display:"flex",gap:10,marginTop:24}}>
+                  <button style={S.btn()} onClick={()=>{loadGarmentList();setStep(2);}}>Next - Garment Selection →</button>
+                  <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
+                </div>
+              </div>
+            )}
+
+            {/* ── STEP 2: GARMENT ── */}
+            {step===2&&(
+              <div>
+                <div style={S.sec}><span style={S.secn}>02</span> Garment Selection</div>
+                <div style={S.note("i")}>Select brand, style, and colour — garment photos load automatically from the library.</div>
+                <div style={S.g3}>
+                  <div>
+                    <label style={S.lbl}>Brand</label>
+                    <select style={S.sel} value={selBrand} onChange={e=>{setSelBrand(e.target.value);setSelStyle("");setSelColour("");setGarmentId(null);}}>
+                      <option value="">— Select brand —</option>
+                      {brands.map(b=><option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={S.lbl}>Style</label>
+                    <select style={S.sel} value={selStyle} onChange={e=>{setSelStyle(e.target.value);setSelColour("");setGarmentId(null);}} disabled={!selBrand}>
+                      <option value="">— Select style —</option>
+                      {styles.map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={S.lbl}>Colour</label>
+                    <select style={S.sel} value={selColour} onChange={e=>{const g=colours.find(x=>x.colour===e.target.value);if(g)selectColour(g);}} disabled={!selStyle}>
+                      <option value="">— Select colour —</option>
+                      {colours.map(c=><option key={c.id} value={c.colour}>{c.colour}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Garment preview */}
+                {(garments.front||garments.back)&&(
+                  <div style={{display:"flex",gap:12,marginTop:16,marginBottom:8}}>
+                    {["front","back"].filter(v=>garments[v]).map(v=>(
+                      <div key={v} style={{border:"1px solid #d4cdc0",background:"#fff",padding:10,textAlign:"center"}}>
+                        <img src={garments[v].dataURL} style={{maxHeight:140,maxWidth:180,objectFit:"contain"}}/>
+                        <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".1em",textTransform:"uppercase",color:"#aaa",marginTop:6}}>{v} view</div>
+                      </div>
                     ))}
                   </div>
                 )}
-                {alreadyIn && <span style={todayStyles.assignedTick}>✓ Assigned</span>}
-              </div>
-            );
-          })}
-        </div>
 
-        {/* Right: runsheet columns per role */}
-        <div style={todayStyles.runsheetCols}>
-          {floorRoles.map(role => {
-            const roleJobs = (todaySheet[role.id]||[]).map(id=>jobs.find(j=>j.id===id)).filter(Boolean);
-            return (
-              <div key={role.id} style={todayStyles.runsheetCol}>
-                <div style={{...todayStyles.runsheetColHeader, borderColor: role.color}}>
-                  <span style={{color: role.color}}>{role.label}</span>
-                  <span style={todayStyles.boardCount}>{roleJobs.length}</span>
-                </div>
-                {roleJobs.length === 0 && (
-                  <div style={todayStyles.runsheetEmpty}>No jobs yet — add from the pool →</div>
-                )}
-                {roleJobs.map((job, idx) => {
-                  const step = getStep(job);
-                  return (
-                    <div key={job.id} style={todayStyles.runsheetJob}>
-                      <div style={todayStyles.runsheetJobSeq}>
-                        <span style={{...todayStyles.floorSeq, background: role.color+"22", color: role.color}}>{idx+1}</span>
-                        <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                          <button style={todayStyles.nudgeBtn} onClick={()=>moveUp(role.id,idx)}>▲</button>
-                          <button style={todayStyles.nudgeBtn} onClick={()=>moveDown(role.id,idx)}>▼</button>
-                        </div>
-                      </div>
-                      <div style={{flex:1}}>
-                        <div style={todayStyles.runsheetJobCustomer}>{job.customer}</div>
-                        <div style={todayStyles.runsheetJobProduct}>{job.product} · {step?.icon} {step?.label}</div>
-                        {job.urgency==="rush" && <span style={styles.rushBadge}>RUSH</span>}
-                      </div>
-                      <button style={todayStyles.removeBtn}
-                        onClick={()=>removeFromRunsheet(role.id, job.id)}>✕</button>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      </>
-      )}
-    </div>
-  );
-}
-
-// ── History Panel ─────────────────────────────────────────────────────────────
-function HistoryPanel({ history, jobs, onClose }) {
-  const [expanded, setExpanded] = useState(null);
-  const floorRoles = [
-    { id: "lead_printer", label: "Lead Printer",   color: "#7eb8f7" },
-    { id: "press_assist", label: "Press Assistant", color: "#f79e7e" },
-  ];
-
-  const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString("en-CA", {
-    weekday:"long", year:"numeric", month:"long", day:"numeric"
-  });
-
-  const getJobName = (entry, id) => {
-    // Try snapshot first, fall back to live jobs
-    if (entry.jobSnapshots?.[id]) {
-      const j = entry.jobSnapshots[id];
-      return `${j.customer} — ${j.product}`;
-    }
-    const j = jobs.find(j => j.id === id);
-    return j ? `${j.customer} — ${j.product}` : `Job #${id}`;
-  };
-
-  return (
-    <div style={historyStyles.root}>
-      <div style={historyStyles.header}>
-        <div>
-          <div style={historyStyles.headerSub}>DAILY RUNSHEET</div>
-          <div style={historyStyles.headerTitle}>HISTORY LOG</div>
-        </div>
-        <button style={{...styles.closeBtn, width:"auto", padding:"6px 16px", fontSize:13}}
-          onClick={onClose}>← Back to Today</button>
-      </div>
-
-      {history.length === 0 && (
-        <div style={{padding:"60px 0", textAlign:"center", color:"#555"}}>
-          No history yet — completed runsheets will appear here.
-        </div>
-      )}
-
-      {history.map((entry, i) => {
-        const totalJobs = (entry.lead_printer?.length||0) + (entry.press_assist?.length||0);
-        const isOpen = expanded === i;
-        return (
-          <div key={i} style={historyStyles.entry}>
-            <div style={historyStyles.entryHeader} onClick={()=>setExpanded(isOpen?null:i)}>
-              <div style={historyStyles.entryLeft}>
-                <div style={historyStyles.entryDate}>{formatDate(entry.date)}</div>
-                <div style={historyStyles.entrySummary}>
-                  {totalJobs} jobs assigned
-                  {entry.lead_printer?.length > 0 && ` · Lead: ${entry.lead_printer.length}`}
-                  {entry.press_assist?.length > 0 && ` · Press: ${entry.press_assist.length}`}
-                </div>
-              </div>
-              <div style={{display:"flex", alignItems:"center", gap:10}}>
-                {entry.notes && <span style={historyStyles.hasNote}>📌 Note</span>}
-                <span style={historyStyles.chevron}>{isOpen ? "▲" : "▼"}</span>
-              </div>
-            </div>
-
-            {isOpen && (
-              <div style={historyStyles.entryBody}>
-                {entry.notes && (
-                  <div style={historyStyles.noteBox}>
-                    <div style={historyStyles.noteLabel}>Manager Note</div>
-                    <div style={historyStyles.noteText}>{entry.notes}</div>
+                {/* Manual upload fallback */}
+                <div style={{marginTop:12}}>
+                  <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".1em",textTransform:"uppercase",color:"#888",marginBottom:8}}>Or upload garment photos manually</div>
+                  <div style={S.g3}>
+                    {["front","back","other"].map(view=>(
+                      <label key={view} style={{border:`2px ${garments[view]?"solid #4caf7d":"dashed #d4cdc0"}`,background:"#fffdf8",padding:12,textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:80,position:"relative",gap:4}}>
+                        <input type="file" accept="image/*" style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>setGarments(g=>({...g,[view]:{img,name:file.name,dataURL:ev.target.result}}));img.src=ev.target.result;};reader.readAsDataURL(file);e.target.value="";}}/>
+                        {garments[view]?<img src={garments[view].dataURL} style={{maxHeight:44,maxWidth:"100%",objectFit:"contain"}}/>:<span style={{fontSize:"1.1rem"}}>👕</span>}
+                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:garments[view]?"#4caf7d":"#aaa"}}>{garments[view]?"✓ "+view:view+(view==="front"?" *":"")}</span>
+                      </label>
+                    ))}
                   </div>
-                )}
-                <div style={historyStyles.rolesGrid}>
-                  {floorRoles.map(role => {
-                    const roleJobs = entry[role.id] || [];
-                    if (roleJobs.length === 0) return null;
-                    return (
-                      <div key={role.id} style={historyStyles.roleCol}>
-                        <div style={{...historyStyles.roleHeader, color: role.color, borderColor: role.color}}>
-                          {role.label} · {roleJobs.length} jobs
+                </div>
+
+                <hr style={S.div}/>
+                <div style={S.sec}><span style={S.secn}>+</span> Sizes & Quantities</div>
+                <div style={{background:"#fffdf8",border:"1px solid #d4cdc0",padding:"14px 16px",marginBottom:8}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8,marginBottom:8}}>
+                    {ALL_SIZES.filter(s=>s!=="One Size").map(s=>(
+                      <label key={s} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}>
+                          <input type="checkbox" checked={safeSizes[s]?.active||false} onChange={e=>setSizes(z=>({...z,[s]:{...(z[s]||{}),active:e.target.checked,qty:e.target.checked?(z[s]?.qty||""):""}}))} style={{accentColor:"#c8372d",width:13,height:13}}/>
+                          <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".1em",textTransform:"uppercase",color:safeSizes[s]?.active?"#0f0f0f":"#aaa",fontWeight:safeSizes[s]?.active?600:400}}>{s}</span>
                         </div>
-                        {roleJobs.map((id, idx) => (
-                          <div key={id} style={historyStyles.historyJob}>
-                            <span style={{...todayStyles.floorSeq,
-                              background: role.color+"22", color: role.color,
-                              width:22, height:22, fontSize:11, flexShrink:0}}>
-                              {idx+1}
-                            </span>
-                            <span style={historyStyles.historyJobName}>
-                              {getJobName(entry, id)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
+                        <input type="number" min="0" placeholder="0" value={safeSizes[s]?.qty||""} disabled={!safeSizes[s]?.active} onChange={e=>setSizes(z=>({...z,[s]:{...(z[s]||{}),qty:e.target.value}}))} style={{width:"100%",background:safeSizes[s]?.active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${safeSizes[s]?.active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 6px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:safeSizes[s]?.active?"#0f0f0f":"#ccc",outline:"none"}}/>
+                      </label>
+                    ))}
+                  </div>
+                  {/* One Size row */}
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"8px 10px",background:safeSizes["One Size"]?.active?"#fdf0ee":"#f5f0e8",border:`1px solid ${safeSizes["One Size"]?.active?"#c8372d":"#d4cdc0"}`,marginBottom:10}}>
+                    <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}}>
+                      <input type="checkbox" checked={safeSizes["One Size"]?.active||false} onChange={e=>setSizes(z=>({...z,["One Size"]:{...z["One Size"],active:e.target.checked,qty:e.target.checked?z["One Size"]?.qty:""}}))} style={{accentColor:"#c8372d",width:13,height:13}}/>
+                      <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".1em",textTransform:"uppercase",color:safeSizes["One Size"]?.active?"#c8372d":"#888",fontWeight:safeSizes["One Size"]?.active?600:400}}>One Size</span>
+                    </label>
+                    <input type="number" min="0" placeholder="qty" value={safeSizes["One Size"]?.qty||""} disabled={!safeSizes["One Size"]?.active} onChange={e=>setSizes(z=>({...z,["One Size"]:{...z["One Size"],qty:e.target.value}}))} style={{width:80,background:safeSizes["One Size"]?.active?"#fff":"#f0ece4",border:"1px solid #d4cdc0",borderBottom:`2px solid ${safeSizes["One Size"]?.active?"#0f0f0f":"#d4cdc0"}`,padding:"5px 8px",fontFamily:"'IBM Plex Mono',monospace",fontSize:".72rem",textAlign:"center",color:safeSizes["One Size"]?.active?"#0f0f0f":"#ccc",outline:"none"}}/>
+                    {safeSizes["One Size"]?.active&&safeSizes["One Size"]?.qty&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",color:"#555"}}>{safeSizes["One Size"].qty} units</span>}
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid #e8e2d8"}}>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>{ALL_SIZES.filter(s=>safeSizes[s]?.active&&safeSizes[s]?.qty).map(s=><span key={s} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",color:"#555"}}>{s}: <strong>{safeSizes[s].qty}</strong></span>)}</div>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",color:"#0f0f0f",whiteSpace:"nowrap",marginLeft:16}}>Total: {totalUnits} units</div>
+                  </div>
+                </div>
+
+                <div style={{display:"flex",gap:10,marginTop:24}}>
+                  <button style={S.btn("o")} onClick={()=>setStep(1)}>← Back</button>
+                  <button style={S.btn()} onClick={()=>setStep(3)}>Next - Artwork & Placements →</button>
+                  <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
             )}
+
+            {/* ── STEP 3: ARTWORK ── */}
+            {step===3&&(
+              <div>
+                <div style={S.sec}><span style={S.secn}>03</span> Artwork & Placements</div>
+                <div style={S.note("i")}>Upload all logos/artwork, then define each placement below.</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
+                  {artwork.map(a=>(
+                    <div key={a.id} style={{background:"#fffdf8",border:"2px solid #d4cdc0",padding:8,display:"flex",flexDirection:"column",alignItems:"center",gap:4,width:78,position:"relative"}}>
+                      <img src={a.dataURL} style={{width:54,height:54,objectFit:"contain",background:"#fff",padding:2}}/>
+                      <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".44rem",letterSpacing:".06em",textTransform:"uppercase",color:"#888",textAlign:"center",wordBreak:"break-all",lineHeight:1.3}}>{a.name.replace(/\.[^.]+$/,"").substring(0,10)}</div>
+                      <button onClick={()=>removeArt(a.id)} style={{position:"absolute",top:2,right:2,background:"none",border:"none",color:"#ccc",fontSize:".65rem",cursor:"pointer",padding:"1px 3px"}}>✕</button>
+                    </div>
+                  ))}
+                  <label style={{width:78,minHeight:80,border:"2px dashed #d4cdc0",background:"#fffdf8",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",gap:3}}>
+                    <input type="file" accept="image/*" multiple style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%"}} onChange={loadArtFiles}/>
+                    <span style={{fontSize:"1.3rem",color:"#ccc"}}>+</span>
+                    <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".44rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb"}}>Add Art</span>
+                  </label>
+                </div>
+                <hr style={S.div}/>
+                <div style={S.sec}><span style={S.secn}>+</span> Placements</div>
+                {placements.map((p,idx)=>(
+                  <div key={p._id} style={S.prow}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".14em",textTransform:"uppercase",color:"#c8372d"}}>Placement {idx+1}</span>
+                      <button onClick={()=>removeRow(p._id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".78rem"}}>✕ Remove</button>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr 1fr",gap:10}}>
+                      {[["View","view","sel",VIEW_OPTIONS],["Placement","placement","sel",PLACEMENT_OPTIONS],["Artwork","artId","art",[]],["Decoration","decType","sel",DEC_TYPES]].map(([lbl,key,type,opts])=>(
+                        <div key={key}>
+                          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:"#888",marginBottom:3}}>{lbl}</div>
+                          {type==="art"
+                            ?<select style={S.sel} value={p.artId} onChange={e=>updateRow(p._id,"artId",e.target.value)}><option value="">— Select —</option>{artwork.map(a=><option key={a.id} value={a.id}>{a.name.replace(/\.[^.]+$/,"").substring(0,16)}</option>)}</select>
+                            :<select style={S.sel} value={p[key]} onChange={e=>updateRow(p._id,key,e.target.value)}>{opts.map(o=><option key={o} value={o}>{o}</option>)}</select>}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:8}}>
+                      {[["Art Width (in)","width",'e.g. 3.5"'],["From Low Collar (in)","fromCollar",'e.g. 3"'],["Ink / Thread Colours","colours","e.g. PMS 185, White"]].map(([lbl,key,ph])=>(
+                        <div key={key}><div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:"#888",marginBottom:3}}>{lbl}</div><input style={S.inp} placeholder={ph} value={p[key]} onChange={e=>updateRow(p._id,key,e.target.value)}/></div>
+                      ))}
+                    </div>
+                    <textarea style={{...S.ta,marginTop:8}} placeholder="Extra notes for this placement" value={p.notes} onChange={e=>updateRow(p._id,"notes",e.target.value)}/>
+                  </div>
+                ))}
+                <button onClick={addRow} style={{background:"none",border:"1px dashed #d4cdc0",color:"#aaa",fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:9,cursor:"pointer",textAlign:"center",width:"100%",marginBottom:4}}>+ Add Placement</button>
+                <div style={{display:"flex",gap:10,marginTop:24}}>
+                  <button style={S.btn("o")} onClick={()=>setStep(2)}>← Back</button>
+                  <button style={S.btn("r")} onClick={()=>{setStep(4);runAI();}}>Send to AI →</button>
+                  <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
+                </div>
+              </div>
+            )}
+
+            {/* ── STEP 4: AI REVIEW ── */}
+            {step===4&&(
+              <div>
+                <div style={S.sec}><span style={S.secn}>04</span> AI Placement Review</div>
+                {aiStatus==="thinking"&&<div style={{...S.note("w"),display:"flex",alignItems:"center",gap:8}}><span style={{display:"inline-flex",gap:3}}>{[0,.2,.4].map((d,i)=><span key={i} style={{width:5,height:5,background:"currentColor",borderRadius:"50%",display:"inline-block",animation:`pulse 1.2s ${d}s infinite`}}/>)}</span>Calculating placements...<style>{`@keyframes pulse{0%,80%,100%{opacity:.2}40%{opacity:1}}`}</style></div>}
+                {aiStatus==="error"&&<div style={{...S.note("w"),borderColor:"#c8372d",background:"#fdf0ee",color:"#c8372d"}}>⚠ {aiError}</div>}
+                {aiStatus==="done"&&(
+                  <div>
+                    <div style={S.note("i")}>✓ {aiIntro}</div>
+                    {aiPlan.map((p,i)=>{
+                      const art=artwork.find(a=>a.id==p.artId);
+                      return <div key={i} style={S.card}>
+                        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:8}}>
+                          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",letterSpacing:".08em"}}>{p.placement}</div>
+                          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#c8372d"}}>{(p.view||"front").toUpperCase()} · {p.decType||""}</div>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"3px 16px"}}>
+                          {[["Artwork",p.artName||(art?.name.replace(/\.[^.]+$/,"")||"")],p.specWidth&&["Art Width",p.specWidth+'"'],p.specFromCollar&&["From Collar",p.specFromCollar+'"'],p.colours&&["Colours",p.colours],["Position",`x:${Math.round(p.x*100)}%  y:${Math.round(p.y*100)}%  scale:${Math.round(p.scale)}%`]].filter(Boolean).map(([k,v],ki)=>(
+                            <div key={ki} style={{display:"contents"}}><span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".1em",textTransform:"uppercase",color:"#aaa"}}>{k}</span><span style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".84rem",fontWeight:500}}>{v}</span></div>
+                          ))}
+                        </div>
+                        {p.notes&&<div style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".76rem",color:"#666",fontStyle:"italic",marginTop:8,paddingTop:8,borderTop:"1px solid #e8e2d8"}}>{p.notes}</div>}
+                      </div>;
+                    })}
+                    <div><label style={S.lbl}>Revision notes (optional)</label><textarea style={S.ta} placeholder='e.g. "Make the back logo larger"' value={revisionNotes} onChange={e=>setRevisionNotes(e.target.value)}/></div>
+                  </div>
+                )}
+                <div style={{display:"flex",gap:10,marginTop:24,flexWrap:"wrap"}}>
+                  <button style={S.btn("o")} onClick={()=>setStep(3)}>← Back</button>
+                  {aiStatus==="done"&&<button style={S.btn()} onClick={()=>setStep(5)}>Fine-Tune →</button>}
+                  {(aiStatus==="done"||aiStatus==="error")&&<button style={S.btn("o")} onClick={runAI}>↺ Re-run{revisionNotes?" with Changes":""}</button>}
+                  <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
+                </div>
+              </div>
+            )}
+
+            {/* ── STEP 5: FINE-TUNE ── */}
+            {step===5&&aiPlan.length>0&&(
+              <FineTuneCanvas garments={garments} artwork={artwork} aiPlan={aiPlan} onConfirm={handleFineTuneConfirm} onBack={()=>setStep(4)}/>
+            )}
+
+            {/* ── STEP 6: EXPORT ── */}
+            {step===6&&(
+              <div>
+                <div style={S.sec}><span style={S.secn}>06</span> Export</div>
+                {saveStatus==="saved"&&<div style={S.note("s")}>✓ Job saved</div>}
+                <div style={{background:"#111",display:"flex",alignItems:"center",justifyContent:"center",minHeight:400,padding:16,backgroundImage:"linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px)",backgroundSize:"28px 28px"}}>
+                  {!mockupBuilt&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".6rem",letterSpacing:".16em",textTransform:"uppercase",color:"#333"}}>Building...</span>}
+                  <canvas ref={canvasRef} style={{display:mockupBuilt?"block":"none",maxWidth:"100%",boxShadow:"0 0 0 1px #2a2a2a,0 16px 48px rgba(0,0,0,.7)"}}/>
+                </div>
+                <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+                  <button style={S.btn()} onClick={exportPNG}>⬇ Client Mockup PNG</button>
+                  <button style={S.btn()} onClick={exportJPG}>⬇ Client Mockup JPG</button>
+                  <button style={S.btn()} onClick={exportWorkOrder}>⬇ Work Order PNG</button>
+                  <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
+                  <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
+                  <button style={S.btn("o")} onClick={()=>setStep(5)}>← Fine-Tune</button>
+                </div>
+              </div>
+            )}
+
           </div>
-        );
-      })}
+        </>
+      )}
+
+      {toast&&<div style={{position:"fixed",bottom:20,left:"50%",transform:"translateX(-50%)",background:"#0f0f0f",color:"#f5f0e8",fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".12em",textTransform:"uppercase",padding:"9px 18px",borderLeft:"3px solid #c8372d",zIndex:9999,whiteSpace:"nowrap"}}>{toast}</div>}
     </div>
   );
 }
 
-const historyStyles = {
-  root: { maxWidth: 1100, margin: "0 auto" },
-  header: {
-    display:"flex", justifyContent:"space-between", alignItems:"flex-end",
-    marginBottom:24,
-  },
-  headerSub: { fontSize:11, color:"#555", letterSpacing:2, textTransform:"uppercase", marginBottom:4 },
-  headerTitle: { fontSize:22, fontWeight:800, letterSpacing:3, color:"#f0ede8" },
-  entry: {
-    background:"#141414", border:"1px solid #ffffff10",
-    borderRadius:8, marginBottom:10, overflow:"hidden",
-  },
-  entryHeader: {
-    display:"flex", justifyContent:"space-between", alignItems:"center",
-    padding:"14px 18px", cursor:"pointer",
-    transition:"background 0.1s",
-  },
-  entryLeft: {},
-  entryDate: { fontSize:14, fontWeight:700, color:"#f0ede8", marginBottom:3 },
-  entrySummary: { fontSize:12, color:"#555" },
-  hasNote: {
-    fontSize:11, background:"#e8c54715", color:"#e8c547",
-    padding:"2px 8px", borderRadius:10,
-  },
-  chevron: { fontSize:12, color:"#555" },
-  entryBody: { padding:"0 18px 16px", borderTop:"1px solid #ffffff08" },
-  noteBox: {
-    background:"#e8c54708", border:"1px solid #e8c54720",
-    borderRadius:6, padding:"10px 14px", margin:"14px 0",
-  },
-  noteLabel: { fontSize:10, color:"#e8c547", letterSpacing:1, marginBottom:4 },
-  noteText: { fontSize:13, color:"#d4d0c8", lineHeight:1.6 },
-  rolesGrid: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginTop:14 },
-  roleCol: {
-    background:"#1a1a1a", border:"1px solid #ffffff10",
-    borderRadius:6, overflow:"hidden",
-  },
-  roleHeader: {
-    padding:"8px 12px", fontSize:11, fontWeight:800,
-    letterSpacing:1, textTransform:"uppercase",
-    borderLeft:"3px solid", background:"#ffffff05",
-  },
-  historyJob: {
-    display:"flex", alignItems:"center", gap:10,
-    padding:"8px 12px", borderTop:"1px solid #ffffff08",
-  },
-  historyJobName: { fontSize:13, color:"#888" },
-};
+// ── GARMENT LIBRARY MANAGER (on jobs page) ──
+function GarmentManager({ garmentList, onRefresh }) {
+  const [form, setForm] = useState({brand:"Gildan",style_num:"",style_name:"",colour:"",colour_hex:"",front_url:"",back_url:"",photo_url:""});
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
 
-const todayStyles = {
-  root: { maxWidth: 1100, margin: "0 auto" },
-  floorHeader: { marginBottom: 24, display:"flex", flexDirection:"column", gap:6 },
-  floorDate: { fontSize:11, color:"#555", letterSpacing:2, textTransform:"uppercase" },
-  floorTitle: { fontSize:22, fontWeight:800, letterSpacing:3, color:"#f0ede8" },
-  floorRoleTag: { display:"inline-flex", padding:"3px 12px", borderRadius:12, fontSize:12, fontWeight:700, width:"fit-content" },
-  emptyState: { textAlign:"center", padding:"60px 0" },
-  floorJobList: { display:"flex", flexDirection:"column", gap:12 },
-  floorJobCard: {
-    background:"#141414", border:"1px solid #ffffff15", borderRadius:8,
-    padding:16, display:"flex", gap:16, alignItems:"flex-start",
-  },
-  floorJobNum: { display:"flex", flexDirection:"column", gap:6, alignItems:"center", minWidth:32 },
-  floorSeq: {
-    width:28, height:28, borderRadius:"50%", background:"#e8c54722",
-    color:"#e8c547", display:"flex", alignItems:"center", justifyContent:"center",
-    fontWeight:800, fontSize:13,
-  },
-  floorJobMain: { flex:1 },
-  floorJobCustomer: { fontSize:16, fontWeight:700, color:"#f0ede8", marginBottom:2 },
-  floorJobProduct: { fontSize:13, color:"#666", marginBottom:8 },
-  floorJobStep: {
-    display:"inline-flex", alignItems:"center", gap:6, fontSize:13,
-    background:"#ffffff08", padding:"4px 10px", borderRadius:4, color:"#d4d0c8",
-  },
-  floorJobNotes: { fontSize:12, color:"#555", marginTop:8, fontStyle:"italic" },
-  floorJobRight: { display:"flex", flexDirection:"column", gap:8, alignItems:"flex-end", minWidth:130 },
-  floorDue: { fontSize:12, fontWeight:700 },
-  floorAdvanceBtn: {
-    padding:"8px 14px", background:"#4ec9a022", border:"1px solid #4ec9a060",
-    color:"#4ec9a0", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:700,
-    width:"100%", textAlign:"center",
-  },
-  floorDetailBtn: {
-    padding:"6px 14px", background:"#ffffff08", border:"1px solid #ffffff15",
-    color:"#666", borderRadius:6, cursor:"pointer", fontSize:12, width:"100%",
-  },
-  managerNote: {
-    marginTop:24, background:"#e8c54710", border:"1px solid #e8c54740",
-    borderRadius:8, padding:"14px 18px",
-  },
-  managerNoteLabel: { fontSize:10, color:"#e8c547", letterSpacing:2, marginBottom:6, fontWeight:700 },
-  managerNoteText: { fontSize:14, color:"#d4d0c8", lineHeight:1.6 },
-  managerHeader: {
-    display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:20,
-  },
-  managerTitle: { fontSize:20, fontWeight:800, letterSpacing:3, color:"#f0ede8", marginTop:4 },
-  assignedCount: {
-    background:"#ffffff10", padding:"6px 16px", borderRadius:20,
-    fontSize:12, color:"#888",
-  },
-  resetBtn: {
-    padding:"6px 16px", background:"#ff4d4d18", border:"1px solid #ff4d4d40",
-    color:"#ff4d4d", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:700,
-  },
-  historyBtn: {
-    padding:"6px 16px", background:"#e8c54715", border:"1px solid #e8c54740",
-    color:"#e8c547", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:700,
-  },
-  noteArea: { marginBottom:20 },
-  noteLabelRow: { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 },
-  noteAreaLabel: { fontSize:11, color:"#e8c547", letterSpacing:1, fontWeight:700 },
-  noteTextarea: {
-    width:"100%", background:"#1a1a1a", border:"1px solid #e8c54730",
-    color:"#d4d0c8", borderRadius:6, padding:"10px 14px", fontSize:13,
-    fontFamily:"'DM Mono', monospace", resize:"vertical", boxSizing:"border-box",
-  },
-  managerGrid: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 },
-  jobPool: {
-    background:"#141414", border:"1px solid #ffffff10", borderRadius:8,
-    overflow:"hidden", maxHeight:600, overflowY:"auto",
-  },
-  poolHeader: {
-    padding:"10px 14px", background:"#1a1a1a", borderBottom:"1px solid #ffffff10",
-    fontSize:10, letterSpacing:2, color:"#555", textTransform:"uppercase",
-    position:"sticky", top:0,
-  },
-  poolJob: {
-    display:"flex", alignItems:"center", justifyContent:"space-between",
-    padding:"10px 14px", borderBottom:"1px solid #ffffff08", gap:10,
-  },
-  poolJobLeft: { display:"flex", alignItems:"center", gap:8, flex:1 },
-  poolJobCustomer: { fontSize:13, fontWeight:600, color:"#d4d0c8" },
-  poolJobProduct: { fontSize:11, color:"#555" },
-  poolBtns: { display:"flex", gap:6, flexShrink:0 },
-  poolAssignBtn: {
-    padding:"4px 10px", background:"transparent", border:"1px solid",
-    borderRadius:4, cursor:"pointer", fontSize:11, fontWeight:700,
-  },
-  assignedTick: { fontSize:11, color:"#4ec9a0", flexShrink:0 },
-  runsheetCols: { display:"flex", flexDirection:"column", gap:16 },
-  runsheetCol: {
-    background:"#141414", border:"1px solid #ffffff10", borderRadius:8, overflow:"hidden",
-  },
-  runsheetColHeader: {
-    padding:"10px 14px", background:"#1a1a1a",
-    borderBottom:"1px solid #ffffff10", borderLeft:"3px solid",
-    display:"flex", justifyContent:"space-between", alignItems:"center",
-    fontSize:11, fontWeight:800, letterSpacing:2, textTransform:"uppercase",
-  },
-  runsheetEmpty: { padding:"20px 14px", fontSize:12, color:"#333", textAlign:"center" },
-  runsheetJob: {
-    display:"flex", alignItems:"center", gap:10,
-    padding:"10px 14px", borderBottom:"1px solid #ffffff08",
-  },
-  runsheetJobSeq: { display:"flex", alignItems:"center", gap:6, flexShrink:0 },
-  runsheetJobCustomer: { fontSize:13, fontWeight:600, color:"#d4d0c8" },
-  runsheetJobProduct: { fontSize:11, color:"#555", marginBottom:3 },
-  nudgeBtn: {
-    background:"#ffffff08", border:"none", color:"#555", cursor:"pointer",
-    fontSize:9, padding:"1px 4px", borderRadius:2, lineHeight:1.5,
-  },
-  removeBtn: {
-    background:"transparent", border:"none", color:"#444",
-    cursor:"pointer", fontSize:14, padding:"2px 6px", flexShrink:0,
-  },
-};
+  async function addGarment() {
+    if(!form.style_name||!form.colour){setMsg("Style name and colour are required.");return;}
+    if(!form.front_url&&!form.back_url){setMsg("Please add at least a front or back photo URL.");return;}
+    setSaving(true);setMsg("");
+    try{
+      await sb("POST","/garments",form);
+      setMsg("Garment added successfully ✓");
+      setForm(f=>({...f,style_num:"",colour:"",colour_hex:"",front_url:"",back_url:"",photo_url:""}));
+      onRefresh();
+    }catch(e){setMsg("Error: "+e.message);}
+    setSaving(false);
+  }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
-const styles = {
-  root: {
-    minHeight:"100vh", background:"#0d0d0d", color:"#f0ede8",
-    fontFamily:"'DM Mono', 'Courier New', monospace",
-    position:"relative", overflow:"hidden",
-  },
-  bgGrid: {
-    position:"fixed", inset:0, zIndex:0,
-    backgroundImage:`linear-gradient(#ffffff08 1px, transparent 1px),
-                     linear-gradient(90deg, #ffffff08 1px, transparent 1px)`,
-    backgroundSize:"40px 40px",
-    pointerEvents:"none",
-  },
-  notification: {
-    position:"fixed", top:20, left:"50%", transform:"translateX(-50%)",
-    padding:"10px 24px", borderRadius:6, color:"#0d0d0d",
-    fontWeight:700, fontSize:13, zIndex:1000, letterSpacing:1,
-  },
-  header: {
-    position:"relative", zIndex:10,
-    display:"flex", alignItems:"center", justifyContent:"space-between",
-    padding:"16px 24px", borderBottom:"1px solid #ffffff15",
-    background:"#0d0d0dcc", backdropFilter:"blur(12px)",
-    flexWrap:"wrap", gap:12,
-  },
-  headerLeft: { display:"flex", alignItems:"center" },
-  logo: { display:"flex", alignItems:"center", gap:14 },
-  logoMark: {
-    width:42, height:42, background:"#e8c547", color:"#0d0d0d",
-    display:"flex", alignItems:"center", justifyContent:"center",
-    fontWeight:900, fontSize:16, letterSpacing:1,
-    clipPath:"polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-  },
-  logoTitle: { fontSize:16, fontWeight:800, letterSpacing:3, color:"#f0ede8" },
-  logoSub: { fontSize:10, letterSpacing:4, color:"#e8c547", marginTop:1 },
-  roleBar: { display:"flex", gap:6, flexWrap:"wrap" },
-  roleBtn: {
-    padding:"6px 14px", border:"1px solid #ffffff20", borderRadius:4,
-    background:"transparent", color:"#888", cursor:"pointer",
-    display:"flex", flexDirection:"column", alignItems:"center",
-    fontSize:12, transition:"all 0.15s", gap:1,
-  },
-  roleName: { fontWeight:700, fontSize:13 },
-  roleDesc: { fontSize:10, opacity:0.7 },
-  addBtn: {
-    padding:"8px 18px", background:"#e8c547", color:"#0d0d0d",
-    border:"none", borderRadius:4, fontWeight:800, cursor:"pointer",
-    fontSize:13, letterSpacing:1,
-  },
-  statsBar: {
-    position:"relative", zIndex:10,
-    display:"flex", gap:0, borderBottom:"1px solid #ffffff15",
-  },
-  stat: {
-    flex:1, padding:"12px 20px", borderRight:"1px solid #ffffff10",
-    display:"flex", flexDirection:"column", alignItems:"center",
-  },
-  statValue: { fontSize:28, fontWeight:800, lineHeight:1 },
-  statLabel: { fontSize:10, color:"#555", letterSpacing:1, marginTop:4, textTransform:"uppercase" },
-  toolbar: {
-    position:"relative", zIndex:10,
-    display:"flex", justifyContent:"space-between", alignItems:"center",
-    padding:"10px 24px", borderBottom:"1px solid #ffffff10",
-  },
-  filters: { display:"flex", gap:10 },
-  select: {
-    background:"#1a1a1a", border:"1px solid #ffffff20", color:"#d4d0c8",
-    padding:"6px 12px", borderRadius:4, fontSize:12, cursor:"pointer",
-  },
-  viewToggle: { display:"flex", gap:4 },
-  viewBtn: {
-    padding:"6px 14px", background:"transparent", border:"1px solid #ffffff20",
-    color:"#666", borderRadius:4, cursor:"pointer", fontSize:12,
-  },
-  viewBtnActive: { background:"#ffffff15", color:"#f0ede8", borderColor:"#ffffff40" },
-  main: {
-    position:"relative", zIndex:10,
-    padding:"20px 24px", overflowX:"auto",
-  },
-  // Board
-  boardGrid: {
-    display:"grid", gridTemplateColumns:"repeat(4,1fr)",
-    gap:16, minWidth:900,
-  },
-  boardCol: {
-    background:"#141414", border:"1px solid #ffffff10",
-    borderRadius:8, overflow:"hidden", minHeight:400,
-  },
-  boardColHeader: {
-    padding:"12px 16px", background:"#1a1a1a",
-    borderBottom:"1px solid #ffffff10",
-    display:"flex", justifyContent:"space-between",
-    fontSize:11, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:"#888",
-  },
-  boardCount: {
-    background:"#ffffff15", borderRadius:10, padding:"1px 8px",
-    fontSize:11, color:"#f0ede8",
-  },
-  boardColBody: { padding:10, display:"flex", flexDirection:"column", gap:8 },
-  emptyCol: { padding:20, textAlign:"center", color:"#333", fontSize:12 },
-  // Card
-  card: {
-    background:"#1e1e1e", border:"1px solid #ffffff10", borderRadius:6,
-    padding:12, cursor:"pointer", transition:"all 0.15s",
-    userSelect:"none",
-  },
-  cardRush: { borderLeft:"3px solid #ff9f43" },
-  cardDragOver: { background:"#e8c54710", borderColor:"#e8c547" },
-  cardTop: { display:"flex", gap:6, alignItems:"center", marginBottom:8, flexWrap:"wrap" },
-  priorityBadge: {
-    fontSize:10, fontWeight:700, color:"#555",
-    background:"#ffffff08", padding:"1px 6px", borderRadius:3,
-  },
-  rushBadge: {
-    fontSize:10, fontWeight:800, background:"#ff9f4322",
-    color:"#ff9f43", padding:"2px 7px", borderRadius:3, letterSpacing:1,
-  },
-  depositBadge: {
-    fontSize:10, background:"#f79e7e22", color:"#f79e7e",
-    padding:"2px 7px", borderRadius:3,
-  },
-  typeBadge: {
-    fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:3,
-    marginLeft:"auto",
-  },
-  cardCustomer: { fontWeight:700, fontSize:14, color:"#f0ede8", marginBottom:2 },
-  cardProduct: { fontSize:12, color:"#666", marginBottom:10 },
-  cardStep: {
-    display:"flex", alignItems:"center", gap:6,
-    background:"#ffffff08", borderRadius:4, padding:"5px 8px", marginBottom:8,
-  },
-  stepIcon: { fontSize:14 },
-  stepLabel: { fontSize:12, color:"#d4d0c8" },
-  progressBar: {
-    height:3, background:"#ffffff10", borderRadius:2, marginBottom:8, overflow:"hidden",
-  },
-  progressFill: { height:"100%", borderRadius:2, transition:"width 0.4s" },
-  dueDate: { fontSize:11, fontWeight:600, marginBottom:6 },
-  assignedTag: {
-    display:"flex", alignItems:"center", gap:6,
-    fontSize:11, color:"#666", marginBottom:8,
-  },
-  assignedDot: { width:7, height:7, borderRadius:"50%", display:"inline-block" },
-  cardActions: { marginTop:4 },
-  advanceBtn: {
-    width:"100%", padding:"6px", background:"#e8c54720",
-    border:"1px solid #e8c54760", color:"#e8c547",
-    borderRadius:4, cursor:"pointer", fontSize:11, fontWeight:700,
-    letterSpacing:0.5,
-  },
-  // List
-  listView: {
-    background:"#141414", border:"1px solid #ffffff10",
-    borderRadius:8, overflow:"hidden",
-  },
-  listHeader: {
-    display:"flex", gap:10, padding:"10px 16px",
-    background:"#1a1a1a", borderBottom:"1px solid #ffffff10",
-    fontSize:11, letterSpacing:1, textTransform:"uppercase", color:"#555",
-    alignItems:"center",
-  },
-  listRow: {
-    display:"flex", gap:10, padding:"12px 16px",
-    borderBottom:"1px solid #ffffff08", alignItems:"center",
-    transition:"background 0.1s", cursor:"default",
-  },
-  assignSelect: {
-    background:"#1a1a1a", border:"1px solid #ffffff20",
-    color:"#d4d0c8", padding:"4px 8px", borderRadius:4, fontSize:11,
-  },
-  advanceBtnSm: {
-    padding:"4px 10px", background:"#e8c54720",
-    border:"1px solid #e8c54760", color:"#e8c547",
-    borderRadius:4, cursor:"pointer", fontSize:11, fontWeight:700,
-  },
-  // Modal
-  modalOverlay: {
-    position:"fixed", inset:0, background:"#000000cc",
-    display:"flex", alignItems:"center", justifyContent:"center",
-    zIndex:100, padding:20,
-  },
-  modal: {
-    background:"#141414", border:"1px solid #ffffff20",
-    borderRadius:10, padding:28, width:"100%", maxWidth:680,
-    maxHeight:"90vh", overflowY:"auto",
-    boxShadow:"0 30px 80px #000000cc",
-  },
-  modalHeader: {
-    display:"flex", justifyContent:"space-between", alignItems:"flex-start",
-    marginBottom:20,
-  },
-  modalOrderNum: { fontSize:11, color:"#e8c547", letterSpacing:2, marginBottom:4 },
-  modalCustomer: { fontSize:22, fontWeight:800, color:"#f0ede8", marginBottom:4 },
-  modalProduct: { fontSize:14, color:"#666" },
-  closeBtn: {
-    background:"#ffffff10", border:"none", color:"#888",
-    width:30, height:30, borderRadius:4, cursor:"pointer", fontSize:14,
-  },
-  // Timeline
-  timeline: {
-    display:"flex", alignItems:"flex-start", gap:0,
-    marginBottom:24, overflowX:"auto", paddingBottom:8,
-  },
-  timelineStep: { display:"flex", flexDirection:"column", alignItems:"center", minWidth:70 },
-  timelineDot: {
-    width:32, height:32, borderRadius:"50%",
-    display:"flex", alignItems:"center", justifyContent:"center",
-    fontSize:14, zIndex:1, flexShrink:0,
-  },
-  timelineLine: { height:2, width:38, marginTop:14, flexShrink:0 },
-  timelineLabel: { fontSize:10, marginTop:6, textAlign:"center", lineHeight:1.3, maxWidth:65 },
-  // Detail
-  detailGrid: {
-    display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
-    gap:12, marginBottom:16,
-  },
-  detailField: {
-    background:"#1e1e1e", border:"1px solid #ffffff10",
-    borderRadius:6, padding:"10px 14px",
-  },
-  detailLabel: { fontSize:10, color:"#555", letterSpacing:1, textTransform:"uppercase", marginBottom:4 },
-  detailValue: { fontSize:14, fontWeight:600, color:"#d4d0c8" },
-  notesBox: {
-    background:"#1e1e1e", border:"1px solid #ffffff10",
-    borderRadius:6, padding:"12px 14px", marginBottom:16,
-  },
-  notesLabel: { fontSize:10, color:"#555", letterSpacing:1, textTransform:"uppercase", marginBottom:6 },
-  notesText: { fontSize:13, color:"#888", lineHeight:1.5 },
-  modalActions: { display:"flex", gap:10, flexWrap:"wrap", marginBottom:14 },
-  modalAdvanceBtn: {
-    flex:1, padding:"10px", background:"#e8c547", color:"#0d0d0d",
-    border:"none", borderRadius:6, fontWeight:800, cursor:"pointer",
-    fontSize:13, letterSpacing:0.5,
-  },
-  modalSecBtn: {
-    flex:1, padding:"10px", background:"#ffffff10", color:"#d4d0c8",
-    border:"1px solid #ffffff20", borderRadius:6, fontWeight:600,
-    cursor:"pointer", fontSize:13,
-  },
-  assignRow: {
-    display:"flex", alignItems:"center", gap:8, flexWrap:"wrap",
-  },
-  assignLabel: { fontSize:12, color:"#555", marginRight:4 },
-  assignBtn: {
-    padding:"6px 14px", border:"1px solid", borderRadius:4,
-    cursor:"pointer", fontSize:12, fontWeight:600,
-  },
-  // Form
-  formLabel: { display:"flex", flexDirection:"column", gap:4 },
-  formLabelText: { fontSize:11, color:"#555", letterSpacing:1, textTransform:"uppercase" },
-  formInput: {
-    background:"#1e1e1e", border:"1px solid #ffffff20", color:"#f0ede8",
-    padding:"8px 12px", borderRadius:4, fontSize:13,
-    fontFamily:"inherit",
-  },
-};
+  async function deleteGarment(id){
+    if(!confirm("Remove this garment?"))return;
+    try{ await sb("DELETE",`/garments?id=eq.${id}`); onRefresh(); }catch(e){}
+    onRefresh();
+  }
+
+  const fldStyle = {background:"#fff",border:"1px solid #d4cdc0",borderBottom:"2px solid #0f0f0f",padding:"7px 8px",fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".82rem",outline:"none",width:"100%",appearance:"none"};
+  const lblStyle = {fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#777",display:"block",marginBottom:3};
+  const [customBrand, setCustomBrand] = useState("");
+  const brands=["Gildan","Comfort Colors","Next Level","Bella+Canvas","Other..."];
+
+  return (
+    <div>
+      <div style={{background:"#fffdf8",border:"1px solid #d4cdc0",padding:"16px",marginBottom:16}}>
+        <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".14em",textTransform:"uppercase",color:"#c8372d",marginBottom:12}}>Add Garment to Library</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+          <div>
+            <label style={lblStyle}>Brand</label>
+            <select style={fldStyle} value={form.brand} onChange={e=>{setForm(f=>({...f,brand:e.target.value==="Other..."?"":e.target.value}));if(e.target.value==="Other...")setCustomBrand("");}}>
+              {brands.map(b=><option key={b} value={b}>{b}</option>)}
+            </select>
+            {(form.brand===""||!["Gildan","Comfort Colors","Next Level","Bella+Canvas"].includes(form.brand))&&(
+              <input style={{...fldStyle,marginTop:6}} value={customBrand||form.brand} onChange={e=>{setCustomBrand(e.target.value);setForm(f=>({...f,brand:e.target.value}));}} placeholder="Type brand name..."/>
+            )}
+          </div>
+          <div><label style={lblStyle}>Style # (optional)</label><input style={fldStyle} value={form.style_num} onChange={e=>setForm(f=>({...f,style_num:e.target.value}))} placeholder="e.g. 5000"/></div>
+          <div><label style={lblStyle}>Style Name <span style={{color:"#c8372d"}}>*</span></label><input style={fldStyle} value={form.style_name} onChange={e=>setForm(f=>({...f,style_name:e.target.value}))} placeholder="e.g. Heavy Cotton Tee"/></div>
+          <div><label style={lblStyle}>Colour Name <span style={{color:"#c8372d"}}>*</span></label><input style={fldStyle} value={form.colour} onChange={e=>setForm(f=>({...f,colour:e.target.value}))} placeholder="e.g. Sport Grey"/></div>
+          <div><label style={lblStyle}>Front Photo URL</label><input style={fldStyle} value={form.front_url} onChange={e=>setForm(f=>({...f,front_url:e.target.value}))} placeholder="https://...supabase.co/storage/v1/object/public/garments/..."/></div>
+          <div><label style={lblStyle}>Back Photo URL</label><input style={fldStyle} value={form.back_url} onChange={e=>setForm(f=>({...f,back_url:e.target.value}))} placeholder="https://...supabase.co/storage/v1/object/public/garments/..."/></div>
+        </div>
+        {msg&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".1em",textTransform:"uppercase",color:msg.includes("✓")?"#2a7a4b":"#c8372d",marginBottom:8,padding:"8px 10px",background:msg.includes("✓")?"#e6f4ec":"#fdf0ee",borderLeft:`3px solid ${msg.includes("✓")?"#2a7a4b":"#c8372d"}`}}>{msg}</div>}
+        <button onClick={addGarment} disabled={saving} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".14em",textTransform:"uppercase",padding:"10px 20px",cursor:saving?"not-allowed":"pointer",border:"2px solid #0f0f0f",background:saving?"#555":"#0f0f0f",color:"#f5f0e8"}}>
+          {saving?"Adding...":"+ Add to Library"}
+        </button>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {garmentList.map(g=>(
+          <div key={g.id} style={{background:"#fff",border:"1px solid #d4cdc0",padding:"10px 14px",display:"flex",alignItems:"center",gap:12}}>
+            {(g.front_url||g.back_url)&&<img src={g.front_url||g.back_url} style={{width:44,height:44,objectFit:"contain",background:"#f5f0e8"}} crossOrigin="anonymous" onError={e=>e.target.style.display="none"}/>}
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".88rem",fontWeight:500}}>{g.brand} {g.style_name}{g.style_num&&` (${g.style_num})`}</div>
+              <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".08em",textTransform:"uppercase",color:"#aaa",marginTop:2}}>{g.colour}</div>
+              {g.front_url&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:"#ccc",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:400}}>{g.front_url}</div>}
+            </div>
+            <button onClick={()=>deleteGarment(g.id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem",flexShrink:0}}>✕</button>
+          </div>
+        ))}
+        {garmentList.length===0&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb",padding:"10px 0"}}>No garments in library yet — add one above</div>}
+      </div>
+    </div>
+  );
+}
 
