@@ -822,7 +822,7 @@ Instructions:
           {/* Step tabs */}
           <div style={{display:"flex",background:"#0f0f0f",borderBottom:"2px solid #0f0f0f"}}>
             {[["01","Intake"],["02","Garment"],["03","Artwork"],["04","AI Review"],["05","Fine-Tune"],["06","Export"]].map(([n,lbl],i)=>(
-              <div key={i} style={{flex:1,padding:"10px 12px",borderRight:"1px solid #2a2a2a",background:step===i+1?"#1a1a1a":step>i+1?"#111":"transparent",cursor:"pointer"}} onClick={()=>step>i+1&&setStep(i+1)}>
+              <div key={i} style={{flex:1,padding:"10px 12px",borderRight:"1px solid #2a2a2a",background:step===i+1?"#1a1a1a":step>i+1?"#111":"transparent",cursor:"pointer"}} onClick={()=>setStep(i+1)}>
                 <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".14em",textTransform:"uppercase",color:step===i+1?"#c8372d":"#3a3a3a"}}>{`Step ${n}`}</div>
                 <div style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".76rem",fontWeight:500,color:step===i+1?"#f5f0e8":step>i+1?"#3a3a3a":"#555",marginTop:2}}>{lbl}</div>
               </div>
