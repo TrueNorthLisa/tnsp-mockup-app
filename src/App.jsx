@@ -23,7 +23,7 @@ const sb = async (method, path, body) => {
   return text ? JSON.parse(text) : [];
 };
 
-const ALL_SIZES = ["YS","YM","YL","XS","S","M","L","XL","2XL","3XL","One Size"];
+const ALL_SIZES = ["2T","3T","4T","5T","6T","YS","YM","YL","XS","S","M","L","XL","2XL","3XL","One Size"];
 const DEC_TYPES = ["Screen Print","Embroidery","Heat Transfer","DTG","Patch"];
 const PLACEMENT_OPTIONS = ["Left Chest","Right Chest","Centre Front","Full Front","Centre Back","Full Back","Sleeve — Left","Sleeve — Right","Neck / Collar","Left Hip","Right Hip","Shoulder","Custom"];
 const VIEW_OPTIONS = ["Front","Back","Other"];
