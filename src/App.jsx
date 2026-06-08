@@ -483,21 +483,57 @@ Return ONLY valid JSON, no markdown.
     const lv=orderedViews.filter(k=>garments[k]);
     if(!lv.length)return;
     const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
-    const GAP=14;const vcs=lv.map(k=>buildVC(k,plan,viewLabels[k]||k)).filter(Boolean);
-    const tw=vcs.reduce((s,c)=>s+c.width,0)+(vcs.length-1)*GAP;const mh=Math.max(...vcs.map(c=>c.height));
-    const specC=buildSpec(mh);const comb=document.createElement("canvas");
-    comb.width=tw+GAP+specC.width;comb.height=mh;const cc=comb.getContext("2d");
+    const GAP=14;
+
+    // Split into main row (front/back/other) and sleeve row (sleeve_left/sleeve_right)
+    const mainViews=lv.filter(k=>!["sleeve_left","sleeve_right"].includes(k));
+    const sleeveViews=lv.filter(k=>["sleeve_left","sleeve_right"].includes(k));
+    const hasSleeveRow=sleeveViews.length>0;
+
+    // Build canvases for each view
+    const mainVCs=mainViews.map(k=>buildVC(k,plan,viewLabels[k]||k)).filter(Boolean);
+    const sleeveVCs=sleeveViews.map(k=>buildVC(k,plan,viewLabels[k]||k,true)).filter(Boolean);
+
+    const specW=400;
+    const mainRowW=mainVCs.reduce((s,c)=>s+c.width,0)+(mainVCs.length-1)*GAP;
+    const mainRowH=mainVCs.length?Math.max(...mainVCs.map(c=>c.height)):0;
+    const sleeveRowW=sleeveVCs.reduce((s,c)=>s+c.width,0)+(sleeveVCs.length-1)*GAP;
+    const sleeveRowH=sleeveVCs.length?Math.max(...sleeveVCs.map(c=>c.height)):0;
+
+    const contentW=Math.max(mainRowW,sleeveRowW);
+    const contentH=mainRowH+(hasSleeveRow?GAP+sleeveRowH:0);
+    const specC=buildSpec(contentH);
+
+    const comb=document.createElement("canvas");
+    comb.width=contentW+GAP+specC.width;
+    comb.height=contentH;
+    const cc=comb.getContext("2d");
     cc.fillStyle="#ede8df";cc.fillRect(0,0,comb.width,comb.height);
-    let xOff=0;vcs.forEach(vc=>{cc.drawImage(vc,xOff,Math.round((mh-vc.height)/2));xOff+=vc.width+GAP;});
-    cc.drawImage(specC,xOff,0);exportRef.current=comb;
+
+    // Draw main row (front/back/other)
+    let xOff=0;
+    mainVCs.forEach(vc=>{cc.drawImage(vc,xOff,0);xOff+=vc.width+GAP;});
+
+    // Draw sleeve row below
+    if(hasSleeveRow){
+      xOff=0;
+      sleeveVCs.forEach(vc=>{cc.drawImage(vc,xOff,mainRowH+GAP);xOff+=vc.width+GAP;});
+    }
+
+    // Draw spec sheet on the right
+    cc.drawImage(specC,contentW+GAP,0);
+
+    exportRef.current=comb;
     const canvas=canvasRef.current;if(!canvas)return;
-    canvas.width=comb.width;canvas.height=comb.height;canvas.getContext("2d").drawImage(comb,0,0);setMockupBuilt(true);
+    canvas.width=comb.width;canvas.height=comb.height;
+    canvas.getContext("2d").drawImage(comb,0,0);setMockupBuilt(true);
   }
 
-  function buildVC(vk,plan,viewLabel){
+  function buildVC(vk,plan,viewLabel,small=false){
     const activePlan=plan||aiPlan;
     const g=garments[vk];if(!g)return null;const img=g.img;
-    const r=Math.min(680/img.naturalWidth,800/img.naturalHeight);
+    const maxW=small?420:680;const maxH=small?500:800;
+    const r=Math.min(maxW/img.naturalWidth,maxH/img.naturalHeight);
     const vw=Math.round(img.naturalWidth*r),vh=Math.round(img.naturalHeight*r);
     const vc=document.createElement("canvas");vc.width=vw;vc.height=vh;const vx=vc.getContext("2d");
     vx.fillStyle="#fff";vx.fillRect(0,0,vw,vh);vx.drawImage(img,0,0,vw,vh);
