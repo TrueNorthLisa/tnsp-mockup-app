@@ -30,14 +30,26 @@ const VIEW_OPTIONS = ["Front","Back","Sleeve — Left","Sleeve — Right","Other
 const BRANDS = ["Gildan","Comfort Colors","Next Level","Bella+Canvas"];
 const CA_PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
 
-// Map view name to garment key
+// Map view name to garment key — handles all variants AI might return
 const VIEW_TO_KEY = {
   "front": "front",
   "back": "back",
   "sleeve — left": "sleeve_left",
   "sleeve — right": "sleeve_right",
+  "sleeve_left": "sleeve_left",
+  "sleeve_right": "sleeve_right",
+  "sleeve left": "sleeve_left",
+  "sleeve right": "sleeve_right",
+  "left sleeve": "sleeve_left",
+  "right sleeve": "sleeve_right",
   "other": "other",
 };
+
+function normalizeView(v) {
+  if(!v) return "front";
+  const key = v.toLowerCase().trim().replace(/\s*[—-]\s*/g,"_").replace(/\s+/g,"_");
+  return VIEW_TO_KEY[key] || VIEW_TO_KEY[v.toLowerCase().trim()] || "front";
+}
 
 const S = {
   body:    {fontFamily:"'IBM Plex Sans',sans-serif",background:"#f5f0e8",minHeight:"100vh",color:"#0f0f0f"},
@@ -74,7 +86,7 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
   const [viewKey, setViewKey] = useState(loadedViews[0]||"front");
   const [layers, setLayers] = useState(()=>aiPlan.map((p,i)=>({
     id:i, placement:p.placement,
-    view: VIEW_TO_KEY[(p.view||"front").toLowerCase()] || "front",
+    view: normalizeView(p.view),
     artId:p.artId, x:p.x||.5, y:p.y||.4, scale:p.scale||20, flipped:false, visible:true
   })));
   const [selected, setSelected] = useState(null);
@@ -388,7 +400,7 @@ Return ONLY valid JSON, no markdown.
       if(!raw)throw new Error("Empty response — check ANTHROPIC_API_KEY in Netlify.");
       const clean=raw.replace(/```json|```/g,"").trim();
       let plan;try{plan=JSON.parse(clean);}catch(e){throw new Error("AI returned invalid JSON.");}
-      setAiPlan(plan.placements||[]);setAiIntro(plan.intro||"Placement plan ready.");setAiStatus("done");
+      setAiPlan((plan.placements||[]).map(p=>({...p,view:normalizeView(p.view)}))); setAiIntro(plan.intro||"Placement plan ready.");setAiStatus("done");
     }catch(err){setAiStatus("error");setAiError(err.message);}
   }
 
@@ -405,7 +417,7 @@ Return ONLY valid JSON, no markdown.
       const art=artwork.find(a=>a.id==p.artId);
       const def=DEFAULTS[p.placement]||{x:.50,y:.40,scale:22};
       const viewKey=VIEW_TO_KEY[(p.view||"front").toLowerCase()]||"front";
-      return {placement:p.placement,view:viewKey,artId:p.artId,artName:art?.name.replace(/\.[^.]+$/,"")||"",x:def.x,y:def.y,scale:def.scale,decType:p.decType,colours:p.colours,specWidth:p.width,specFromCollar:p.fromCollar,notes:p.notes};
+      return {placement:p.placement,view:normalizeView(p.view),artId:p.artId,artName:art?.name.replace(/\.[^.]+$/,"")||"",x:def.x,y:def.y,scale:def.scale,decType:p.decType,colours:p.colours,specWidth:p.width,specFromCollar:p.fromCollar,notes:p.notes};
     });
     setAiPlan(plan);setStep(5);showToast("Skipped AI — drag to fine-tune positions");
   }
@@ -489,7 +501,7 @@ Return ONLY valid JSON, no markdown.
     const vw=Math.round(img.naturalWidth*r),vh=Math.round(img.naturalHeight*r);
     const vc=document.createElement("canvas");vc.width=vw;vc.height=vh;const vx=vc.getContext("2d");
     vx.fillStyle="#fff";vx.fillRect(0,0,vw,vh);vx.drawImage(img,0,0,vw,vh);
-    activePlan.filter(p=>p.view===vk).forEach(p=>{
+    activePlan.filter(p=>normalizeView(p.view)===vk).forEach(p=>{
       const art=artwork.find(a=>a.id==p.artId);if(!art)return;
       const aw=(Math.max(2,Math.min(200,p.scale||22))/100)*vw,ah=aw*(art.img.naturalHeight/art.img.naturalWidth);
       vx.save();vx.translate((p.x||.5)*vw,(p.y||.4)*vh);vx.drawImage(art.img,-aw/2,-ah/2,aw,ah);vx.restore();
