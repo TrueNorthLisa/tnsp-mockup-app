@@ -553,14 +553,14 @@ Return ONLY valid JSON, no markdown.
   }
 
   function buildSpec(height){
-    const PW=400;const sc=document.createElement("canvas");sc.width=PW;sc.height=height;const sx=sc.getContext("2d");
-    sx.fillStyle="#f5f0e8";sx.fillRect(0,0,PW,height);sx.fillStyle="#c8372d";sx.fillRect(0,0,3,height);
-    sx.fillStyle="#0f0f0f";sx.fillRect(0,0,PW,66);
-    sx.font="bold 24px Bebas Neue,sans-serif";sx.fillStyle="#f5f0e8";sx.fillText("TRUE NORTH",14,27);
-    sx.font="10px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText("SCREEN PRINTING & EMBROIDERY",14,44);
-    sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#555";sx.fillText("PLACEMENT SPECIFICATION SHEET",14,59);
-    let y=82;
-    const mr=(k,v)=>{sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#aaa";sx.fillText(k.toUpperCase(),14,y);sx.font="500 11px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(v||"",115,y);y+=17;};
+    const PW=500;const sc=document.createElement("canvas");sc.width=PW;sc.height=height;const sx=sc.getContext("2d");
+    sx.fillStyle="#f5f0e8";sx.fillRect(0,0,PW,height);sx.fillStyle="#c8372d";sx.fillRect(0,0,4,height);
+    sx.fillStyle="#0f0f0f";sx.fillRect(0,0,PW,80);
+    sx.font="bold 28px Bebas Neue,sans-serif";sx.fillStyle="#f5f0e8";sx.fillText("TRUE NORTH",16,32);
+    sx.font="12px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText("SCREEN PRINTING & EMBROIDERY",16,52);
+    sx.font="11px IBM Plex Mono,monospace";sx.fillStyle="#888";sx.fillText("PLACEMENT SPECIFICATION SHEET",16,68);
+    let y=96;
+    const mr=(k,v)=>{sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#888";sx.fillText(k.toUpperCase(),16,y);sx.font="14px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(v||"",130,y);y+=20;};
     if(jobNum)mr("Job #",jobNum);if(cust.company)mr("Client",cust.company);if(cust.contact_name)mr("Contact",cust.contact_name);
     if(cust.email)mr("Email",cust.email);if(cust.phone)mr("Phone",cust.phone);
     const ga=[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`,selColour].filter(Boolean).join(" ");if(ga)mr("Garment",ga);
@@ -575,50 +575,50 @@ Return ONLY valid JSON, no markdown.
     if(asSizes.length){
       const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
       mr("Total Units",String(total));
-      sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#aaa";sx.fillText("SIZE BREAKDOWN",14,y);
+      sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#888";sx.fillText("SIZE BREAKDOWN",16,y);
       const sstr=asSizes.map(s=>`${s}:${sizes[s].qty}`).join("  ");
-      sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#0f0f0f";
+      sx.font="12px IBM Plex Mono,monospace";sx.fillStyle="#0f0f0f";
       let line="";let ly=y;const words=sstr.split("  ");
-      words.forEach(w=>{const t=line?line+"  "+w:w;if(sx.measureText(t).width>PW-30&&line){sx.fillText(line,14,ly+12);line=w;ly+=13;}else{line=t;}});
-      if(line)sx.fillText(line,14,ly+12);y=ly+26;
+      words.forEach(w=>{const t=line?line+"  "+w:w;if(sx.measureText(t).width>PW-30&&line){sx.fillText(line,16,ly+14);line=w;ly+=16;}else{line=t;}});
+      if(line)sx.fillText(line,16,ly+14);y=ly+30;
     }
-    if(specialInstructions)mr("Notes",specialInstructions.substring(0,60));
-    y+=4;sx.fillStyle="#d4cdc0";sx.fillRect(14,y,PW-28,1);y+=12;
+    if(specialInstructions)mr("Notes",specialInstructions.substring(0,80));
+    y+=6;sx.fillStyle="#d4cdc0";sx.fillRect(16,y,PW-32,1);y+=16;
     aiPlan.forEach((p,i)=>{
-      const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
-      const ch=ehH(p);
-      sx.fillStyle="#fff";sx.fillRect(11,y-2,PW-22,ch+6);sx.strokeStyle="#e0dbd3";sx.lineWidth=1;sx.strokeRect(11,y-2,PW-22,ch+6);sx.fillStyle="#c8372d";sx.fillRect(11,y-2,3,ch+6);
-      sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(`PLACEMENT ${i+1} - ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,20,y+11);
-      sx.font="bold 13px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(p.placement||"",20,y+26);
-      if(p.decType){sx.fillStyle="rgba(200,55,45,.12)";const tw=sx.measureText(p.decType.toUpperCase()).width+10;sx.fillRect(20,y+30,tw,13);sx.font="8px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(p.decType.toUpperCase(),25,y+40);}
-      let ry=y+(p.decType?50:38);
-      const sr=(k,v)=>{if(!v)return;sx.font="8px IBM Plex Mono,monospace";sx.fillStyle="#999";sx.fillText(k.toUpperCase(),20,ry);sx.font="11px IBM Plex Sans,sans-serif";sx.fillStyle="#222";const words=v.split(" ");let line="";const mw=PW-155;words.forEach(w=>{const t=line?line+" "+w:w;if(sx.measureText(t).width>mw&&line){sx.fillText(line,128,ry);line=w;ry+=13;}else{line=t;}});if(line)sx.fillText(line,128,ry);ry+=15;};
+      const ch=ehH(p)+20;
+      sx.fillStyle="#fff";sx.fillRect(12,y-2,PW-24,ch+8);sx.strokeStyle="#e0dbd3";sx.lineWidth=1;sx.strokeRect(12,y-2,PW-24,ch+8);sx.fillStyle="#c8372d";sx.fillRect(12,y-2,4,ch+8);
+      sx.font="bold 11px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(`PLACEMENT ${i+1} — ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,22,y+14);
+      sx.font="bold 16px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(p.placement||"",22,y+32);
+      if(p.decType){sx.fillStyle="rgba(200,55,45,.12)";const tw=sx.measureText(p.decType.toUpperCase()).width+12;sx.fillRect(22,y+36,tw,16);sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(p.decType.toUpperCase(),28,y+48);}
+      let ry=y+(p.decType?60:44);
+      const sr=(k,v)=>{if(!v)return;sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#999";sx.fillText(k.toUpperCase(),22,ry);sx.font="13px IBM Plex Sans,sans-serif";sx.fillStyle="#222";const words=v.split(" ");let line="";const mw=PW-170;words.forEach(w=>{const t=line?line+" "+w:w;if(sx.measureText(t).width>mw&&line){sx.fillText(line,140,ry);line=w;ry+=16;}else{line=t;}});if(line)sx.fillText(line,140,ry);ry+=18;};
       if(p.artName)sr("Artwork",p.artName);if(p.specWidth)sr("Art Width",p.specWidth+'"');if(p.specFromCollar)sr("From Collar",p.specFromCollar+'"');if(p.colours)sr("Colours",p.colours);if(p.notes)sr("Notes",p.notes);
-      y+=ch+13;
+      y+=ch+18;
     });
-    const fY=height-24;sx.fillStyle="#0f0f0f";sx.fillRect(0,fY,PW,24);
-    sx.font="9px IBM Plex Mono,monospace";sx.fillStyle="#555";
-    sx.fillText("truenorthscreenprinting.ca - Vancouver, BC",14,fY+15);
-    sx.fillText(new Date().toLocaleDateString("en-CA"),PW-66,fY+15);
+    const fY=height-28;sx.fillStyle="#0f0f0f";sx.fillRect(0,fY,PW,28);
+    sx.font="11px IBM Plex Mono,monospace";sx.fillStyle="#666";
+    sx.fillText("truenorthscreenprinting.ca · Vancouver, BC",16,fY+18);
+    sx.fillText(new Date().toLocaleDateString("en-CA"),PW-76,fY+18);
     return sc;
   }
 
   function buildWorkOrder(){
+    // Page 1: Work order details (860×1400)
     const PW=860,PH=1400;const wc=document.createElement("canvas");wc.width=PW;wc.height=PH;const wx=wc.getContext("2d");
     wx.fillStyle="#ffffff";wx.fillRect(0,0,PW,PH);
-    wx.fillStyle="#0f0f0f";wx.fillRect(0,0,PW,80);
-    wx.font="bold 44px Bebas Neue,sans-serif";wx.fillStyle="#f5f0e8";wx.fillText("TRUE NORTH",24,52);
-    wx.font="12px IBM Plex Mono,monospace";wx.fillStyle="#c8372d";wx.fillText("SCREEN PRINTING & EMBROIDERY  |  PRODUCTION WORK ORDER",24,68);
-    wx.font="bold 22px Bebas Neue,sans-serif";wx.fillStyle="#c8372d";wx.textAlign="right";wx.fillText(`JOB #${jobNum||""}`,PW-24,48);
-    wx.font="10px IBM Plex Mono,monospace";wx.fillStyle="#888";wx.fillText(new Date().toLocaleDateString("en-CA"),PW-24,66);
+    wx.fillStyle="#0f0f0f";wx.fillRect(0,0,PW,88);
+    wx.font="bold 48px Bebas Neue,sans-serif";wx.fillStyle="#f5f0e8";wx.fillText("TRUE NORTH",24,56);
+    wx.font="13px IBM Plex Mono,monospace";wx.fillStyle="#c8372d";wx.fillText("SCREEN PRINTING & EMBROIDERY  |  PRODUCTION WORK ORDER",24,74);
+    wx.font="bold 26px Bebas Neue,sans-serif";wx.fillStyle="#c8372d";wx.textAlign="right";wx.fillText(`JOB #${jobNum||""}`,PW-24,52);
+    wx.font="11px IBM Plex Mono,monospace";wx.fillStyle="#888";wx.fillText(new Date().toLocaleDateString("en-CA"),PW-24,70);
     wx.textAlign="left";
-    let y=104;
-    function section(title){wx.fillStyle="#f5f0e8";wx.fillRect(0,y,PW,26);wx.fillStyle="#c8372d";wx.fillRect(0,y,4,26);wx.font="bold 15px Bebas Neue,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(title,12,y+18);y+=34;}
+    let y=112;
+    function section(title){wx.fillStyle="#f0ede8";wx.fillRect(0,y,PW,30);wx.fillStyle="#c8372d";wx.fillRect(0,y,4,30);wx.font="bold 17px Bebas Neue,sans-serif";wx.fillStyle="#0f0f0f";wx.letterSpacing="2px";wx.fillText(title,14,y+21);wx.letterSpacing="0px";y+=38;}
     function row(k,v,col2k,col2v){
-      wx.font="10px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.fillText(k.toUpperCase(),24,y);
-      wx.font="14px IBM Plex Sans,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(v||"",24,y+16);
-      if(col2k){wx.font="10px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.fillText(col2k.toUpperCase(),PW/2+20,y);wx.font="14px IBM Plex Sans,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(col2v||"",PW/2+20,y+16);}
-      y+=36;
+      wx.font="bold 11px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.fillText(k.toUpperCase(),24,y);
+      wx.font="16px IBM Plex Sans,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(v||"",24,y+18);
+      if(col2k){wx.font="bold 11px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.fillText(col2k.toUpperCase(),PW/2+20,y);wx.font="16px IBM Plex Sans,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(col2v||"",PW/2+20,y+18);}
+      y+=40;
     }
     section("CUSTOMER & JOB");
     row("Client",cust.company||cust.contact_name,"Contact",cust.contact_name);
@@ -631,46 +631,74 @@ Return ONLY valid JSON, no markdown.
     const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
     if(asSizes.length){
       const colW=Math.floor((PW-48)/asSizes.length);
-      wx.fillStyle="#f5f0e8";wx.fillRect(24,y,PW-48,24);
-      asSizes.forEach((s,i)=>{wx.font="bold 12px IBM Plex Mono,monospace";wx.fillStyle="#0f0f0f";wx.fillText(s,24+i*colW+8,y+17);});
-      y+=24;
-      wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,38);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,38);
-      asSizes.forEach((s,i)=>{wx.font="bold 20px IBM Plex Sans,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(sizes[s].qty,24+i*colW+8,y+27);});
-      y+=38;
+      wx.fillStyle="#f0ede8";wx.fillRect(24,y,PW-48,28);
+      asSizes.forEach((s,i)=>{wx.font="bold 13px IBM Plex Mono,monospace";wx.fillStyle="#0f0f0f";wx.fillText(s,24+i*colW+8,y+20);});
+      y+=28;
+      wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,44);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,44);
+      asSizes.forEach((s,i)=>{wx.font="bold 24px IBM Plex Sans,sans-serif";wx.fillStyle="#0f0f0f";wx.fillText(sizes[s].qty,24+i*colW+8,y+32);});
+      y+=44;
       const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
-      wx.font="bold 14px IBM Plex Mono,monospace";wx.fillStyle="#c8372d";wx.fillText(`TOTAL: ${total} UNITS`,24,y+20);y+=34;
+      wx.font="bold 16px IBM Plex Mono,monospace";wx.fillStyle="#c8372d";wx.fillText(`TOTAL: ${total} UNITS`,24,y+24);y+=40;
     }
     section("PRINT / EMBROIDERY PLACEMENTS");
     const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
     aiPlan.forEach((p,i)=>{
-      wx.fillStyle="#f5f0e8";wx.fillRect(24,y,PW-48,24);wx.fillStyle="#c8372d";wx.fillRect(24,y,3,24);
-      wx.font="bold 12px IBM Plex Mono,monospace";wx.fillStyle="#c8372d";wx.fillText(`PLACEMENT ${i+1} - ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()} - ${p.placement||""}`,30,y+17);y+=26;
-      wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,64);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,64);
+      wx.fillStyle="#f0ede8";wx.fillRect(24,y,PW-48,28);wx.fillStyle="#c8392b";wx.fillRect(24,y,4,28);
+      wx.font="bold 13px IBM Plex Mono,monospace";wx.fillStyle="#c8392b";wx.fillText(`PLACEMENT ${i+1} — ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()} — ${p.placement||""}`,32,y+19);y+=30;
+      wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,72);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,72);
       const cols=[`Artwork: ${p.artName||""}`,`Art Width: ${p.specWidth?p.specWidth+'"':""}`,`From Collar: ${p.specFromCollar?p.specFromCollar+'"':""}`,`Colours: ${p.colours||""}`];
-      cols.forEach((txt,ci)=>{wx.font="12px IBM Plex Sans,sans-serif";wx.fillStyle="#333";wx.fillText(txt,(PW-48)/4*ci+30,y+24);});
-      if(p.notes){wx.font="italic 11px IBM Plex Sans,sans-serif";wx.fillStyle="#666";wx.fillText("Notes: "+p.notes,30,y+50);}
-      y+=68;
+      cols.forEach((txt,ci)=>{wx.font="13px IBM Plex Sans,sans-serif";wx.fillStyle="#333";wx.fillText(txt,(PW-48)/4*ci+32,y+28);});
+      if(p.notes){wx.font="italic 12px IBM Plex Sans,sans-serif";wx.fillStyle="#666";wx.fillText("Notes: "+p.notes,32,y+56);}
+      y+=76;
     });
-    if(exportRef.current){
-      section("DIGITAL MOCKUP");
-      const thumb=exportRef.current;const maxW=PW-48;const maxH=280;
-      const r=Math.min(maxW/thumb.width,maxH/thumb.height);
-      const tw=Math.round(thumb.width*r);const th=Math.round(thumb.height*r);
-      wx.fillStyle="#fff";wx.fillRect(24,y,tw+2,th+2);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,tw+2,th+2);
-      wx.drawImage(thumb,25,y+1,tw,th);y+=th+16;
-    }
     if(pressCheck||boldPrint||vintagePrint){
-      wx.fillStyle="#0f0f0f";wx.fillRect(0,y,PW,36);
+      wx.fillStyle="#0f0f0f";wx.fillRect(0,y,PW,40);
       let flagText="";if(pressCheck)flagText+="⚠ PRESS CHECK REQUIRED    ";if(boldPrint)flagText+="BOLD PRINT    ";if(vintagePrint)flagText+="VINTAGE / DISTRESSED";
-      wx.font="bold 13px IBM Plex Mono,monospace";wx.fillStyle=pressCheck?"#c8372d":"#f5f0e8";wx.fillText(flagText.trim(),24,y+24);y+=44;
+      wx.font="bold 15px IBM Plex Mono,monospace";wx.fillStyle=pressCheck?"#c8392b":"#f5f0e8";wx.fillText(flagText.trim(),24,y+26);y+=48;
     }
-    if(specialInstructions){section("SPECIAL INSTRUCTIONS");wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,50);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,50);wx.font="11px IBM Plex Sans,sans-serif";wx.fillStyle="#333";wx.fillText(specialInstructions,30,y+20);y+=54;}
-    y=Math.max(y,PH-180);section("QC & SIGN-OFF");
-    const swatchSize=110;wx.fillStyle="#fff";wx.fillRect(24,y,swatchSize,swatchSize);wx.strokeStyle="#0f0f0f";wx.lineWidth=1.5;wx.strokeRect(24,y,swatchSize,swatchSize);
+    if(specialInstructions){
+      section("SPECIAL INSTRUCTIONS");
+      wx.fillStyle="#fff";wx.fillRect(24,y,PW-48,56);wx.strokeStyle="#d4cdc0";wx.lineWidth=1;wx.strokeRect(24,y,PW-48,56);
+      wx.font="13px IBM Plex Sans,sans-serif";wx.fillStyle="#333";wx.fillText(specialInstructions,30,y+24);y+=62;
+    }
+    y=Math.max(y,PH-200);section("QC & SIGN-OFF");
+    const swatchSize=120;wx.fillStyle="#fff";wx.fillRect(24,y,swatchSize,swatchSize);wx.strokeStyle="#0f0f0f";wx.lineWidth=1.5;wx.strokeRect(24,y,swatchSize,swatchSize);
     wx.strokeStyle="#e0dbd3";wx.lineWidth=1;wx.beginPath();wx.moveTo(24,y);wx.lineTo(24+swatchSize,y+swatchSize);wx.stroke();wx.beginPath();wx.moveTo(24+swatchSize,y);wx.lineTo(24,y+swatchSize);wx.stroke();
-    wx.font="8px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.textAlign="center";wx.fillText("INK SWATCH",24+swatchSize/2,y+swatchSize+12);wx.fillText("(apply sample here)",24+swatchSize/2,y+swatchSize+24);wx.textAlign="left";
-    const soy=y+20;wx.fillStyle="#d4cdc0";wx.fillRect(160,soy+20,280,1);wx.fillRect(160,soy+70,280,1);wx.fillRect(160,soy+120,280,1);
-    wx.font="8px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.fillText("PRODUCTION SIGN-OFF",160,soy+32);wx.fillText("QC CHECK",160,soy+82);wx.fillText("DATE COMPLETED",160,soy+132);
+    wx.font="10px IBM Plex Mono,monospace";wx.fillStyle="#aaa";wx.textAlign="center";wx.fillText("INK SWATCH",24+swatchSize/2,y+swatchSize+14);wx.fillText("(apply sample here)",24+swatchSize/2,y+swatchSize+28);wx.textAlign="left";
+    const soy=y+20;wx.fillStyle="#d4cdc0";wx.fillRect(170,soy+22,300,1);wx.fillRect(170,soy+76,300,1);wx.fillRect(170,soy+130,300,1);
+    wx.font="bold 10px IBM Plex Mono,monospace";wx.fillStyle="#aaa";
+    wx.fillText("PRODUCTION SIGN-OFF",170,soy+36);wx.fillText("QC CHECK",170,soy+90);wx.fillText("DATE COMPLETED",170,soy+144);
+
+    // Page 2: Full mockup image
+    if(exportRef.current){
+      const mockup=exportRef.current;
+      // Stack page 2 below page 1 — extend canvas height
+      const page2H=Math.max(mockup.height+120, 900);
+      const combined=document.createElement("canvas");
+      combined.width=PW;combined.height=PH+page2H;
+      const cx=combined.getContext("2d");
+      // Copy page 1
+      cx.drawImage(wc,0,0);
+      // Page 2 background
+      cx.fillStyle="#ffffff";cx.fillRect(0,PH,PW,page2H);
+      // Page 2 header
+      cx.fillStyle="#0f0f0f";cx.fillRect(0,PH,PW,60);
+      cx.font="bold 14px IBM Plex Mono,monospace";cx.fillStyle="#f5f0e8";cx.fillText(`TRUE NORTH — DIGITAL MOCKUP — JOB #${jobNum||""}`,24,PH+22);
+      cx.font="11px IBM Plex Mono,monospace";cx.fillStyle="#888";cx.fillText(`${cust.company||cust.contact_name||""} · ${new Date().toLocaleDateString("en-CA")}`,24,PH+42);
+      cx.fillStyle="#c8392b";cx.fillRect(0,PH+60,PW,3);
+      // Mockup image — scale to fit width with padding
+      const maxW=PW-48;const maxH=page2H-120;
+      const ratio=Math.min(maxW/mockup.width,maxH/mockup.height);
+      const mw=Math.round(mockup.width*ratio);const mh=Math.round(mockup.height*ratio);
+      const mx=Math.round((PW-mw)/2);const my=PH+76;
+      cx.fillStyle="#f5f0e8";cx.fillRect(mx-4,my-4,mw+8,mh+8);
+      cx.drawImage(mockup,mx,my,mw,mh);
+      // Page 2 footer
+      cx.fillStyle="#0f0f0f";cx.fillRect(0,PH+page2H-28,PW,28);
+      cx.font="11px IBM Plex Mono,monospace";cx.fillStyle="#555";
+      cx.fillText("truenorthscreenprinting.ca · Vancouver, BC · For production use only",24,PH+page2H-10);
+      return combined;
+    }
     return wc;
   }
 
