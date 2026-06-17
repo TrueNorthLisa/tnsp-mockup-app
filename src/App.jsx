@@ -603,195 +603,451 @@ Return ONLY valid JSON, no markdown.
   }
 
   function buildWorkOrder(){
-    // Landscape 11×8.5" at 192dpi = 2112×1632px (2x for crisp printing)
-    const PW=2112, PH=1632;
-    const SCALE=2; // everything drawn at 2x for sharpness
+    // Landscape 8.5×11" — 1056×816 base, printed at 96dpi fits perfectly on page
+    const PW=1056, PH=816;
+    const wc=document.createElement("canvas"); wc.width=PW; wc.height=PH;
+    const wx=wc.getContext("2d");
+
+    // Font helpers — all sizes relative to PH so nothing is tiny
+    const F={
+      xl:  s=>`bold ${Math.round(PH*s)}px Bebas Neue,sans-serif`,
+      hd:  s=>`bold ${Math.round(PH*s)}px IBM Plex Mono,monospace`,
+      body:s=>`${Math.round(PH*s)}px IBM Plex Sans,sans-serif`,
+      mono:s=>`${Math.round(PH*s)}px IBM Plex Mono,monospace`,
+      bld: s=>`bold ${Math.round(PH*s)}px IBM Plex Sans,sans-serif`,
+    };
+    const P=16; // base padding
+
+    // ── BACKGROUND ──────────────────────────────────────────────────────────
+    wx.fillStyle="#ffffff"; wx.fillRect(0,0,PW,PH);
+
+    // ── HEADER (full width) ──────────────────────────────────────────────────
+    const HDR=Math.round(PH*0.09);
+    wx.fillStyle="#0f0f0f"; wx.fillRect(0,0,PW,HDR);
+    wx.font=F.xl(0.068); wx.fillStyle="#f5f0e8";
+    wx.fillText("TRUE NORTH",P,HDR*0.75);
+    wx.font=F.mono(0.022); wx.fillStyle="#c8372d";
+    wx.fillText("SCREEN PRINTING & EMBROIDERY  ·  PRODUCTION WORK ORDER",P,HDR*0.93);
+    wx.font=F.xl(0.038); wx.fillStyle="#e8c547"; wx.textAlign="right";
+    wx.fillText(`JOB #${jobNum||"TBD"}`,PW-P,HDR*0.65);
+    wx.font=F.mono(0.018); wx.fillStyle="#888";
+    wx.fillText(new Date().toLocaleDateString("en-CA"),PW-P,HDR*0.88);
+    wx.textAlign="left";
+    wx.fillStyle="#c8372d"; wx.fillRect(0,HDR,PW,3);
+
+    // Production flags
+    let bodyY=HDR+3;
+    if(pressCheck||boldPrint||vintagePrint){
+      const FH=Math.round(PH*0.045);
+      wx.fillStyle="#1a0000"; wx.fillRect(0,bodyY,PW,FH);
+      let ft=""; if(pressCheck)ft+="⚠  PRESS CHECK REQUIRED     "; if(boldPrint)ft+="●  BOLD PRINT     "; if(vintagePrint)ft+="●  VINTAGE / DISTRESSED";
+      wx.font=F.hd(0.026); wx.fillStyle=pressCheck?"#ff4444":"#f5f0e8";
+      wx.fillText(ft.trim(),P,bodyY+FH*0.72); bodyY+=FH;
+    }
+    bodyY+=Math.round(PH*0.012);
+
+    // ── CONTENT: Three columns top section ──────────────────────────────────
+    const TOP_H=Math.round(PH*0.38); // top section height
+    const cw=Math.floor((PW-P*4)/3);
+    const cx0=P, cx1=P*2+cw, cx2=P*3+cw*2;
+
+    // Helper: section header bar
+    const secBar=(x,y,w,txt)=>{
+      const bh=Math.round(PH*0.032);
+      wx.fillStyle="#f0ede8"; wx.fillRect(x,y,w,bh);
+      wx.fillStyle="#c8372d"; wx.fillRect(x,y,4,bh);
+      wx.font=F.hd(0.020); wx.fillStyle="#0f0f0f";
+      wx.fillText(txt,x+8,y+bh*0.74);
+      return y+bh+Math.round(PH*0.01);
+    };
+
+    // Helper: label+value field
+    const field=(x,y,w,lbl,val)=>{
+      if(!val) return y;
+      const lh=Math.round(PH*0.016); const vh=Math.round(PH*0.026); const gap=Math.round(PH*0.008);
+      wx.font=F.hd(0.014); wx.fillStyle="#aaa"; wx.fillText(lbl.toUpperCase(),x,y+lh);
+      wx.font=F.body(0.024); wx.fillStyle="#0f0f0f";
+      // Truncate to fit
+      let txt=val; while(wx.measureText(txt).width>w-4&&txt.length>3) txt=txt.slice(0,-2)+"…";
+      wx.fillText(txt,x,y+lh+vh); return y+lh+vh+gap+Math.round(PH*0.006);
+    };
+
+    // Col 0: Customer
+    let y0=bodyY;
+    y0=secBar(cx0,y0,cw,"CUSTOMER");
+    y0=field(cx0,y0,cw,"Client",cust.company||cust.contact_name||"");
+    y0=field(cx0,y0,cw,"Contact",cust.contact_name||"");
+    y0=field(cx0,y0,cw,"Email",cust.email||"");
+    y0=field(cx0,y0,cw,"Phone",cust.phone||"");
+    y0=field(cx0,y0,cw,"Ship To",[cust.address,cust.city,cust.province,cust.postal].filter(Boolean).join(", ")||"");
+    y0=field(cx0,y0,cw,"Due Date",dueDate?new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}):"");
+
+    // Col 1: Garment
+    let y1=bodyY;
+    y1=secBar(cx1,y1,cw,"GARMENT");
+    y1=field(cx1,y1,cw,"Brand / Style",[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" ")||"");
+    y1=field(cx1,y1,cw,"Colour",selColour||"");
+    y1=field(cx1,y1,cw,"Decoration",decTypes.join(", ")||"");
+    if(specialInstructions) y1=field(cx1,y1,cw,"Notes",specialInstructions.substring(0,55));
+
+    // Col 2: Sizes
+    let y2=bodyY;
+    y2=secBar(cx2,y2,cw,"SIZES & QUANTITIES");
+    const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
+    if(asSizes.length){
+      const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
+      const perRow=Math.min(asSizes.length,8);
+      const scw=Math.floor(cw/perRow);
+      const slbh=Math.round(PH*0.028); const sqth=Math.round(PH*0.052);
+      // Labels
+      wx.fillStyle="#f0ede8"; wx.fillRect(cx2,y2,cw,slbh);
+      asSizes.slice(0,8).forEach((s,i)=>{wx.font=F.hd(0.018);wx.fillStyle="#333";wx.fillText(s,cx2+i*scw+4,y2+slbh*0.78);});
+      y2+=slbh;
+      // Quantities
+      wx.fillStyle="#fff"; wx.fillRect(cx2,y2,cw,sqth); wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(cx2,y2,cw,sqth);
+      asSizes.slice(0,8).forEach((s,i)=>{wx.font=F.bld(0.040);wx.fillStyle="#0f0f0f";wx.fillText(sizes[s].qty,cx2+i*scw+4,y2+sqth*0.78);});
+      y2+=sqth+Math.round(PH*0.008);
+      // Second row
+      if(asSizes.length>8){
+        const scw2=Math.floor(cw/(asSizes.length-8));
+        wx.fillStyle="#f0ede8"; wx.fillRect(cx2,y2,cw,slbh);
+        asSizes.slice(8).forEach((s,i)=>{wx.font=F.hd(0.018);wx.fillStyle="#333";wx.fillText(s,cx2+i*scw2+4,y2+slbh*0.78);});
+        y2+=slbh;
+        wx.fillStyle="#fff"; wx.fillRect(cx2,y2,cw,sqth); wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(cx2,y2,cw,sqth);
+        asSizes.slice(8).forEach((s,i)=>{wx.font=F.bld(0.040);wx.fillStyle="#0f0f0f";wx.fillText(sizes[s].qty,cx2+i*scw2+4,y2+sqth*0.78);});
+        y2+=sqth+Math.round(PH*0.008);
+      }
+      wx.font=F.hd(0.024); wx.fillStyle="#c8372d";
+      wx.fillText(`TOTAL: ${total} UNITS`,cx2,y2+Math.round(PH*0.028)); y2+=Math.round(PH*0.038);
+    }
+
+    // ── DIVIDER ─────────────────────────────────────────────────────────────
+    const topMax=Math.max(y0,y1,y2)+Math.round(PH*0.014);
+    wx.fillStyle="#c8372d"; wx.fillRect(0,topMax,PW,2);
+    let plY=topMax+Math.round(PH*0.012);
+
+    // ── PLACEMENTS SECTION HEADER ────────────────────────────────────────────
+    const pbh=Math.round(PH*0.036);
+    wx.fillStyle="#f0ede8"; wx.fillRect(P,plY,PW-P*2,pbh);
+    wx.fillStyle="#c8372d"; wx.fillRect(P,plY,4,pbh);
+    wx.font=F.hd(0.022); wx.fillStyle="#0f0f0f";
+    wx.fillText("PRINT / EMBROIDERY PLACEMENTS",P+10,plY+pbh*0.74); plY+=pbh+Math.round(PH*0.01);
+
+    // ── PLACEMENT CARDS (fill remaining space exactly) ───────────────────────
+    const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
+    const footH=Math.round(PH*0.038);
+    const availH=PH-plY-footH-P;
+    const displayPlacements=aiPlan.slice(0,4);
+    const numP=Math.max(displayPlacements.length,1);
+    const cardGap=Math.round(PH*0.01);
+    const cardW=Math.floor((PW-P*2-(cardGap*(numP-1)))/numP);
+    const cardH=availH;
+
+    displayPlacements.forEach((p,i)=>{
+      const cardX=P+i*(cardW+cardGap);
+      wx.fillStyle="#f8f6f2"; wx.fillRect(cardX,plY,cardW,cardH);
+      wx.strokeStyle="#d4cdc0"; wx.lineWidth=1.5; wx.strokeRect(cardX,plY,cardW,cardH);
+      wx.fillStyle="#c8372d"; wx.fillRect(cardX,plY,5,cardH);
+      let cy=plY+Math.round(PH*0.016);
+      // Number + view tag
+      wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
+      wx.fillText(`PLACEMENT ${i+1}  ·  ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,cardX+12,cy+Math.round(PH*0.018));
+      cy+=Math.round(PH*0.026);
+      // Placement name — very large
+      wx.font=F.bld(0.042); wx.fillStyle="#0f0f0f";
+      let pname=p.placement||""; while(wx.measureText(pname).width>cardW-20&&pname.length>3) pname=pname.slice(0,-2)+"…";
+      wx.fillText(pname,cardX+12,cy+Math.round(PH*0.038));
+      cy+=Math.round(PH*0.050);
+      // Dec type badge
+      if(p.decType){
+        wx.fillStyle="rgba(200,55,45,.12)";
+        wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
+        const badgeH=Math.round(PH*0.030); const badgeW=wx.measureText(p.decType.toUpperCase()).width+20;
+        wx.fillStyle="rgba(200,55,45,.12)"; wx.fillRect(cardX+12,cy,badgeW,badgeH);
+        wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
+        wx.fillText(p.decType.toUpperCase(),cardX+22,cy+badgeH*0.74); cy+=badgeH+Math.round(PH*0.014);
+      } else { cy+=Math.round(PH*0.01); }
+      // Detail rows
+      const dr=(lbl,val)=>{
+        if(!val) return;
+        const lbh=Math.round(PH*0.016); const vbh=Math.round(PH*0.028);
+        wx.font=F.hd(0.016); wx.fillStyle="#aaa"; wx.fillText(lbl.toUpperCase(),cardX+12,cy+lbh);
+        wx.font=F.body(0.026); wx.fillStyle="#222";
+        let txt=val; while(wx.measureText(txt).width>cardW-20&&txt.length>3) txt=txt.slice(0,-2)+"…";
+        wx.fillText(txt,cardX+12,cy+lbh+vbh); cy+=lbh+vbh+Math.round(PH*0.012);
+      };
+      dr("Colours",p.colours);
+      dr("Art Width",p.specWidth?p.specWidth+'"':"");
+      dr("From Collar",p.specFromCollar?p.specFromCollar+'"':"");
+      dr("Artwork",p.artName);
+      dr("Notes",p.notes);
+    });
+
+    // ── FOOTER ───────────────────────────────────────────────────────────────
+    const fY=PH-footH;
+    wx.fillStyle="#f0ede8"; wx.fillRect(0,fY,PW,footH);
+    wx.fillStyle="#c8372d"; wx.fillRect(0,fY,PW,2);
+    wx.font=F.mono(0.016); wx.fillStyle="#888";
+    wx.fillText("TRUE NORTH SCREEN PRINTING LTD.  ·  VANCOUVER, BC  ·  604-874-4488  ·  TRUENORTHSCREENPRINTING.CA",P,fY+footH*0.65);
+    wx.textAlign="right"; wx.fillText("PAGE 1 OF 2",PW-P,fY+footH*0.65); wx.textAlign="left";
+
+    // ── PAGE 2: Digital Mockup ───────────────────────────────────────────────
+    if(exportRef.current){
+      const mockup=exportRef.current;
+      const combined=document.createElement("canvas"); combined.width=PW; combined.height=PH*2;
+      const cc=combined.getContext("2d");
+      cc.drawImage(wc,0,0);
+      cc.fillStyle="#ffffff"; cc.fillRect(0,PH,PW,PH);
+      // Header
+      const p2h=Math.round(PH*0.10);
+      cc.fillStyle="#0f0f0f"; cc.fillRect(0,PH,PW,p2h);
+      cc.font=F.xl(0.065); cc.fillStyle="#f5f0e8"; cc.fillText("TRUE NORTH",P,PH+p2h*0.68);
+      cc.font=F.mono(0.020); cc.fillStyle="#c8372d"; cc.fillText("DIGITAL MOCKUP  ·  FOR PRODUCTION REFERENCE ONLY",P,PH+p2h*0.90);
+      cc.font=F.xl(0.036); cc.fillStyle="#e8c547"; cc.textAlign="right"; cc.fillText(`JOB #${jobNum||""}`,PW-P,PH+p2h*0.62);
+      cc.font=F.mono(0.018); cc.fillStyle="#888"; cc.fillText(`${cust.company||cust.contact_name||""}  ·  ${new Date().toLocaleDateString("en-CA")}`,PW-P,PH+p2h*0.86);
+      cc.textAlign="left"; cc.fillStyle="#c8372d"; cc.fillRect(0,PH+p2h,PW,3);
+      // Mockup image
+      const pad2=P; const imgY=PH+p2h+pad2;
+      const maxW2=PW-pad2*2; const maxH2=PH-p2h-footH-pad2*2;
+      const ratio=Math.min(maxW2/mockup.width,maxH2/mockup.height);
+      const mw=Math.round(mockup.width*ratio); const mh=Math.round(mockup.height*ratio);
+      const mx=Math.round((PW-mw)/2);
+      cc.fillStyle="#f5f2eb"; cc.fillRect(mx-4,imgY-4,mw+8,mh+8);
+      cc.drawImage(mockup,mx,imgY,mw,mh);
+      // Footer
+      cc.fillStyle="#f0ede8"; cc.fillRect(0,PH*2-footH,PW,footH);
+      cc.fillStyle="#c8372d"; cc.fillRect(0,PH*2-footH,PW,2);
+      cc.font=F.mono(0.016); cc.fillStyle="#888";
+      cc.fillText("TRUE NORTH SCREEN PRINTING LTD.  ·  FOR PRODUCTION USE ONLY  ·  DO NOT DISTRIBUTE",P,PH*2-footH+footH*0.65);
+      cc.textAlign="right"; cc.fillText("PAGE 2 OF 2",PW-P,PH*2-footH+footH*0.65); cc.textAlign="left";
+      return combined;
+    }
+    return wc;
+  }
 
     // ── PAGE 1: Work Order ──────────────────────────────────────────────────
     const wc=document.createElement("canvas"); wc.width=PW; wc.height=PH;
     const wx=wc.getContext("2d");
     wx.fillStyle="#ffffff"; wx.fillRect(0,0,PW,PH);
 
-    // Header band
-    wx.fillStyle="#0f0f0f"; wx.fillRect(0,0,PW,120);
-    wx.font=`bold ${88*SCALE/2}px Bebas Neue,sans-serif`; wx.fillStyle="#f5f0e8";
-    wx.fillText("TRUE NORTH",40,78);
-    wx.font=`${11*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#c8372d";
-    wx.fillText("SCREEN PRINTING & EMBROIDERY  |  PRODUCTION WORK ORDER",40,104);
-    wx.font=`bold ${22*SCALE/2}px Bebas Neue,sans-serif`; wx.fillStyle="#c8372d";
-    wx.textAlign="right"; wx.fillText(`JOB #${jobNum||""}`,PW-40,68);
-    wx.font=`${10*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#888";
-    wx.fillText(new Date().toLocaleDateString("en-CA"),PW-40,92);
+    // Header
+    wx.fillStyle="#0f0f0f"; wx.fillRect(0,0,PW,96);
+    wx.font="bold 64px Bebas Neue,sans-serif"; wx.fillStyle="#f5f0e8";
+    wx.fillText("TRUE NORTH",32,66);
+    wx.font="bold 16px IBM Plex Mono,monospace"; wx.fillStyle="#c8372d";
+    wx.fillText("SCREEN PRINTING & EMBROIDERY  ·  PRODUCTION WORK ORDER",32,88);
+    wx.font="bold 36px Bebas Neue,sans-serif"; wx.fillStyle="#e8c547";
+    wx.textAlign="right"; wx.fillText(`JOB #${jobNum||"TBD"}`,PW-32,58);
+    wx.font="14px IBM Plex Mono,monospace"; wx.fillStyle="#888";
+    wx.fillText(new Date().toLocaleDateString("en-CA"),PW-32,82);
     wx.textAlign="left";
-    wx.fillStyle="#c8372d"; wx.fillRect(0,120,PW,4);
+    wx.fillStyle="#c8372d"; wx.fillRect(0,96,PW,4);
 
-    // Two-column layout: left=customer/garment/sizes, right=placements
-    const COL1=40, COL2=PW/2+20, COL_W=PW/2-60;
-    let yL=150, yR=150; // left and right y positions
+    // Production flags banner (if any)
+    let bodyY=110;
+    if(pressCheck||boldPrint||vintagePrint){
+      wx.fillStyle="#0f0f0f"; wx.fillRect(0,bodyY,PW,42);
+      let ft=""; if(pressCheck)ft+="⚠  PRESS CHECK REQUIRED     "; if(boldPrint)ft+="●  BOLD PRINT     "; if(vintagePrint)ft+="●  VINTAGE / DISTRESSED";
+      wx.font="bold 18px IBM Plex Mono,monospace"; wx.fillStyle=pressCheck?"#c8372d":"#f5f0e8";
+      wx.fillText(ft.trim(),32,bodyY+28); bodyY+=42;
+    }
+    bodyY+=8;
 
-    function sectionL(title){ wx.fillStyle="#f0ede8"; wx.fillRect(COL1,yL,COL_W,28); wx.fillStyle="#c8372d"; wx.fillRect(COL1,yL,4,28); wx.font=`bold ${13*SCALE/2}px Bebas Neue,sans-serif`; wx.fillStyle="#0f0f0f"; wx.fillText(title,COL1+10,yL+20); yL+=34; }
-    function sectionR(title){ wx.fillStyle="#f0ede8"; wx.fillRect(COL2,yR,COL_W,28); wx.fillStyle="#c8372d"; wx.fillRect(COL2,yR,4,28); wx.font=`bold ${13*SCALE/2}px Bebas Neue,sans-serif`; wx.fillStyle="#0f0f0f"; wx.fillText(title,COL2+10,yR+20); yR+=34; }
-    function rowL(k,v){ wx.font=`bold ${9*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#aaa"; wx.fillText(k.toUpperCase(),COL1+4,yL); wx.font=`${13*SCALE/2}px IBM Plex Sans,sans-serif`; wx.fillStyle="#0f0f0f"; wx.fillText(v||"—",COL1+4,yL+16); yL+=30; }
+    // ── TOP ROW: Customer | Garment | Sizes (3 equal columns) ──────────────
+    const COL_COUNT=3;
+    const COL_W=Math.floor((PW-64)/COL_COUNT);
+    const colX=[32, 32+COL_W+16, 32+COL_W*2+32];
+    let colY=[bodyY,bodyY,bodyY];
 
-    // Left: Customer
-    sectionL("CUSTOMER & JOB");
-    rowL("Client", cust.company||cust.contact_name||"");
-    rowL("Contact", cust.contact_name||"");
-    rowL("Email", cust.email||"");
-    rowL("Phone", cust.phone||"");
-    rowL("Ship To", [cust.address,cust.city,cust.province,cust.postal].filter(Boolean).join(", ")||"");
-    rowL("Due Date", dueDate?new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}):"");
-    yL+=8;
+    function secHead(col,title){
+      wx.fillStyle="#f0ede8"; wx.fillRect(colX[col],colY[col],COL_W,26);
+      wx.fillStyle="#c8372d"; wx.fillRect(colX[col],colY[col],4,26);
+      wx.font="bold 14px IBM Plex Mono,monospace"; wx.fillStyle="#0f0f0f";
+      wx.fillText(title,colX[col]+10,colY[col]+18); colY[col]+=30;
+    }
+    function field(col,k,v){
+      if(!v) return;
+      wx.font="bold 11px IBM Plex Mono,monospace"; wx.fillStyle="#aaa";
+      wx.fillText(k.toUpperCase(),colX[col]+4,colY[col]+2);
+      wx.font="18px IBM Plex Sans,sans-serif"; wx.fillStyle="#0f0f0f";
+      // Truncate long values
+      const maxW=COL_W-8;
+      let txt=v; wx.font="18px IBM Plex Sans,sans-serif";
+      while(wx.measureText(txt).width>maxW&&txt.length>4) txt=txt.slice(0,-2)+"…";
+      wx.fillText(txt,colX[col]+4,colY[col]+22); colY[col]+=34;
+    }
 
-    // Left: Garment
-    sectionL("GARMENT");
-    rowL("Style", [selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" ")||"");
-    rowL("Colour", selColour||"");
-    rowL("Decoration", decTypes.join(", ")||"");
-    if(specialInstructions) rowL("Notes", specialInstructions.substring(0,60));
-    yL+=8;
+    // Col 0: Customer
+    secHead(0,"CUSTOMER");
+    field(0,"Client",cust.company||cust.contact_name||"");
+    field(0,"Contact",cust.contact_name||"");
+    field(0,"Email",cust.email||"");
+    field(0,"Phone",cust.phone||"");
+    field(0,"Ship To",[cust.address,cust.city,cust.province,cust.postal].filter(Boolean).join(", ")||"");
+    field(0,"Due Date",dueDate?new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}):"");
 
-    // Left: Sizes
-    sectionL("SIZES & QUANTITIES");
+    // Col 1: Garment
+    secHead(1,"GARMENT");
+    field(1,"Brand / Style",[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" ")||"");
+    field(1,"Colour",selColour||"");
+    field(1,"Decoration",decTypes.join(", ")||"");
+    if(specialInstructions) field(1,"Notes",specialInstructions.substring(0,50));
+
+    // Col 2: Sizes
+    secHead(2,"SIZES & QUANTITIES");
     const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
     if(asSizes.length){
       const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
-      const colW=Math.floor(COL_W/Math.min(asSizes.length,8));
-      // Header row
-      wx.fillStyle="#f0ede8"; wx.fillRect(COL1,yL,COL_W,22);
-      asSizes.slice(0,8).forEach((s,i)=>{ wx.font=`bold ${10*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#0f0f0f"; wx.fillText(s,COL1+i*colW+6,yL+16); });
-      yL+=22;
-      // Qty row
-      wx.fillStyle="#fff"; wx.fillRect(COL1,yL,COL_W,36); wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(COL1,yL,COL_W,36);
-      asSizes.slice(0,8).forEach((s,i)=>{ wx.font=`bold ${18*SCALE/2}px IBM Plex Sans,sans-serif`; wx.fillStyle="#0f0f0f"; wx.fillText(sizes[s].qty,COL1+i*colW+6,yL+28); });
-      yL+=36;
-      // Overflow sizes if >8
+      const perCol=Math.min(asSizes.length,8);
+      const sColW=Math.floor(COL_W/perCol);
+      // Size labels
+      wx.fillStyle="#f0ede8"; wx.fillRect(colX[2],colY[2],COL_W,24);
+      asSizes.slice(0,8).forEach((s,i)=>{
+        wx.font="bold 12px IBM Plex Mono,monospace"; wx.fillStyle="#333";
+        wx.fillText(s,colX[2]+i*sColW+4,colY[2]+17);
+      });
+      colY[2]+=24;
+      // Qty values
+      wx.fillStyle="#fff"; wx.fillRect(colX[2],colY[2],COL_W,42);
+      wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(colX[2],colY[2],COL_W,42);
+      asSizes.slice(0,8).forEach((s,i)=>{
+        wx.font="bold 26px IBM Plex Sans,sans-serif"; wx.fillStyle="#0f0f0f";
+        wx.fillText(sizes[s].qty,colX[2]+i*sColW+4,colY[2]+34);
+      });
+      colY[2]+=42;
+      // Second row if >8 sizes
       if(asSizes.length>8){
-        const colW2=Math.floor(COL_W/Math.min(asSizes.length-8,8));
-        wx.fillStyle="#f0ede8"; wx.fillRect(COL1,yL,COL_W,22);
-        asSizes.slice(8).forEach((s,i)=>{ wx.font=`bold ${10*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#0f0f0f"; wx.fillText(s,COL1+i*colW2+6,yL+16); });
-        yL+=22;
-        wx.fillStyle="#fff"; wx.fillRect(COL1,yL,COL_W,36); wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(COL1,yL,COL_W,36);
-        asSizes.slice(8).forEach((s,i)=>{ wx.font=`bold ${18*SCALE/2}px IBM Plex Sans,sans-serif`; wx.fillStyle="#0f0f0f"; wx.fillText(sizes[s].qty,COL1+i*colW2+6,yL+28); });
-        yL+=36;
+        const perCol2=asSizes.length-8;
+        const sColW2=Math.floor(COL_W/perCol2);
+        wx.fillStyle="#f0ede8"; wx.fillRect(colX[2],colY[2],COL_W,24);
+        asSizes.slice(8).forEach((s,i)=>{ wx.font="bold 12px IBM Plex Mono,monospace"; wx.fillStyle="#333"; wx.fillText(s,colX[2]+i*sColW2+4,colY[2]+17); });
+        colY[2]+=24;
+        wx.fillStyle="#fff"; wx.fillRect(colX[2],colY[2],COL_W,42); wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(colX[2],colY[2],COL_W,42);
+        asSizes.slice(8).forEach((s,i)=>{ wx.font="bold 26px IBM Plex Sans,sans-serif"; wx.fillStyle="#0f0f0f"; wx.fillText(sizes[s].qty,colX[2]+i*sColW2+4,colY[2]+34); });
+        colY[2]+=42;
       }
-      wx.font=`bold ${13*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#c8372d";
-      wx.fillText(`TOTAL: ${total} UNITS`,COL1,yL+20); yL+=32;
+      colY[2]+=6;
+      wx.font="bold 20px IBM Plex Mono,monospace"; wx.fillStyle="#c8372d";
+      wx.fillText(`TOTAL: ${total} UNITS`,colX[2]+4,colY[2]+22); colY[2]+=34;
     }
 
-    // Left: Production flags + QC sign-off
-    yL+=8;
-    if(pressCheck||boldPrint||vintagePrint){
-      wx.fillStyle="#0f0f0f"; wx.fillRect(COL1,yL,COL_W,34);
-      let ft=""; if(pressCheck)ft+="⚠ PRESS CHECK  "; if(boldPrint)ft+="BOLD PRINT  "; if(vintagePrint)ft+="VINTAGE/DISTRESSED";
-      wx.font=`bold ${12*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle=pressCheck?"#c8372d":"#f5f0e8";
-      wx.fillText(ft.trim(),COL1+8,yL+22); yL+=42;
-    }
-    yL+=8;
-    // QC sign-off on left side
-    wx.font=`bold ${9*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#aaa";
-    wx.fillText("PRODUCTION SIGN-OFF",COL1,yL+14); wx.fillStyle="#d4cdc0"; wx.fillRect(COL1,yL+18,COL_W,1); yL+=36;
-    wx.font=`bold ${9*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#aaa";
-    wx.fillText("QC CHECK",COL1,yL+14); wx.fillStyle="#d4cdc0"; wx.fillRect(COL1,yL+18,COL_W,1); yL+=36;
-    wx.font=`bold ${9*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#aaa";
-    wx.fillText("DATE COMPLETED",COL1,yL+14); wx.fillStyle="#d4cdc0"; wx.fillRect(COL1,yL+18,COL_W,1); yL+=36;
+    // ── PLACEMENTS: full width, cards side by side ──────────────────────────
+    const maxY=Math.max(...colY)+16;
+    wx.fillStyle="#c8372d"; wx.fillRect(0,maxY,PW,2);
+    let plY=maxY+8;
+    // Section header
+    wx.fillStyle="#f0ede8"; wx.fillRect(32,plY,PW-64,28);
+    wx.fillStyle="#c8372d"; wx.fillRect(32,plY,4,28);
+    wx.font="bold 15px IBM Plex Mono,monospace"; wx.fillStyle="#0f0f0f";
+    wx.fillText("PRINT / EMBROIDERY PLACEMENTS",42,plY+20); plY+=34;
 
-    // Ink swatch
-    yL+=8;
-    const sw=100;
-    wx.fillStyle="#fff"; wx.fillRect(COL1,yL,sw,sw); wx.strokeStyle="#0f0f0f"; wx.lineWidth=2; wx.strokeRect(COL1,yL,sw,sw);
-    wx.strokeStyle="#e0dbd3"; wx.lineWidth=1;
-    wx.beginPath(); wx.moveTo(COL1,yL); wx.lineTo(COL1+sw,yL+sw); wx.stroke();
-    wx.beginPath(); wx.moveTo(COL1+sw,yL); wx.lineTo(COL1,yL+sw); wx.stroke();
-    wx.font=`${8*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#aaa"; wx.textAlign="center";
-    wx.fillText("INK SWATCH",COL1+sw/2,yL+sw+14); wx.textAlign="left";
-
-    // Right: Placements (up to 4)
-    sectionR("PRINT / EMBROIDERY PLACEMENTS");
     const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
     const displayPlacements=aiPlan.slice(0,4);
-    const placementH=Math.floor((PH-yR-40)/Math.max(displayPlacements.length,1));
-    const maxPlacementH=Math.min(placementH, 280);
+    const numP=Math.max(displayPlacements.length,1);
+    const cardGap=12;
+    const cardW=Math.floor((PW-64-(cardGap*(numP-1)))/numP);
+    const cardH=PH-plY-48; // remaining space minus footer
 
     displayPlacements.forEach((p,i)=>{
-      const pH=maxPlacementH;
-      wx.fillStyle="#f8f6f2"; wx.fillRect(COL2,yR,COL_W,pH);
-      wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(COL2,yR,COL_W,pH);
-      wx.fillStyle="#c8372d"; wx.fillRect(COL2,yR,4,pH);
-      // Placement header
-      wx.font=`bold ${10*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#c8372d";
-      wx.fillText(`PLACEMENT ${i+1} — ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,COL2+12,yR+16);
-      wx.font=`bold ${16*SCALE/2}px IBM Plex Sans,sans-serif`; wx.fillStyle="#0f0f0f";
-      wx.fillText(p.placement||"",COL2+12,yR+34);
+      const cx=32+i*(cardW+cardGap);
+      // Card background
+      wx.fillStyle="#f8f6f2"; wx.fillRect(cx,plY,cardW,cardH);
+      wx.strokeStyle="#d4cdc0"; wx.lineWidth=1.5; wx.strokeRect(cx,plY,cardW,cardH);
+      wx.fillStyle="#c8372d"; wx.fillRect(cx,plY,5,cardH);
+      let cy=plY+14;
+      // Placement number + view
+      wx.font="bold 13px IBM Plex Mono,monospace"; wx.fillStyle="#c8372d";
+      wx.fillText(`PLACEMENT ${i+1}  ·  ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,cx+14,cy); cy+=22;
+      // Placement name — big
+      wx.font="bold 28px IBM Plex Sans,sans-serif"; wx.fillStyle="#0f0f0f";
+      wx.fillText(p.placement||"",cx+14,cy+24); cy+=36;
       // Dec type badge
       if(p.decType){
-        wx.fillStyle="rgba(200,55,45,.1)";
-        const tw=wx.measureText(p.decType.toUpperCase()).width+16;
-        wx.fillRect(COL2+12,yR+40,tw,18);
-        wx.font=`bold ${9*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#c8372d";
-        wx.fillText(p.decType.toUpperCase(),COL2+20,yR+52);
+        wx.fillStyle="rgba(200,55,45,.12)";
+        const bw=wx.measureText(p.decType.toUpperCase()).width+20;
+        wx.fillRect(cx+14,cy,bw,22);
+        wx.font="bold 12px IBM Plex Mono,monospace"; wx.fillStyle="#c8372d";
+        wx.fillText(p.decType.toUpperCase(),cx+24,cy+15); cy+=32;
       }
-      // Details in 2-column grid within placement
-      let dy=yR+(p.decType?70:52);
-      const details=[[`Art Width`,p.specWidth?p.specWidth+'"':""],[`From Collar`,p.specFromCollar?p.specFromCollar+'"':""],[`Colours`,p.colours||""],[`Artwork`,p.artName||""],[`Notes`,p.notes||""]].filter(([,v])=>v);
-      const halfW=COL_W/2-10;
-      details.forEach(([k,v],di)=>{
-        const dx = di%2===0 ? COL2+12 : COL2+halfW+20;
-        if(di%2===0 && di>0) dy+=24;
-        wx.font=`bold ${8*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#aaa"; wx.fillText(k.toUpperCase(),dx,dy);
-        wx.font=`${11*SCALE/2}px IBM Plex Sans,sans-serif`; wx.fillStyle="#222"; wx.fillText(v,dx,dy+14);
-      });
-      yR+=pH+8;
+      cy+=6;
+      // Detail rows — large and readable
+      const detailRow=(k,v)=>{
+        if(!v) return;
+        wx.font="bold 12px IBM Plex Mono,monospace"; wx.fillStyle="#888";
+        wx.fillText(k.toUpperCase(),cx+14,cy);
+        wx.font="18px IBM Plex Sans,sans-serif"; wx.fillStyle="#222";
+        let txt=v; const mw=cardW-30;
+        while(wx.measureText(txt).width>mw&&txt.length>4) txt=txt.slice(0,-2)+"…";
+        wx.fillText(txt,cx+14,cy+18); cy+=36;
+      };
+      detailRow("Colours",p.colours);
+      detailRow("Art Width",p.specWidth?p.specWidth+'"':"");
+      detailRow("From Collar",p.specFromCollar?p.specFromCollar+'"':"");
+      detailRow("Artwork",p.artName);
+      if(p.notes) detailRow("Notes",p.notes);
     });
 
+    // QC + sign-off at bottom right if space
+    const qcX=32+displayPlacements.length*(cardW+cardGap);
+    if(qcX<PW-100){
+      const qcW=PW-qcX-48;
+      let qY=plY+16;
+      wx.font="bold 13px IBM Plex Mono,monospace"; wx.fillStyle="#aaa";
+      ["SIGN-OFF","QC CHECK","DATE"].forEach(lbl=>{
+        wx.fillText(lbl,qcX+4,qY+14); wx.fillStyle="#d4cdc0"; wx.fillRect(qcX,qY+18,qcW,1); wx.fillStyle="#aaa"; qY+=52;
+      });
+      // Ink swatch
+      const sw=80;
+      wx.fillStyle="#fff"; wx.fillRect(qcX,qY,sw,sw); wx.strokeStyle="#0f0f0f"; wx.lineWidth=1.5; wx.strokeRect(qcX,qY,sw,sw);
+      wx.strokeStyle="#e0dbd3"; wx.lineWidth=1;
+      wx.beginPath(); wx.moveTo(qcX,qY); wx.lineTo(qcX+sw,qY+sw); wx.stroke();
+      wx.beginPath(); wx.moveTo(qcX+sw,qY); wx.lineTo(qcX,qY+sw); wx.stroke();
+      wx.font="10px IBM Plex Mono,monospace"; wx.fillStyle="#aaa"; wx.textAlign="center";
+      wx.fillText("INK SWATCH",qcX+sw/2,qY+sw+14); wx.textAlign="left";
+    }
+
     // Footer
-    const fY=PH-32;
-    wx.fillStyle="#f0ede8"; wx.fillRect(0,fY,PW,32);
-    wx.fillStyle="#c8372d"; wx.fillRect(0,fY,PW,2);
-    wx.font=`${9*SCALE/2}px IBM Plex Mono,monospace`; wx.fillStyle="#888";
-    wx.fillText("TRUE NORTH SCREEN PRINTING LTD. · VANCOUVER, BC · 604-874-4488 · TRUENORTHSCREENPRINTING.CA",40,fY+20);
-    wx.textAlign="right";
-    wx.fillText("PAGE 1 OF 2",PW-40,fY+20);
-    wx.textAlign="left";
+    wx.fillStyle="#f0ede8"; wx.fillRect(0,PH-34,PW,34);
+    wx.fillStyle="#c8372d"; wx.fillRect(0,PH-34,PW,2);
+    wx.font="13px IBM Plex Mono,monospace"; wx.fillStyle="#888";
+    wx.fillText("TRUE NORTH SCREEN PRINTING LTD.  ·  VANCOUVER, BC  ·  604-874-4488  ·  TRUENORTHSCREENPRINTING.CA",32,PH-12);
+    wx.textAlign="right"; wx.fillText("PAGE 1 OF 2",PW-32,PH-12); wx.textAlign="left";
 
     // ── PAGE 2: Digital Mockup ──────────────────────────────────────────────
     if(exportRef.current){
       const mockup=exportRef.current;
       const combined=document.createElement("canvas");
       combined.width=PW; combined.height=PH*2;
-      const cx=combined.getContext("2d");
-      cx.drawImage(wc,0,0);
+      const cc=combined.getContext("2d");
+      cc.drawImage(wc,0,0);
 
-      // Page 2 background
-      cx.fillStyle="#ffffff"; cx.fillRect(0,PH,PW,PH);
-      // Header
-      cx.fillStyle="#0f0f0f"; cx.fillRect(0,PH,PW,90);
-      cx.font=`bold ${36*SCALE/2}px Bebas Neue,sans-serif`; cx.fillStyle="#f5f0e8";
-      cx.fillText("TRUE NORTH",40,PH+58);
-      cx.font=`${10*SCALE/2}px IBM Plex Mono,monospace`; cx.fillStyle="#c8372d";
-      cx.fillText("DIGITAL MOCKUP — FOR PRODUCTION REFERENCE",40,PH+78);
-      cx.font=`bold ${14*SCALE/2}px Bebas Neue,sans-serif`; cx.fillStyle="#e8c547";
-      cx.textAlign="right"; cx.fillText(`JOB #${jobNum||""}`,PW-40,PH+50);
-      cx.font=`${10*SCALE/2}px IBM Plex Mono,monospace`; cx.fillStyle="#888";
-      cx.fillText(`${cust.company||cust.contact_name||""} · ${new Date().toLocaleDateString("en-CA")}`,PW-40,PH+72);
-      cx.textAlign="left";
-      cx.fillStyle="#c8372d"; cx.fillRect(0,PH+90,PW,3);
+      cc.fillStyle="#ffffff"; cc.fillRect(0,PH,PW,PH);
+      cc.fillStyle="#0f0f0f"; cc.fillRect(0,PH,PW,88);
+      cc.font="bold 60px Bebas Neue,sans-serif"; cc.fillStyle="#f5f0e8";
+      cc.fillText("TRUE NORTH",32,PH+62);
+      cc.font="bold 16px IBM Plex Mono,monospace"; cc.fillStyle="#c8372d";
+      cc.fillText("DIGITAL MOCKUP  ·  FOR PRODUCTION REFERENCE ONLY",32,PH+82);
+      cc.font="bold 28px Bebas Neue,sans-serif"; cc.fillStyle="#e8c547";
+      cc.textAlign="right"; cc.fillText(`JOB #${jobNum||""}`,PW-32,PH+52);
+      cc.font="14px IBM Plex Mono,monospace"; cc.fillStyle="#888";
+      cc.fillText(`${cust.company||cust.contact_name||""}  ·  ${new Date().toLocaleDateString("en-CA")}`,PW-32,PH+76);
+      cc.textAlign="left";
+      cc.fillStyle="#c8372d"; cc.fillRect(0,PH+88,PW,3);
 
-      // Mockup image centred with max padding
-      const pad=48; const hdrH=96;
-      const maxW=PW-pad*2; const maxH=PH-hdrH-pad*2-32;
+      const pad=32; const hdrH=94;
+      const footH=34;
+      const maxW=PW-pad*2; const maxH=PH-hdrH-pad-footH;
       const ratio=Math.min(maxW/mockup.width,maxH/mockup.height);
       const mw=Math.round(mockup.width*ratio); const mh=Math.round(mockup.height*ratio);
       const mx=Math.round((PW-mw)/2); const my=PH+hdrH+pad;
-      cx.fillStyle="#f5f2eb"; cx.fillRect(mx-6,my-6,mw+12,mh+12);
-      cx.drawImage(mockup,mx,my,mw,mh);
+      cc.fillStyle="#f5f2eb"; cc.fillRect(mx-4,my-4,mw+8,mh+8);
+      cc.drawImage(mockup,mx,my,mw,mh);
 
-      // Footer
-      cx.fillStyle="#f0ede8"; cx.fillRect(0,PH*2-32,PW,32);
-      cx.fillStyle="#c8372d"; cx.fillRect(0,PH*2-32,PW,2);
-      cx.font=`${9*SCALE/2}px IBM Plex Mono,monospace`; cx.fillStyle="#888";
-      cx.fillText("TRUE NORTH SCREEN PRINTING LTD. · FOR PRODUCTION USE ONLY · DO NOT DISTRIBUTE",40,PH*2-12);
-      cx.textAlign="right"; cx.fillText("PAGE 2 OF 2",PW-40,PH*2-12); cx.textAlign="left";
+      cc.fillStyle="#f0ede8"; cc.fillRect(0,PH*2-34,PW,34);
+      cc.fillStyle="#c8372d"; cc.fillRect(0,PH*2-34,PW,2);
+      cc.font="13px IBM Plex Mono,monospace"; cc.fillStyle="#888";
+      cc.fillText("TRUE NORTH SCREEN PRINTING LTD.  ·  FOR PRODUCTION USE ONLY  ·  DO NOT DISTRIBUTE",32,PH*2-12);
+      cc.textAlign="right"; cc.fillText("PAGE 2 OF 2",PW-32,PH*2-12); cc.textAlign="left";
       return combined;
     }
     return wc;
