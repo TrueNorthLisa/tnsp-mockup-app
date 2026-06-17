@@ -607,9 +607,149 @@ Return ONLY valid JSON, no markdown.
 
   // Builds a customer-facing mockup combining the uploaded image + a spec panel
   function buildCustomerMockup(mockupImg){
-    const PAD=14;          // inner padding
-    const SP=420;          // wider spec panel
+    const PAD=16;
+    const SP=480;          // wider panel — plenty of room for long colour strings
     const GAP=12;
+
+    // Scale image to fit nicely beside the panel
+    const maxImgW=Math.max(600, mockupImg.width);
+    const scaleH=700/mockupImg.height;
+    const scaleW=maxImgW/mockupImg.width;
+    const sc=Math.min(scaleH,scaleW,1);
+    const imgW=Math.round(mockupImg.width*sc);
+    const imgH=Math.round(mockupImg.height*sc);
+    const PH=Math.max(imgH,700);
+    const PW=imgW+GAP+SP;
+
+    const cc=document.createElement("canvas"); cc.width=PW; cc.height=PH;
+    const cx=cc.getContext("2d");
+    cx.fillStyle="#f5f0e8"; cx.fillRect(0,0,PW,PH);
+
+    // Image — white background, centred vertically
+    cx.fillStyle="#ffffff"; cx.fillRect(0,0,imgW,PH);
+    const dyo=Math.round((PH-imgH)/2);
+    cx.drawImage(mockupImg,0,dyo,imgW,imgH);
+
+    // Panel
+    const px=imgW+GAP;
+    const textW=SP-PAD*2;  // usable text width — critical for wrapping
+    cx.fillStyle="#f5f0e8"; cx.fillRect(px,0,SP,PH);
+    cx.fillStyle="#c8372d"; cx.fillRect(px,0,4,PH);
+
+    // Header
+    cx.fillStyle="#0f0f0f"; cx.fillRect(px,0,SP,72);
+    cx.font="bold 30px Bebas Neue,sans-serif"; cx.fillStyle="#f5f0e8";
+    cx.fillText("TRUE NORTH",px+PAD,36);
+    cx.font="bold 11px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
+    cx.fillText("SCREEN PRINTING & EMBROIDERY",px+PAD,54);
+    cx.font="10px IBM Plex Mono,monospace"; cx.fillStyle="#666";
+    cx.fillText("ORDER SPECIFICATION",px+PAD,68);
+
+    let y=88;
+
+    // Wraps text, returns updated y
+    const wrap=(text,font,color,lineH)=>{
+      cx.font=font; cx.fillStyle=color;
+      const words=String(text).split(" "); let line="";
+      words.forEach(w=>{
+        const test=line?line+" "+w:w;
+        if(cx.measureText(test).width>textW&&line){
+          cx.fillText(line,px+PAD,y); line=w; y+=lineH;
+        } else line=test;
+      });
+      if(line) cx.fillText(line,px+PAD,y);
+      y+=lineH;
+    };
+
+    // Label + value field
+    const field=(lbl,val)=>{
+      if(!val||y>PH-48) return;
+      cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#999";
+      cx.fillText(lbl.toUpperCase(),px+PAD,y); y+=14;
+      wrap(val,"14px IBM Plex Sans,sans-serif","#111",18);
+      y+=4;
+    };
+
+    const ga=[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" ");
+    field("Job #",jobNum);
+    field("Client",cust.company||cust.contact_name||"");
+    if(cust.contact_name&&cust.company) field("Contact",cust.contact_name);
+    field("Garment",ga||"");
+    field("Colour",selColour||"");
+    if(dueDate) field("Due Date",new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}));
+    if(decTypes.length) field("Decoration",decTypes.join(", "));
+
+    // Sizes
+    const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
+    if(asSizes.length){
+      const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
+      y+=4; cx.fillStyle="#d4cdc0"; cx.fillRect(px+PAD,y,textW,1); y+=12;
+      cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#999";
+      cx.fillText("SIZE BREAKDOWN",px+PAD,y); y+=14;
+
+      const rows=[asSizes.slice(0,6), asSizes.slice(6)].filter(r=>r.length);
+      rows.forEach(row=>{
+        const scw=Math.floor(textW/row.length);
+        // Size labels
+        cx.font="bold 12px IBM Plex Mono,monospace"; cx.fillStyle="#444";
+        row.forEach((s,i)=>cx.fillText(s,px+PAD+i*scw,y)); y+=16;
+        // Quantities
+        cx.font="bold 24px IBM Plex Sans,sans-serif"; cx.fillStyle="#c8372d";
+        row.forEach((s,i)=>cx.fillText(sizes[s].qty,px+PAD+i*scw,y)); y+=28;
+      });
+
+      cx.font="bold 12px IBM Plex Mono,monospace"; cx.fillStyle="#666";
+      cx.fillText(`TOTAL: ${total} UNITS`,px+PAD,y); y+=20;
+    }
+
+    // Placements
+    if(aiPlan.length){
+      y+=4; cx.fillStyle="#d4cdc0"; cx.fillRect(px+PAD,y,textW,1); y+=12;
+      cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#999";
+      cx.fillText("PLACEMENTS",px+PAD,y); y+=16;
+
+      const vl={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
+
+      aiPlan.forEach((p,i)=>{
+        if(y>PH-60) return;
+
+        // Placement name
+        cx.font="bold 15px IBM Plex Sans,sans-serif"; cx.fillStyle="#0f0f0f";
+        cx.fillText(`${i+1}. ${p.placement||""}`,px+PAD,y+13); y+=20;
+
+        // View + dec type
+        const tag=[(vl[p.view]||p.view||"Front").toUpperCase(),p.decType?.toUpperCase()].filter(Boolean).join("  ·  ");
+        cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
+        cx.fillText(tag,px+PAD,y); y+=16;
+
+        // Ink colours — full wrap
+        if(p.colours){
+          cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#888";
+          cx.fillText("INK / THREAD COLOURS",px+PAD,y); y+=14;
+          wrap(p.colours,"13px IBM Plex Sans,sans-serif","#222",17);
+          y+=2;
+        }
+
+        // Measurements on one line
+        const specs=[p.specWidth&&`Width: ${p.specWidth}"`, p.specFromCollar&&`From Collar: ${p.specFromCollar}"`].filter(Boolean);
+        if(specs.length){
+          wrap(specs.join("     "),"11px IBM Plex Mono,monospace","#666",15);
+        }
+
+        if(p.notes){
+          wrap("Note: "+p.notes,"italic 12px IBM Plex Sans,sans-serif","#888",16);
+        }
+
+        y+=12;
+      });
+    }
+
+    // Footer
+    cx.fillStyle="#0f0f0f"; cx.fillRect(px,PH-26,SP,26);
+    cx.font="10px IBM Plex Mono,monospace"; cx.fillStyle="#555";
+    cx.fillText("truenorthscreenprinting.ca  ·  604-874-4488",px+PAD,PH-10);
+    return cc;
+  }
 
     // Scale image to max 720px wide, maintain aspect
     const maxImgW=720;
@@ -763,13 +903,6 @@ Return ONLY valid JSON, no markdown.
       });
     }
 
-    // Footer
-    const fY=PH-24;
-    cx.fillStyle="#0f0f0f"; cx.fillRect(sx,fY,SP,24);
-    cx.font="10px IBM Plex Mono,monospace"; cx.fillStyle="#555";
-    cx.fillText("truenorthscreenprinting.ca  ·  604-874-4488",sx+PAD,fY+15);
-    return cc;
-  }
 
   function buildWorkOrder(){
     // Landscape 8.5×11" — 1056×816 base, printed at 96dpi fits perfectly on page
