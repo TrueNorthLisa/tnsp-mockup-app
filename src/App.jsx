@@ -1120,21 +1120,26 @@ Return ONLY valid JSON, no markdown.
                     </div>
                   </div>
                 </div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
-                  {artwork.map(a=>(
-                    <div key={a.id} style={{background:"#fffdf8",border:"2px solid #d4cdc0",padding:8,display:"flex",flexDirection:"column",alignItems:"center",gap:4,width:78,position:"relative"}}>
-                      <img src={a.dataURL} style={{width:54,height:54,objectFit:"contain",background:"#fff",padding:2}}/>
-                      <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".44rem",letterSpacing:".06em",textTransform:"uppercase",color:"#888",textAlign:"center",wordBreak:"break-all",lineHeight:1.3}}>{a.name.replace(/\.[^.]+$/,"").substring(0,10)}</div>
-                      <button onClick={()=>removeArt(a.id)} style={{position:"absolute",top:2,right:2,background:"none",border:"none",color:"#ccc",fontSize:".65rem",cursor:"pointer",padding:"1px 3px"}}>✕</button>
+                {/* Artwork upload — hide when using customer mockup */}
+                {!sewOutImage && (
+                  <>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
+                      {artwork.map(a=>(
+                        <div key={a.id} style={{background:"#fffdf8",border:"2px solid #d4cdc0",padding:8,display:"flex",flexDirection:"column",alignItems:"center",gap:4,width:78,position:"relative"}}>
+                          <img src={a.dataURL} style={{width:54,height:54,objectFit:"contain",background:"#fff",padding:2}}/>
+                          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".44rem",letterSpacing:".06em",textTransform:"uppercase",color:"#888",textAlign:"center",wordBreak:"break-all",lineHeight:1.3}}>{a.name.replace(/\.[^.]+$/,"").substring(0,10)}</div>
+                          <button onClick={()=>removeArt(a.id)} style={{position:"absolute",top:2,right:2,background:"none",border:"none",color:"#ccc",fontSize:".65rem",cursor:"pointer",padding:"1px 3px"}}>✕</button>
+                        </div>
+                      ))}
+                      <label style={{width:78,minHeight:80,border:"2px dashed #d4cdc0",background:"#fffdf8",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",gap:3}}>
+                        <input type="file" accept="image/*" multiple style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%"}} onChange={loadArtFiles}/>
+                        <span style={{fontSize:"1.3rem",color:"#ccc"}}>+</span>
+                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".44rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb"}}>Add Art</span>
+                      </label>
                     </div>
-                  ))}
-                  <label style={{width:78,minHeight:80,border:"2px dashed #d4cdc0",background:"#fffdf8",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",gap:3}}>
-                    <input type="file" accept="image/*" multiple style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%"}} onChange={loadArtFiles}/>
-                    <span style={{fontSize:"1.3rem",color:"#ccc"}}>+</span>
-                    <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".44rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb"}}>Add Art</span>
-                  </label>
-                </div>
-                <hr style={S.div}/>
+                    <hr style={S.div}/>
+                  </>
+                )}
                 <div style={S.sec}><span style={S.secn}>+</span> Placements</div>
                 {placements.map((p,idx)=>(
                   <div key={p._id} style={S.prow}>
@@ -1156,11 +1161,17 @@ Return ONLY valid JSON, no markdown.
                         </select>
                       </div>
                       <div>
-                        <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:"#888",marginBottom:3}}>Artwork</div>
-                        <select style={S.sel} value={p.artId} onChange={e=>updateRow(p._id,"artId",e.target.value)}>
-                          <option value="">— Select —</option>
-                          {artwork.map(a=><option key={a.id} value={a.id}>{a.name.replace(/\.[^.]+$/,"").substring(0,16)}</option>)}
-                        </select>
+                        <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:"#888",marginBottom:3}}>
+                          {sewOutImage ? "Artwork Name" : "Artwork"}
+                        </div>
+                        {sewOutImage ? (
+                          <input style={S.inp} placeholder="e.g. Front Logo" value={p.artName||""} onChange={e=>updateRow(p._id,"artName",e.target.value)}/>
+                        ) : (
+                          <select style={S.sel} value={p.artId} onChange={e=>updateRow(p._id,"artId",e.target.value)}>
+                            <option value="">— Select —</option>
+                            {artwork.map(a=><option key={a.id} value={a.id}>{a.name.replace(/\.[^.]+$/,"").substring(0,16)}</option>)}
+                          </select>
+                        )}
                       </div>
                       <div>
                         <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".48rem",letterSpacing:".12em",textTransform:"uppercase",color:"#888",marginBottom:3}}>Decoration</div>
@@ -1180,8 +1191,35 @@ Return ONLY valid JSON, no markdown.
                 <button onClick={addRow} style={{background:"none",border:"1px dashed #d4cdc0",color:"#aaa",fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:9,cursor:"pointer",textAlign:"center",width:"100%",marginBottom:4}}>+ Add Placement</button>
                 <div style={{display:"flex",gap:10,marginTop:24}}>
                   <button style={S.btn("o")} onClick={()=>setStep(2)}>← Back</button>
-                  <button style={S.btn("r")} onClick={()=>{setStep(4);runAI();}}>Send to AI →</button>
-                  <button style={S.btn("o")} onClick={skipAI}>Skip AI — Place Manually →</button>
+                  {sewOutImage ? (
+                    // Customer mockup flow — skip AI, go straight to export
+                    <button style={S.btn()} onClick={()=>{
+                      // Build aiPlan from placement rows for work order
+                      const plan=placements.filter(p=>p.placement).map(p=>({
+                        view:p.view||"front",
+                        placement:p.placement,
+                        artId:null,
+                        artName:p.artName||p.placement,
+                        decType:p.decType||"",
+                        specWidth:p.width||"",
+                        specFromCollar:p.fromCollar||"",
+                        colours:p.colours||"",
+                        notes:p.notes||"",
+                        x:0.5, y:0.4, scale:40,
+                      }));
+                      setAiPlan(plan);
+                      exportRef.current=sewOutImage.canvas;
+                      cleanExportRef.current=sewOutImage.canvas;
+                      setMockupBuilt(true);
+                      setStep(6);
+                      showToast("Placement details saved — go to export ✓");
+                    }}>Use Customer Mockup → Go to Export</button>
+                  ) : (
+                    <>
+                      <button style={S.btn("r")} onClick={()=>{setStep(4);runAI();}}>Send to AI →</button>
+                      <button style={S.btn("o")} onClick={skipAI}>Skip AI — Place Manually →</button>
+                    </>
+                  )}
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
