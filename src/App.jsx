@@ -242,6 +242,7 @@ export default function App() {
   const [aiError, setAiError] = useState("");
   const [revisionNotes, setRevisionNotes] = useState("");
   const [mockupBuilt, setMockupBuilt] = useState(false);
+  const [sewOutImage, setSewOutImage] = useState(null); // {url, img} — bypasses full flow
   const [jobs, setJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [archiveSearch, setArchiveSearch] = useState("");
@@ -290,7 +291,7 @@ export default function App() {
     setArtwork([]);setArtCounter(1);
     setPlacements([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(2);
     setAiPlan([]);setAiStatus("idle");setAiIntro("");setAiError("");setRevisionNotes("");
-    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");
+    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");setSewOutImage(null);
   }
 
   async function newJob(){
@@ -979,6 +980,50 @@ Return ONLY valid JSON, no markdown.
                   <button style={S.btn()} onClick={()=>{loadGarmentList();setStep(2);}}>Next - Garment Selection →</button>
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
+
+                {/* Sew-out / pre-made mockup shortcut */}
+                <div style={{marginTop:28,padding:"20px",border:"2px dashed #333",borderRadius:4,background:"#0a0a0a"}}>
+                  <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".16em",textTransform:"uppercase",color:"#555",marginBottom:8}}>
+                    — OR — Skip to Export with a Sew-Out or Existing Mockup
+                  </div>
+                  <div style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".78rem",color:"#666",marginBottom:14,lineHeight:1.5}}>
+                    Already have a photo of the sew-out or a customer-supplied mockup? Upload it here to skip the garment, artwork, and AI steps entirely. The work order will be generated using this image.
+                  </div>
+                  {sewOutImage ? (
+                    <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+                      <img src={sewOutImage.url} alt="Sew-out" style={{maxHeight:120,maxWidth:200,objectFit:"contain",border:"1px solid #333",background:"#fff",padding:4}}/>
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",color:"#2a7a4b",letterSpacing:".1em"}}>✓ IMAGE LOADED</div>
+                        <button style={S.btn()} onClick={()=>{
+                          // Use sew-out as the export image — set both refs
+                          exportRef.current = sewOutImage.canvas;
+                          cleanExportRef.current = sewOutImage.canvas;
+                          setMockupBuilt(true);
+                          setStep(6);
+                          showToast("Jumped to export with sew-out image ✓");
+                        }}>Use This Image → Go to Export</button>
+                        <button style={{...S.btn("o"),fontSize:".52rem",padding:"6px 14px"}} onClick={()=>setSewOutImage(null)}>Remove</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label style={{display:"inline-flex",alignItems:"center",gap:8,cursor:"pointer",padding:"10px 18px",border:"1px solid #333",borderRadius:3,background:"#111",fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".12em",textTransform:"uppercase",color:"#888"}}>
+                      📎 Upload Sew-Out / Customer Mockup
+                      <input type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic" style={{display:"none"}} onChange={e=>{
+                        const file=e.target.files?.[0]; if(!file) return;
+                        const url=URL.createObjectURL(file);
+                        const img=new Image(); img.onload=()=>{
+                          // Draw onto canvas so exportRef can use it
+                          const canvas=document.createElement("canvas");
+                          canvas.width=img.naturalWidth; canvas.height=img.naturalHeight;
+                          canvas.getContext("2d").drawImage(img,0,0);
+                          setSewOutImage({url,img,canvas});
+                          showToast("Sew-out image loaded ✓");
+                        }; img.src=url;
+                        e.target.value=""; // reset input
+                      }}/>
+                    </label>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1185,18 +1230,41 @@ Return ONLY valid JSON, no markdown.
               <div>
                 <div style={S.sec}><span style={S.secn}>06</span> Export</div>
                 {saveStatus==="saved"&&<div style={S.note("s")}>✓ Job saved</div>}
-                <div style={{background:"#111",display:"flex",alignItems:"center",justifyContent:"center",minHeight:400,padding:16,backgroundImage:"linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px)",backgroundSize:"28px 28px"}}>
-                  {!mockupBuilt&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".6rem",letterSpacing:".16em",textTransform:"uppercase",color:"#333"}}>Building...</span>}
-                  <canvas ref={canvasRef} style={{display:mockupBuilt?"block":"none",maxWidth:"100%",boxShadow:"0 0 0 1px #2a2a2a,0 16px 48px rgba(0,0,0,.7)"}}/>
-                </div>
-                <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-                  <button style={S.btn()} onClick={exportPNG}>⬇ Client Mockup PNG</button>
-                  <button style={S.btn()} onClick={exportJPG}>⬇ Client Mockup JPG</button>
-                  <button style={S.btn()} onClick={exportWorkOrder}>⬇ Work Order PNG</button>
-                  <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
-                  <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
-                  <button style={S.btn("o")} onClick={()=>setStep(5)}>← Fine-Tune</button>
-                </div>
+                {sewOutImage ? (
+                  // Sew-out shortcut — show the uploaded image directly
+                  <div>
+                    <div style={S.note("i")}>Using uploaded sew-out / customer mockup. Work order will include this image on page 2.</div>
+                    <div style={{background:"#111",display:"flex",alignItems:"center",justifyContent:"center",minHeight:300,padding:16}}>
+                      <img src={sewOutImage.url} alt="Sew-out mockup" style={{maxWidth:"100%",maxHeight:500,objectFit:"contain",boxShadow:"0 0 0 1px #2a2a2a,0 16px 48px rgba(0,0,0,.7)"}}/>
+                    </div>
+                    <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+                      <button style={S.btn()} onClick={()=>{
+                        // For sew-out, PNG export = the sew-out image itself
+                        const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=sewOutImage.url;a.click();
+                      }}>⬇ Download Mockup Image</button>
+                      <button style={S.btn()} onClick={exportWorkOrder}>⬇ Work Order PNG</button>
+                      <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
+                      <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
+                      <button style={S.btn("o")} onClick={()=>{setSewOutImage(null);setStep(1);}}>← Back to Intake</button>
+                    </div>
+                  </div>
+                ) : (
+                  // Normal mockup flow
+                  <div>
+                    <div style={{background:"#111",display:"flex",alignItems:"center",justifyContent:"center",minHeight:400,padding:16,backgroundImage:"linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px)",backgroundSize:"28px 28px"}}>
+                      {!mockupBuilt&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".6rem",letterSpacing:".16em",textTransform:"uppercase",color:"#333"}}>Building...</span>}
+                      <canvas ref={canvasRef} style={{display:mockupBuilt?"block":"none",maxWidth:"100%",boxShadow:"0 0 0 1px #2a2a2a,0 16px 48px rgba(0,0,0,.7)"}}/>
+                    </div>
+                    <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+                      <button style={S.btn()} onClick={exportPNG}>⬇ Client Mockup PNG</button>
+                      <button style={S.btn()} onClick={exportJPG}>⬇ Client Mockup JPG</button>
+                      <button style={S.btn()} onClick={exportWorkOrder}>⬇ Work Order PNG</button>
+                      <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
+                      <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
+                      <button style={S.btn("o")} onClick={()=>setStep(5)}>← Fine-Tune</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
