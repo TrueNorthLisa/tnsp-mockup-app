@@ -607,61 +607,74 @@ Return ONLY valid JSON, no markdown.
 
   // Builds a customer-facing mockup combining the uploaded image + a spec panel
   function buildCustomerMockup(mockupImg){
-    const SP=360; // spec panel width
-    const GAP=16;
-    const imgH=Math.round(mockupImg.height*(Math.min(700,mockupImg.width)/mockupImg.width));
-    const imgW=Math.min(700,mockupImg.width);
-    const PH=Math.max(imgH,520);
+    const PAD=14;          // inner padding
+    const SP=420;          // wider spec panel
+    const GAP=12;
+
+    // Scale image to max 720px wide, maintain aspect
+    const maxImgW=720;
+    const scale=Math.min(maxImgW/mockupImg.width, 1);
+    const imgW=Math.round(mockupImg.width*scale);
+    const imgH=Math.round(mockupImg.height*scale);
+    const PH=Math.max(imgH, 640);
     const PW=imgW+GAP+SP;
 
     const cc=document.createElement("canvas"); cc.width=PW; cc.height=PH;
     const cx=cc.getContext("2d");
-
-    // Background
     cx.fillStyle="#f5f0e8"; cx.fillRect(0,0,PW,PH);
 
-    // Draw mockup image left side
+    // Image — centred vertically
     cx.fillStyle="#ffffff"; cx.fillRect(0,0,imgW,PH);
-    const ratio=Math.min(imgW/mockupImg.width,PH/mockupImg.height);
-    const dw=Math.round(mockupImg.width*ratio); const dh=Math.round(mockupImg.height*ratio);
-    const dx=Math.round((imgW-dw)/2); const dy=Math.round((PH-dh)/2);
-    cx.drawImage(mockupImg,dx,dy,dw,dh);
+    const dy=Math.round((PH-imgH)/2);
+    cx.drawImage(mockupImg,0,dy,imgW,imgH);
 
-    // Spec panel right side
+    // Panel background + red left border
     const sx=imgW+GAP;
     cx.fillStyle="#f5f0e8"; cx.fillRect(sx,0,SP,PH);
-    cx.fillStyle="#c8372d"; cx.fillRect(sx,0,3,PH);
+    cx.fillStyle="#c8372d"; cx.fillRect(sx,0,4,PH);
 
-    // Header
-    cx.fillStyle="#0f0f0f"; cx.fillRect(sx,0,SP,64);
-    cx.font="bold 22px Bebas Neue,sans-serif"; cx.fillStyle="#f5f0e8";
-    cx.fillText("TRUE NORTH",sx+12,28);
-    cx.font="10px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
-    cx.fillText("SCREEN PRINTING & EMBROIDERY",sx+12,44);
-    cx.font="9px IBM Plex Mono,monospace"; cx.fillStyle="#888";
-    cx.fillText("ORDER SPECIFICATION",sx+12,58);
+    // Header bar
+    const HDR=70;
+    cx.fillStyle="#0f0f0f"; cx.fillRect(sx,0,SP,HDR);
+    cx.font="bold 28px Bebas Neue,sans-serif"; cx.fillStyle="#f5f0e8";
+    cx.fillText("TRUE NORTH",sx+PAD,34);
+    cx.font="bold 11px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
+    cx.fillText("SCREEN PRINTING & EMBROIDERY",sx+PAD,52);
+    cx.font="10px IBM Plex Mono,monospace"; cx.fillStyle="#666";
+    cx.fillText("ORDER SPECIFICATION",sx+PAD,66);
 
-    let y=80;
-    const row=(lbl,val)=>{
-      if(!val) return;
-      cx.font="bold 9px IBM Plex Mono,monospace"; cx.fillStyle="#aaa";
-      cx.fillText(lbl.toUpperCase(),sx+10,y);
-      cx.font="13px IBM Plex Sans,sans-serif"; cx.fillStyle="#0f0f0f";
-      // Wrap long values
-      const words=val.split(" "); let line=""; const mw=SP-20;
+    let y=HDR+14;
+    const textW=SP-PAD*2; // available text width inside panel
+
+    // Helper: wraps text onto multiple lines, returns new y
+    const wrapText=(text,font,color,x,startY,maxW,lineH)=>{
+      cx.font=font; cx.fillStyle=color;
+      const words=text.split(" "); let line=""; let ly=startY;
       words.forEach(w=>{
         const t=line?line+" "+w:w;
-        if(cx.measureText(t).width>mw&&line){cx.fillText(line,sx+10,y+14);line=w;y+=14;}
-        else line=t;
+        if(cx.measureText(t).width>maxW&&line){
+          cx.fillText(line,x,ly); line=w; ly+=lineH;
+        } else line=t;
       });
-      cx.fillText(line,sx+10,y+14); y+=28;
+      if(line) cx.fillText(line,x,ly);
+      return ly+lineH;
+    };
+
+    // Helper: label + value row with wrapping
+    const row=(lbl,val)=>{
+      if(!val||y>PH-40) return;
+      cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#999";
+      cx.fillText(lbl.toUpperCase(),sx+PAD,y);
+      y+=14;
+      y=wrapText(val,"14px IBM Plex Sans,sans-serif","#0f0f0f",sx+PAD,y,textW,18);
+      y+=4;
     };
 
     const ga=[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" ");
-    row("Job #",jobNum);
+    if(jobNum) row("Job #",jobNum);
     row("Client",cust.company||cust.contact_name||"");
     if(cust.contact_name&&cust.company) row("Contact",cust.contact_name);
-    row("Garment",ga||garmentStyle||"");
+    row("Garment",ga||"");
     row("Colour",selColour||"");
     if(dueDate) row("Due Date",new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}));
     if(decTypes.length) row("Decoration",decTypes.join(", "));
@@ -670,55 +683,91 @@ Return ONLY valid JSON, no markdown.
     const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
     if(asSizes.length){
       const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
-      y+=4; cx.fillStyle="#d4cdc0"; cx.fillRect(sx+6,y,SP-16,1); y+=10;
-      cx.font="bold 9px IBM Plex Mono,monospace"; cx.fillStyle="#aaa"; cx.fillText("SIZE BREAKDOWN",sx+10,y);
-      y+=12;
-      const perRow=Math.min(asSizes.length,5);
-      const scw=Math.floor((SP-20)/perRow);
+      y+=4;
+      cx.fillStyle="#d4cdc0"; cx.fillRect(sx+PAD,y,SP-PAD*2,1); y+=10;
+      cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#999";
+      cx.fillText("SIZE BREAKDOWN",sx+PAD,y); y+=14;
+
+      const perRow=Math.min(asSizes.length,6);
+      const scw=Math.floor((SP-PAD*2)/perRow);
+
       // Size labels
-      cx.font="bold 11px IBM Plex Mono,monospace"; cx.fillStyle="#0f0f0f";
-      asSizes.slice(0,perRow).forEach((s,i)=>cx.fillText(s,sx+10+i*scw,y));
-      y+=14;
-      cx.font="bold 18px IBM Plex Sans,sans-serif"; cx.fillStyle="#c8372d";
-      asSizes.slice(0,perRow).forEach((s,i)=>cx.fillText(sizes[s].qty,sx+10+i*scw,y));
-      y+=20;
+      cx.font="bold 12px IBM Plex Mono,monospace"; cx.fillStyle="#444";
+      asSizes.slice(0,perRow).forEach((s,i)=>cx.fillText(s,sx+PAD+i*scw,y));
+      y+=16;
+      // Quantities — big red numbers
+      cx.font="bold 22px IBM Plex Sans,sans-serif"; cx.fillStyle="#c8372d";
+      asSizes.slice(0,perRow).forEach((s,i)=>cx.fillText(sizes[s].qty,sx+PAD+i*scw,y));
+      y+=24;
+
       if(asSizes.length>perRow){
-        cx.font="bold 11px IBM Plex Mono,monospace"; cx.fillStyle="#0f0f0f";
-        asSizes.slice(perRow).forEach((s,i)=>cx.fillText(s,sx+10+i*scw,y)); y+=14;
-        cx.font="bold 18px IBM Plex Sans,sans-serif"; cx.fillStyle="#c8372d";
-        asSizes.slice(perRow).forEach((s,i)=>cx.fillText(sizes[s].qty,sx+10+i*scw,y)); y+=20;
+        const perRow2=asSizes.length-perRow;
+        const scw2=Math.floor((SP-PAD*2)/perRow2);
+        cx.font="bold 12px IBM Plex Mono,monospace"; cx.fillStyle="#444";
+        asSizes.slice(perRow).forEach((s,i)=>cx.fillText(s,sx+PAD+i*scw2,y)); y+=16;
+        cx.font="bold 22px IBM Plex Sans,sans-serif"; cx.fillStyle="#c8372d";
+        asSizes.slice(perRow).forEach((s,i)=>cx.fillText(sizes[s].qty,sx+PAD+i*scw2,y)); y+=24;
       }
-      y+=4; cx.font="bold 11px IBM Plex Mono,monospace"; cx.fillStyle="#888";
-      cx.fillText(`TOTAL: ${total} UNITS`,sx+10,y); y+=16;
+
+      cx.font="bold 12px IBM Plex Mono,monospace"; cx.fillStyle="#888";
+      cx.fillText(`TOTAL: ${total} UNITS`,sx+PAD,y); y+=18;
     }
 
     // Placements
     if(aiPlan.length){
-      y+=6; cx.fillStyle="#d4cdc0"; cx.fillRect(sx+6,y,SP-16,1); y+=10;
-      cx.font="bold 9px IBM Plex Mono,monospace"; cx.fillStyle="#aaa"; cx.fillText("PLACEMENTS",sx+10,y); y+=14;
+      y+=6;
+      cx.fillStyle="#d4cdc0"; cx.fillRect(sx+PAD,y,SP-PAD*2,1); y+=10;
+      cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#999";
+      cx.fillText("PLACEMENTS",sx+PAD,y); y+=14;
+
       const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
+
       aiPlan.forEach((p,i)=>{
-        if(y>PH-40) return;
-        cx.fillStyle="#fff"; cx.fillRect(sx+6,y-2,SP-12,2); // subtle divider
-        cx.font="bold 12px IBM Plex Sans,sans-serif"; cx.fillStyle="#0f0f0f";
-        cx.fillText(`${i+1}. ${p.placement||""}`,sx+10,y+10);
-        cx.font="9px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
-        cx.fillText((viewLabels[p.view]||p.view||"Front").toUpperCase()+(p.decType?" · "+p.decType.toUpperCase():""),sx+10,y+22);
-        y+=26;
-        if(p.colours){cx.font="11px IBM Plex Sans,sans-serif";cx.fillStyle="#333";cx.fillText("Ink: "+p.colours,sx+10,y);y+=14;}
-        if(p.specWidth||p.specFromCollar){
-          const spec=[p.specWidth&&`W: ${p.specWidth}"`,p.specFromCollar&&`Collar: ${p.specFromCollar}"`].filter(Boolean).join("  ");
-          cx.font="10px IBM Plex Mono,monospace";cx.fillStyle="#888";cx.fillText(spec,sx+10,y);y+=14;
+        if(y>PH-50) return;
+        // Placement card background
+        const cardStart=y-4;
+        cx.fillStyle="#ffffff"; cx.fillRect(sx+PAD-2,cardStart,SP-PAD*2+4,2);
+
+        // Placement name
+        cx.font="bold 15px IBM Plex Sans,sans-serif"; cx.fillStyle="#0f0f0f";
+        cx.fillText(`${i+1}. ${p.placement||""}`,sx+PAD,y+13); y+=18;
+
+        // View + decoration type tag
+        cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
+        const tag=[(viewLabels[p.view]||p.view||"Front").toUpperCase(),p.decType?.toUpperCase()].filter(Boolean).join("  ·  ");
+        cx.fillText(tag,sx+PAD,y); y+=16;
+
+        // Ink colours — wrapped, larger font
+        if(p.colours){
+          cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#888";
+          cx.fillText("INK / THREAD",sx+PAD,y); y+=13;
+          y=wrapText(p.colours,"13px IBM Plex Sans,sans-serif","#222",sx+PAD,y,textW,17);
+          y+=2;
         }
-        y+=4;
+
+        // Art width + from collar — on one line if both present
+        const specs=[];
+        if(p.specWidth) specs.push(`Width: ${p.specWidth}"`);
+        if(p.specFromCollar) specs.push(`From Collar: ${p.specFromCollar}"`);
+        if(specs.length){
+          cx.font="11px IBM Plex Mono,monospace"; cx.fillStyle="#666";
+          y=wrapText(specs.join("   "),  "11px IBM Plex Mono,monospace","#666",sx+PAD,y,textW,15);
+        }
+
+        // Notes
+        if(p.notes){
+          y=wrapText("Note: "+p.notes,"italic 12px IBM Plex Sans,sans-serif","#888",sx+PAD,y,textW,16);
+        }
+
+        y+=10; // gap between placements
       });
     }
 
     // Footer
-    const fY=PH-22;
-    cx.fillStyle="#0f0f0f"; cx.fillRect(sx,fY,SP,22);
-    cx.font="9px IBM Plex Mono,monospace"; cx.fillStyle="#555";
-    cx.fillText("truenorthscreenprinting.ca · "+new Date().toLocaleDateString("en-CA"),sx+8,fY+14);
+    const fY=PH-24;
+    cx.fillStyle="#0f0f0f"; cx.fillRect(sx,fY,SP,24);
+    cx.font="10px IBM Plex Mono,monospace"; cx.fillStyle="#555";
+    cx.fillText("truenorthscreenprinting.ca  ·  604-874-4488",sx+PAD,fY+15);
     return cc;
   }
 
