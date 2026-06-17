@@ -254,6 +254,7 @@ export default function App() {
   const [step, setStep] = useState(1);
   const canvasRef = useRef(null);
   const exportRef = useRef(null);
+  const cleanExportRef = useRef(null);
 
   useEffect(()=>{
     const link=document.createElement("link");link.rel="stylesheet";
@@ -502,28 +503,29 @@ Return ONLY valid JSON, no markdown.
 
     const contentW=Math.max(mainRowW,sleeveRowW);
     const contentH=mainRowH+(hasSleeveRow?GAP+sleeveRowH:0);
-    const specC=buildSpec(contentH);
 
-    const comb=document.createElement("canvas");
-    comb.width=contentW+GAP+specC.width;
-    comb.height=contentH;
-    const cc=comb.getContext("2d");
-    cc.fillStyle="#ede8df";cc.fillRect(0,0,comb.width,comb.height);
-
-    // Draw main row (front/back/other)
+    // Build clean garment-only canvas (used on work order page 2)
+    const cleanComb=document.createElement("canvas");
+    cleanComb.width=contentW; cleanComb.height=contentH;
+    const cleanCC=cleanComb.getContext("2d");
+    cleanCC.fillStyle="#ede8df"; cleanCC.fillRect(0,0,contentW,contentH);
     let xOff=0;
-    mainVCs.forEach(vc=>{cc.drawImage(vc,xOff,0);xOff+=vc.width+GAP;});
+    mainVCs.forEach(vc=>{cleanCC.drawImage(vc,xOff,0);xOff+=vc.width+GAP;});
+    if(hasSleeveRow){ xOff=0; sleeveVCs.forEach(vc=>{cleanCC.drawImage(vc,xOff,mainRowH+GAP);xOff+=vc.width+GAP;}); }
 
-    // Draw sleeve row below
-    if(hasSleeveRow){
-      xOff=0;
-      sleeveVCs.forEach(vc=>{cc.drawImage(vc,xOff,mainRowH+GAP);xOff+=vc.width+GAP;});
-    }
-
-    // Draw spec sheet on the right
+    // Build customer-facing mockup WITH spec sheet on the right
+    const specC=buildSpec(contentH);
+    const comb=document.createElement("canvas");
+    comb.width=contentW+GAP+specC.width; comb.height=contentH;
+    const cc=comb.getContext("2d");
+    cc.fillStyle="#ede8df"; cc.fillRect(0,0,comb.width,comb.height);
+    cc.drawImage(cleanComb,0,0);
     cc.drawImage(specC,contentW+GAP,0);
 
+    // exportRef = customer version (with spec sheet) for PNG/JPG exports
+    // cleanRef = garment-only version for work order page 2
     exportRef.current=comb;
+    cleanExportRef.current=cleanComb;
     const canvas=canvasRef.current;if(!canvas)return;
     canvas.width=comb.width;canvas.height=comb.height;
     canvas.getContext("2d").drawImage(comb,0,0);setMockupBuilt(true);
@@ -791,9 +793,9 @@ Return ONLY valid JSON, no markdown.
     wx.fillText("TRUE NORTH SCREEN PRINTING LTD.  ·  VANCOUVER, BC  ·  604-874-4488  ·  TRUENORTHSCREENPRINTING.CA",P,fY+footH*0.65);
     wx.textAlign="right"; wx.fillText("PAGE 1 OF 2",PW-P,fY+footH*0.65); wx.textAlign="left";
 
-    // ── PAGE 2: Digital Mockup ───────────────────────────────────────────────
-    if(exportRef.current){
-      const mockup=exportRef.current;
+    // ── PAGE 2: Digital Mockup (clean garment only, no spec sheet) ───────────────────────────────────────
+    if(cleanExportRef.current){
+      const mockup=cleanExportRef.current;
       const combined=document.createElement("canvas"); combined.width=PW; combined.height=PH*2;
       const cc=combined.getContext("2d");
       cc.drawImage(wc,0,0);
