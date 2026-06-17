@@ -605,6 +605,123 @@ Return ONLY valid JSON, no markdown.
     return sc;
   }
 
+  // Builds a customer-facing mockup combining the uploaded image + a spec panel
+  function buildCustomerMockup(mockupImg){
+    const SP=360; // spec panel width
+    const GAP=16;
+    const imgH=Math.round(mockupImg.height*(Math.min(700,mockupImg.width)/mockupImg.width));
+    const imgW=Math.min(700,mockupImg.width);
+    const PH=Math.max(imgH,520);
+    const PW=imgW+GAP+SP;
+
+    const cc=document.createElement("canvas"); cc.width=PW; cc.height=PH;
+    const cx=cc.getContext("2d");
+
+    // Background
+    cx.fillStyle="#f5f0e8"; cx.fillRect(0,0,PW,PH);
+
+    // Draw mockup image left side
+    cx.fillStyle="#ffffff"; cx.fillRect(0,0,imgW,PH);
+    const ratio=Math.min(imgW/mockupImg.width,PH/mockupImg.height);
+    const dw=Math.round(mockupImg.width*ratio); const dh=Math.round(mockupImg.height*ratio);
+    const dx=Math.round((imgW-dw)/2); const dy=Math.round((PH-dh)/2);
+    cx.drawImage(mockupImg,dx,dy,dw,dh);
+
+    // Spec panel right side
+    const sx=imgW+GAP;
+    cx.fillStyle="#f5f0e8"; cx.fillRect(sx,0,SP,PH);
+    cx.fillStyle="#c8372d"; cx.fillRect(sx,0,3,PH);
+
+    // Header
+    cx.fillStyle="#0f0f0f"; cx.fillRect(sx,0,SP,64);
+    cx.font="bold 22px Bebas Neue,sans-serif"; cx.fillStyle="#f5f0e8";
+    cx.fillText("TRUE NORTH",sx+12,28);
+    cx.font="10px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
+    cx.fillText("SCREEN PRINTING & EMBROIDERY",sx+12,44);
+    cx.font="9px IBM Plex Mono,monospace"; cx.fillStyle="#888";
+    cx.fillText("ORDER SPECIFICATION",sx+12,58);
+
+    let y=80;
+    const row=(lbl,val)=>{
+      if(!val) return;
+      cx.font="bold 9px IBM Plex Mono,monospace"; cx.fillStyle="#aaa";
+      cx.fillText(lbl.toUpperCase(),sx+10,y);
+      cx.font="13px IBM Plex Sans,sans-serif"; cx.fillStyle="#0f0f0f";
+      // Wrap long values
+      const words=val.split(" "); let line=""; const mw=SP-20;
+      words.forEach(w=>{
+        const t=line?line+" "+w:w;
+        if(cx.measureText(t).width>mw&&line){cx.fillText(line,sx+10,y+14);line=w;y+=14;}
+        else line=t;
+      });
+      cx.fillText(line,sx+10,y+14); y+=28;
+    };
+
+    const ga=[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" ");
+    row("Job #",jobNum);
+    row("Client",cust.company||cust.contact_name||"");
+    if(cust.contact_name&&cust.company) row("Contact",cust.contact_name);
+    row("Garment",ga||garmentStyle||"");
+    row("Colour",selColour||"");
+    if(dueDate) row("Due Date",new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}));
+    if(decTypes.length) row("Decoration",decTypes.join(", "));
+
+    // Sizes
+    const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
+    if(asSizes.length){
+      const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
+      y+=4; cx.fillStyle="#d4cdc0"; cx.fillRect(sx+6,y,SP-16,1); y+=10;
+      cx.font="bold 9px IBM Plex Mono,monospace"; cx.fillStyle="#aaa"; cx.fillText("SIZE BREAKDOWN",sx+10,y);
+      y+=12;
+      const perRow=Math.min(asSizes.length,5);
+      const scw=Math.floor((SP-20)/perRow);
+      // Size labels
+      cx.font="bold 11px IBM Plex Mono,monospace"; cx.fillStyle="#0f0f0f";
+      asSizes.slice(0,perRow).forEach((s,i)=>cx.fillText(s,sx+10+i*scw,y));
+      y+=14;
+      cx.font="bold 18px IBM Plex Sans,sans-serif"; cx.fillStyle="#c8372d";
+      asSizes.slice(0,perRow).forEach((s,i)=>cx.fillText(sizes[s].qty,sx+10+i*scw,y));
+      y+=20;
+      if(asSizes.length>perRow){
+        cx.font="bold 11px IBM Plex Mono,monospace"; cx.fillStyle="#0f0f0f";
+        asSizes.slice(perRow).forEach((s,i)=>cx.fillText(s,sx+10+i*scw,y)); y+=14;
+        cx.font="bold 18px IBM Plex Sans,sans-serif"; cx.fillStyle="#c8372d";
+        asSizes.slice(perRow).forEach((s,i)=>cx.fillText(sizes[s].qty,sx+10+i*scw,y)); y+=20;
+      }
+      y+=4; cx.font="bold 11px IBM Plex Mono,monospace"; cx.fillStyle="#888";
+      cx.fillText(`TOTAL: ${total} UNITS`,sx+10,y); y+=16;
+    }
+
+    // Placements
+    if(aiPlan.length){
+      y+=6; cx.fillStyle="#d4cdc0"; cx.fillRect(sx+6,y,SP-16,1); y+=10;
+      cx.font="bold 9px IBM Plex Mono,monospace"; cx.fillStyle="#aaa"; cx.fillText("PLACEMENTS",sx+10,y); y+=14;
+      const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
+      aiPlan.forEach((p,i)=>{
+        if(y>PH-40) return;
+        cx.fillStyle="#fff"; cx.fillRect(sx+6,y-2,SP-12,2); // subtle divider
+        cx.font="bold 12px IBM Plex Sans,sans-serif"; cx.fillStyle="#0f0f0f";
+        cx.fillText(`${i+1}. ${p.placement||""}`,sx+10,y+10);
+        cx.font="9px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
+        cx.fillText((viewLabels[p.view]||p.view||"Front").toUpperCase()+(p.decType?" · "+p.decType.toUpperCase():""),sx+10,y+22);
+        y+=26;
+        if(p.colours){cx.font="11px IBM Plex Sans,sans-serif";cx.fillStyle="#333";cx.fillText("Ink: "+p.colours,sx+10,y);y+=14;}
+        if(p.specWidth||p.specFromCollar){
+          const spec=[p.specWidth&&`W: ${p.specWidth}"`,p.specFromCollar&&`Collar: ${p.specFromCollar}"`].filter(Boolean).join("  ");
+          cx.font="10px IBM Plex Mono,monospace";cx.fillStyle="#888";cx.fillText(spec,sx+10,y);y+=14;
+        }
+        y+=4;
+      });
+    }
+
+    // Footer
+    const fY=PH-22;
+    cx.fillStyle="#0f0f0f"; cx.fillRect(sx,fY,SP,22);
+    cx.font="9px IBM Plex Mono,monospace"; cx.fillStyle="#555";
+    cx.fillText("truenorthscreenprinting.ca · "+new Date().toLocaleDateString("en-CA"),sx+8,fY+14);
+    return cc;
+  }
+
   function buildWorkOrder(){
     // Landscape 8.5×11" — 1056×816 base, printed at 96dpi fits perfectly on page
     const PW=1056, PH=816;
@@ -831,6 +948,16 @@ Return ONLY valid JSON, no markdown.
   function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13;return Math.max(h,55);}
   function exportPNG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=exportRef.current.toDataURL("image/png");a.click();}
   function exportJPG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.jpg`;a.href=exportRef.current.toDataURL("image/jpeg",.93);a.click();}
+  function exportCustomerMockup(){
+    if(!sewOutImage?.canvas) return;
+    try{
+      const cm=buildCustomerMockup(sewOutImage.canvas);
+      const a=document.createElement("a");
+      a.download=`TNSP-CustomerMockup-${jobNum||"draft"}.png`;
+      a.href=cm.toDataURL("image/png");
+      a.click();
+    }catch(e){showToast("Export error: "+e.message);}
+  }
   async function exportWorkOrder(){
     try{await document.fonts.ready;const wo=buildWorkOrder();if(!wo){showToast("Could not build work order");return;}const a=document.createElement("a");a.download=`TNSP-WorkOrder-${jobNum||"draft"}.png`;a.href=wo.toDataURL("image/png");a.click();}
     catch(e){showToast("Work order error: "+e.message);}
@@ -1277,11 +1404,11 @@ Return ONLY valid JSON, no markdown.
                       <img src={sewOutImage.url} alt="Sew-out mockup" style={{maxWidth:"100%",maxHeight:500,objectFit:"contain",boxShadow:"0 0 0 1px #2a2a2a,0 16px 48px rgba(0,0,0,.7)"}}/>
                     </div>
                     <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-                      <button style={S.btn()} onClick={()=>{
-                        // For sew-out, PNG export = the sew-out image itself
+                      <button style={S.btn()} onClick={exportCustomerMockup}>⬇ Customer Mockup (with specs)</button>
+                      <button style={S.btn("o")} onClick={()=>{
                         const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=sewOutImage.url;a.click();
-                      }}>⬇ Download Mockup Image</button>
-                      <button style={S.btn()} onClick={exportWorkOrder}>⬇ Work Order PNG</button>
+                      }}>⬇ Original Image Only</button>
+                      <button style={S.btn()} onClick={exportWorkOrder}>⬇ Work Order</button>
                       <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
                       <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                       <button style={S.btn("o")} onClick={()=>{setSewOutImage(null);setStep(3);}}>← Back to Artwork</button>
