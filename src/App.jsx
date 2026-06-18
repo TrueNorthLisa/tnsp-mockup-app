@@ -618,7 +618,7 @@ Return ONLY valid JSON, no markdown.
     const sc=Math.min(scaleH,scaleW,1);
     const imgW=Math.round(mockupImg.width*sc);
     const imgH=Math.round(mockupImg.height*sc);
-    const PH=Math.max(imgH,700);
+    const PH=Math.max(imgH,800);
     const PW=imgW+GAP+SP;
 
     const cc=document.createElement("canvas"); cc.width=PW; cc.height=PH;
@@ -692,21 +692,21 @@ Return ONLY valid JSON, no markdown.
         const scw=Math.floor(textW/row.length);
         // Size labels
         cx.font="bold 12px IBM Plex Mono,monospace"; cx.fillStyle="#444";
-        row.forEach((s,i)=>cx.fillText(s,px+PAD+i*scw,y)); y+=16;
+        row.forEach((s,i)=>cx.fillText(s,px+PAD+i*scw,y)); y+=20;
         // Quantities
         cx.font="bold 24px IBM Plex Sans,sans-serif"; cx.fillStyle="#c8372d";
-        row.forEach((s,i)=>cx.fillText(sizes[s].qty,px+PAD+i*scw,y)); y+=28;
+        row.forEach((s,i)=>cx.fillText(sizes[s].qty,px+PAD+i*scw,y)); y+=36;
       });
 
       cx.font="bold 12px IBM Plex Mono,monospace"; cx.fillStyle="#666";
-      cx.fillText(`TOTAL: ${total} UNITS`,px+PAD,y); y+=20;
+      cx.fillText(`TOTAL: ${total} UNITS`,px+PAD,y); y+=26;
     }
 
     // Placements
     if(aiPlan.length){
-      y+=4; cx.fillStyle="#d4cdc0"; cx.fillRect(px+PAD,y,textW,1); y+=12;
+      y+=8; cx.fillStyle="#d4cdc0"; cx.fillRect(px+PAD,y,textW,1); y+=16;
       cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#999";
-      cx.fillText("PLACEMENTS",px+PAD,y); y+=16;
+      cx.fillText("PLACEMENTS",px+PAD,y); y+=20;
 
       const vl={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
 
@@ -715,32 +715,33 @@ Return ONLY valid JSON, no markdown.
 
         // Placement name
         cx.font="bold 15px IBM Plex Sans,sans-serif"; cx.fillStyle="#0f0f0f";
-        cx.fillText(`${i+1}. ${p.placement||""}`,px+PAD,y+13); y+=20;
+        cx.fillText(`${i+1}. ${p.placement||""}`,px+PAD,y+14); y+=24;
 
         // View + dec type
         const tag=[(vl[p.view]||p.view||"Front").toUpperCase(),p.decType?.toUpperCase()].filter(Boolean).join("  ·  ");
         cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
-        cx.fillText(tag,px+PAD,y); y+=16;
+        cx.fillText(tag,px+PAD,y); y+=20;
 
         // Ink colours — full wrap
         if(p.colours){
           cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#888";
-          cx.fillText("INK / THREAD COLOURS",px+PAD,y); y+=14;
-          wrap(p.colours,"13px IBM Plex Sans,sans-serif","#222",17);
-          y+=2;
+          cx.fillText("INK / THREAD COLOURS",px+PAD,y); y+=16;
+          wrap(p.colours,"13px IBM Plex Sans,sans-serif","#222",19);
+          y+=4;
         }
 
         // Measurements on one line
         const specs=[p.specWidth&&`Width: ${p.specWidth}"`, p.specFromCollar&&`From Collar: ${p.specFromCollar}"`].filter(Boolean);
         if(specs.length){
-          wrap(specs.join("     "),"11px IBM Plex Mono,monospace","#666",15);
+          wrap(specs.join("     "),"11px IBM Plex Mono,monospace","#666",17);
+          y+=4;
         }
 
         if(p.notes){
-          wrap("Note: "+p.notes,"italic 12px IBM Plex Sans,sans-serif","#888",16);
+          wrap("Note: "+p.notes,"italic 12px IBM Plex Sans,sans-serif","#888",18);
         }
 
-        y+=12;
+        y+=18;
       });
     }
 
