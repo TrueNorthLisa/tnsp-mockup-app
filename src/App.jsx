@@ -886,7 +886,8 @@ Return ONLY valid JSON, no markdown.
     // ── PLACEMENT CARDS (fill remaining space exactly) ───────────────────────
     const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
     const footH=Math.round(PH*0.038);
-    const availH=PH-plY-footH-P;
+    const lupeBarH=Math.round(PH*0.09); // space for pre-prod checklist bar
+    const availH=PH-plY-footH-lupeBarH-P;
     const displayPlacements=aiPlan.slice(0,4);
     const numP=Math.max(displayPlacements.length,1);
     const cardGap=Math.round(PH*0.01);
@@ -899,16 +900,13 @@ Return ONLY valid JSON, no markdown.
       wx.strokeStyle="#d4cdc0"; wx.lineWidth=1.5; wx.strokeRect(cardX,plY,cardW,cardH);
       wx.fillStyle="#c8372d"; wx.fillRect(cardX,plY,5,cardH);
       let cy=plY+Math.round(PH*0.016);
-      // Number + view tag
       wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
       wx.fillText(`PLACEMENT ${i+1}  ·  ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,cardX+12,cy+Math.round(PH*0.018));
       cy+=Math.round(PH*0.026);
-      // Placement name — very large
       wx.font=F.bld(0.042); wx.fillStyle="#0f0f0f";
       let pname=p.placement||""; while(wx.measureText(pname).width>cardW-20&&pname.length>3) pname=pname.slice(0,-2)+"…";
       wx.fillText(pname,cardX+12,cy+Math.round(PH*0.038));
       cy+=Math.round(PH*0.050);
-      // Dec type badge
       if(p.decType){
         wx.fillStyle="rgba(200,55,45,.12)";
         wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
@@ -917,7 +915,6 @@ Return ONLY valid JSON, no markdown.
         wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
         wx.fillText(p.decType.toUpperCase(),cardX+22,cy+badgeH*0.74); cy+=badgeH+Math.round(PH*0.014);
       } else { cy+=Math.round(PH*0.01); }
-      // Detail rows
       const dr=(lbl,val)=>{
         if(!val) return;
         const lbh=Math.round(PH*0.016); const vbh=Math.round(PH*0.028);
@@ -932,6 +929,43 @@ Return ONLY valid JSON, no markdown.
       dr("Artwork",p.artName);
       dr("Notes",p.notes);
     });
+
+    // ── LUPE'S PRE-PRODUCTION CHECKLIST ─────────────────────────────────────
+    const lupeItems=[
+      "Product Received",
+      "Screens Burned / Digitized",
+      "Ink Mixed / Thread Pulled",
+      "Product on Carts",
+    ];
+    const checkY=plY+cardH+Math.round(PH*0.012);
+    const checkSectionH=lupeBarH;
+    // Only draw if there's enough room above the footer
+    if(checkY+checkSectionH < PH-footH-4){
+      wx.fillStyle="#1a1a1a"; wx.fillRect(0,checkY,PW,checkSectionH);
+      wx.fillStyle="#ff9f43"; wx.fillRect(0,checkY,PW,2);
+      // Section label
+      wx.font=F.hd(0.018); wx.fillStyle="#ff9f43";
+      wx.fillText("PRE-PRODUCTION SIGN-OFF",P,checkY+Math.round(checkSectionH*0.38));
+      // Check boxes in a row
+      const itemW=Math.floor((PW-P*2-240)/lupeItems.length);
+      const boxSize=Math.round(checkSectionH*0.45);
+      lupeItems.forEach((item,i)=>{
+        const bx=240+P+i*itemW;
+        const by=checkY+Math.round((checkSectionH-boxSize)/2);
+        // Empty checkbox
+        wx.strokeStyle="#555"; wx.lineWidth=1.5; wx.strokeRect(bx,by,boxSize,boxSize);
+        wx.fillStyle="#222"; wx.fillRect(bx+1,by+1,boxSize-2,boxSize-2);
+        // Label below box
+        wx.font=F.mono(0.014); wx.fillStyle="#888"; wx.textAlign="center";
+        wx.fillText(item,bx+boxSize/2,by+boxSize+Math.round(checkSectionH*0.18));
+        wx.textAlign="left";
+      });
+      // Sign-off line
+      const sigX=P+4; const sigY=checkY+Math.round(checkSectionH*0.52);
+      wx.font=F.mono(0.012); wx.fillStyle="#555";
+      wx.fillText("SIGNED OFF BY",sigX,sigY);
+      wx.fillStyle="#333"; wx.fillRect(sigX,sigY+6,180,1);
+    }
 
     // ── FOOTER ───────────────────────────────────────────────────────────────
     const fY=PH-footH;
@@ -1551,4 +1585,3 @@ function GarmentManager({ garmentList, onRefresh }) {
     </div>
   );
 }
-
