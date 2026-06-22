@@ -816,73 +816,93 @@ Return ONLY valid JSON, no markdown.
     bodyY+=Math.round(PH*0.012);
 
     // ── CONTENT: Three columns top section ──────────────────────────────────
-    const TOP_H=Math.round(PH*0.38); // top section height
-    const cw=Math.floor((PW-P*4)/3);
-    const cx0=P, cx1=P*2+cw, cx2=P*3+cw*2;
+    const TOP_H=Math.round(PH*0.38);
+    const totalW=PW-P*4;
+    const cw0=Math.floor(totalW*0.38); // Customer — wider
+    const cw1=Math.floor(totalW*0.30); // Garment
+    const cw2=totalW-cw0-cw1;          // Sizes
+    const cx0=P, cx1=P*2+cw0, cx2=P*3+cw0+cw1;
 
     // Helper: section header bar
     const secBar=(x,y,w,txt)=>{
-      const bh=Math.round(PH*0.032);
+      const bh=Math.round(PH*0.034);
       wx.fillStyle="#f0ede8"; wx.fillRect(x,y,w,bh);
       wx.fillStyle="#c8372d"; wx.fillRect(x,y,4,bh);
-      wx.font=F.hd(0.020); wx.fillStyle="#0f0f0f";
+      wx.font=F.hd(0.021); wx.fillStyle="#0f0f0f";
       wx.fillText(txt,x+8,y+bh*0.74);
-      return y+bh+Math.round(PH*0.01);
+      return y+bh+Math.round(PH*0.012);
     };
 
     // Helper: label+value field
     const field=(x,y,w,lbl,val)=>{
       if(!val) return y;
-      const lh=Math.round(PH*0.016); const vh=Math.round(PH*0.026); const gap=Math.round(PH*0.008);
+      const lh=Math.round(PH*0.017); const vh=Math.round(PH*0.028); const gap=Math.round(PH*0.006);
       wx.font=F.hd(0.014); wx.fillStyle="#aaa"; wx.fillText(lbl.toUpperCase(),x,y+lh);
-      wx.font=F.body(0.024); wx.fillStyle="#0f0f0f";
-      // Truncate to fit
-      let txt=val; while(wx.measureText(txt).width>w-4&&txt.length>3) txt=txt.slice(0,-2)+"…";
-      wx.fillText(txt,x,y+lh+vh); return y+lh+vh+gap+Math.round(PH*0.006);
+      wx.font=F.body(0.026); wx.fillStyle="#0f0f0f";
+      // Wrap long values like shipping address onto 2 lines
+      const maxW=w-8;
+      if(wx.measureText(val).width>maxW){
+        // Try to split at a comma or space near the middle
+        const mid=Math.floor(val.length/2);
+        let split=val.lastIndexOf(",",mid+10);
+        if(split<0) split=val.lastIndexOf(" ",mid+10);
+        if(split>0){
+          const line1=val.slice(0,split).trim();
+          const line2=val.slice(split+1).trim();
+          wx.fillText(line1,x,y+lh+vh);
+          wx.fillText(line2,x,y+lh+vh+Math.round(PH*0.026));
+          return y+lh+vh+Math.round(PH*0.026)+gap+Math.round(PH*0.012);
+        }
+        let txt=val; while(wx.measureText(txt).width>maxW&&txt.length>3) txt=txt.slice(0,-2)+"…";
+        wx.fillText(txt,x,y+lh+vh);
+      } else {
+        wx.fillText(val,x,y+lh+vh);
+      }
+      return y+lh+vh+gap+Math.round(PH*0.010);
     };
 
     // Col 0: Customer
     let y0=bodyY;
-    y0=secBar(cx0,y0,cw,"CUSTOMER");
-    y0=field(cx0,y0,cw,"Client",cust.company||cust.contact_name||"");
-    y0=field(cx0,y0,cw,"Contact",cust.contact_name||"");
-    y0=field(cx0,y0,cw,"Email",cust.email||"");
-    y0=field(cx0,y0,cw,"Phone",cust.phone||"");
-    y0=field(cx0,y0,cw,"Ship To",[cust.address,cust.city,cust.province,cust.postal].filter(Boolean).join(", ")||"");
-    y0=field(cx0,y0,cw,"Due Date",dueDate?new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}):"");
+    y0=secBar(cx0,y0,cw0,"CUSTOMER");
+    y0=field(cx0,y0,cw0,"Client",cust.company||cust.contact_name||"");
+    y0=field(cx0,y0,cw0,"Contact",cust.contact_name||"");
+    y0=field(cx0,y0,cw0,"Email",cust.email||"");
+    y0=field(cx0,y0,cw0,"Phone",cust.phone||"");
+    y0=field(cx0,y0,cw0,"Ship To",[cust.address,cust.city,cust.province,cust.postal].filter(Boolean).join(", ")||"");
+    y0=field(cx0,y0,cw0,"Due Date",dueDate?new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}):"");
 
     // Col 1: Garment
     let y1=bodyY;
-    y1=secBar(cx1,y1,cw,"GARMENT");
-    y1=field(cx1,y1,cw,"Brand / Style",[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" ")||"");
-    y1=field(cx1,y1,cw,"Colour",selColour||"");
-    y1=field(cx1,y1,cw,"Decoration",decTypes.join(", ")||"");
-    if(specialInstructions) y1=field(cx1,y1,cw,"Notes",specialInstructions.substring(0,55));
+    y1=secBar(cx1,y1,cw1,"GARMENT");
+    y1=field(cx1,y1,cw1,"Brand / Style",[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`].filter(Boolean).join(" ")||"");
+    y1=field(cx1,y1,cw1,"Colour",selColour||"");
+    y1=field(cx1,y1,cw1,"Decoration",decTypes.join(", ")||"");
+    if(specialInstructions) y1=field(cx1,y1,cw1,"Notes",specialInstructions.substring(0,55));
 
     // Col 2: Sizes
     let y2=bodyY;
-    y2=secBar(cx2,y2,cw,"SIZES & QUANTITIES");
+    y2=secBar(cx2,y2,cw2,"SIZES & QUANTITIES");
     const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
     if(asSizes.length){
       const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
       const perRow=Math.min(asSizes.length,8);
-      const scw=Math.floor(cw/perRow);
+      const scw=Math.floor(cw2/perRow);
       const slbh=Math.round(PH*0.028); const sqth=Math.round(PH*0.052);
       // Labels
-      wx.fillStyle="#f0ede8"; wx.fillRect(cx2,y2,cw,slbh);
+      wx.fillStyle="#f0ede8"; wx.fillRect(cx2,y2,cw2,slbh);
       asSizes.slice(0,8).forEach((s,i)=>{wx.font=F.hd(0.018);wx.fillStyle="#333";wx.fillText(s,cx2+i*scw+4,y2+slbh*0.78);});
       y2+=slbh;
       // Quantities
-      wx.fillStyle="#fff"; wx.fillRect(cx2,y2,cw,sqth); wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(cx2,y2,cw,sqth);
+      wx.fillStyle="#fff"; wx.fillRect(cx2,y2,cw2,sqth); wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(cx2,y2,cw2,sqth);
       asSizes.slice(0,8).forEach((s,i)=>{wx.font=F.bld(0.040);wx.fillStyle="#0f0f0f";wx.fillText(sizes[s].qty,cx2+i*scw+4,y2+sqth*0.78);});
       y2+=sqth+Math.round(PH*0.008);
       // Second row
       if(asSizes.length>8){
-        const scw2=Math.floor(cw/(asSizes.length-8));
-        wx.fillStyle="#f0ede8"; wx.fillRect(cx2,y2,cw,slbh);
+        const scw2=Math.floor(cw2/(asSizes.length-8));
+        wx.fillStyle="#f0ede8"; wx.fillRect(cx2,y2,cw2,slbh);
         asSizes.slice(8).forEach((s,i)=>{wx.font=F.hd(0.018);wx.fillStyle="#333";wx.fillText(s,cx2+i*scw2+4,y2+slbh*0.78);});
         y2+=slbh;
-        wx.fillStyle="#fff"; wx.fillRect(cx2,y2,cw,sqth); wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(cx2,y2,cw,sqth);
+        wx.fillStyle="#fff"; wx.fillRect(cx2,y2,cw2,sqth); wx.strokeStyle="#d4cdc0"; wx.lineWidth=1; wx.strokeRect(cx2,y2,cw2,sqth);
         asSizes.slice(8).forEach((s,i)=>{wx.font=F.bld(0.040);wx.fillStyle="#0f0f0f";wx.fillText(sizes[s].qty,cx2+i*scw2+4,y2+sqth*0.78);});
         y2+=sqth+Math.round(PH*0.008);
       }
