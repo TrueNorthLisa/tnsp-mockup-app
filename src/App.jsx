@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL||"").replace(/\/+$/,"");
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const sb = async (method, path, body) => {
@@ -19,7 +19,7 @@ const sb = async (method, path, body) => {
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
-  if (!res.ok) throw new Error(`Supabase ${res.status} at ${path}: ${text.substring(0,200)}`);
+  if (!res.ok) throw new Error(`Supabase ${res.status} at ${url}: ${text.substring(0,300)}`);
   return text ? JSON.parse(text) : [];
 };
 
