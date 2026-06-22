@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL||"").replace(/\/+$/,"");
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL||"").replace(/\/+$/,"").replace(/\/rest\/v1$/,"");
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const sb = async (method, path, body) => {
