@@ -958,50 +958,67 @@ Return ONLY valid JSON, no markdown.
     const cardH=availH;
 
     displayPlacements.forEach((p,i)=>{
+      // Scale factor — shrink content for more placements
+      // 1 placement = full size, 2 = 95%, 3 = 82%, 4 = 70%
+      const sc=numP===1?1:numP===2?0.95:numP===3?0.82:0.70;
+
       const cardX=P+i*(cardW+cardGap);
       wx.fillStyle="#f8f6f2"; wx.fillRect(cardX,plY,cardW,cardH);
       wx.strokeStyle="#d4cdc0"; wx.lineWidth=1.5; wx.strokeRect(cardX,plY,cardW,cardH);
       wx.fillStyle="#c8372d"; wx.fillRect(cardX,plY,5,cardH);
-      let cy=plY+Math.round(PH*0.016);
-      wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
-      wx.fillText(`PLACEMENT ${i+1}  ·  ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,cardX+12,cy+Math.round(PH*0.018));
-      cy+=Math.round(PH*0.026);
-      wx.font=F.bld(0.036); wx.fillStyle="#0f0f0f";
+      let cy=plY+Math.round(PH*0.014*sc);
+
+      // Placement number + view
+      wx.font=`bold ${Math.round(PH*0.016*sc)}px IBM Plex Mono,monospace`; wx.fillStyle="#c8372d";
+      wx.fillText(`PLACEMENT ${i+1}  ·  ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,cardX+12,cy+Math.round(PH*0.016*sc));
+      cy+=Math.round(PH*0.024*sc);
+
+      // Placement name
+      wx.font=`bold ${Math.round(PH*0.034*sc)}px IBM Plex Sans,sans-serif`; wx.fillStyle="#0f0f0f";
       let pname=p.placement||""; while(wx.measureText(pname).width>cardW-20&&pname.length>3) pname=pname.slice(0,-2)+"…";
-      wx.fillText(pname,cardX+12,cy+Math.round(PH*0.032));
-      cy+=Math.round(PH*0.042);
+      wx.fillText(pname,cardX+12,cy+Math.round(PH*0.030*sc));
+      cy+=Math.round(PH*0.040*sc);
+
+      // Dec type badge
       if(p.decType){
-        wx.fillStyle="rgba(200,55,45,.12)";
-        wx.font=F.hd(0.016); wx.fillStyle="#c8372d";
-        const badgeH=Math.round(PH*0.026); const badgeW=wx.measureText(p.decType.toUpperCase()).width+20;
+        const badgeH=Math.round(PH*0.024*sc);
+        const badgeW=wx.measureText(p.decType.toUpperCase()).width+16;
         wx.fillStyle="rgba(200,55,45,.12)"; wx.fillRect(cardX+12,cy,badgeW,badgeH);
-        wx.font=F.hd(0.016); wx.fillStyle="#c8372d";
-        wx.fillText(p.decType.toUpperCase(),cardX+22,cy+badgeH*0.74); cy+=badgeH+Math.round(PH*0.010);
-      } else { cy+=Math.round(PH*0.008); }
+        wx.font=`bold ${Math.round(PH*0.014*sc)}px IBM Plex Mono,monospace`; wx.fillStyle="#c8372d";
+        wx.fillText(p.decType.toUpperCase(),cardX+20,cy+badgeH*0.76); cy+=badgeH+Math.round(PH*0.008*sc);
+      } else { cy+=Math.round(PH*0.006*sc); }
+
+      // Detail rows
+      const lbSize=Math.round(PH*0.012*sc);
+      const valSize=Math.round(PH*0.020*sc);
+      const lbH=Math.round(PH*0.013*sc);
+      const valH=Math.round(PH*0.022*sc);
+      const rowGap=Math.round(PH*0.007*sc);
+
       const dr=(lbl,val,wrap=false)=>{
-        if(!val) return;
-        const lbh=Math.round(PH*0.014); const vbh=Math.round(PH*0.024);
-        wx.font=F.hd(0.013); wx.fillStyle="#aaa"; wx.fillText(lbl.toUpperCase(),cardX+12,cy+lbh);
-        wx.font=F.body(0.022); wx.fillStyle="#222";
+        if(!val||cy>plY+cardH-Math.round(PH*0.04)) return;
+        wx.font=`bold ${lbSize}px IBM Plex Mono,monospace`; wx.fillStyle="#aaa";
+        wx.fillText(lbl.toUpperCase(),cardX+12,cy+lbH);
+        wx.font=`${valSize}px IBM Plex Sans,sans-serif`; wx.fillStyle="#222";
         if(wrap){
-          // Word-wrap the value into multiple lines
           const words=val.split(" "); let line=""; const maxW=cardW-24;
-          let wy=cy+lbh+vbh;
+          let wy=cy+lbH+valH;
           words.forEach(w=>{
             const test=line?line+" "+w:w;
             if(wx.measureText(test).width>maxW&&line){
-              wx.fillText(line,cardX+12,wy); line=w; wy+=Math.round(PH*0.022);
+              if(wy<plY+cardH-Math.round(PH*0.04)){wx.fillText(line,cardX+12,wy);}
+              line=w; wy+=Math.round(PH*0.020*sc);
             } else line=test;
           });
-          if(line) wx.fillText(line,cardX+12,wy);
-          cy=wy+Math.round(PH*0.008);
+          if(line&&wy<plY+cardH-Math.round(PH*0.04)) wx.fillText(line,cardX+12,wy);
+          cy=wy+rowGap;
         } else {
           let txt=val; while(wx.measureText(txt).width>cardW-24&&txt.length>3) txt=txt.slice(0,-2)+"…";
-          wx.fillText(txt,cardX+12,cy+lbh+vbh);
-          cy+=lbh+vbh+Math.round(PH*0.008);
+          wx.fillText(txt,cardX+12,cy+lbH+valH);
+          cy+=lbH+valH+rowGap;
         }
       };
-      dr("Colours",p.colours,true); // wrap colours
+      dr("Colours",p.colours,true);
       dr("Art Width",p.specWidth?p.specWidth+'"':"");
       dr("From Collar",p.specFromCollar?p.specFromCollar+'"':"");
       dr("Artwork",p.artName);
