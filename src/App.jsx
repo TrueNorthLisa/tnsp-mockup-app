@@ -218,6 +218,7 @@ export default function App() {
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [pressCheck, setPressCheck] = useState(false);
   const [boldPrint, setBoldPrint] = useState(false);
+  const [multiOrder, setMultiOrder] = useState(false);
   const [vintagePrint, setVintagePrint] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [custSearch, setCustSearch] = useState("");
@@ -302,7 +303,7 @@ export default function App() {
     setArtwork([]);setArtCounter(1);
     setPlacements([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(2);
     setAiPlan([]);setAiStatus("idle");setAiIntro("");setAiError("");setRevisionNotes("");
-    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");setSewOutImage(null);setOrderName("");
+    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");setSewOutImage(null);setOrderName("");setMultiOrder(false);
   }
 
   async function newJob(){
@@ -451,7 +452,7 @@ Return ONLY valid JSON, no markdown.
       await saveCustomer();
       const payload={
         job_num:jobNum,order_name:orderName,client:cust.company||cust.contact_name,garment_style:`${selBrand} ${selStyle}`.trim(),garment_colour:selColour,
-        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,bold_print:boldPrint,vintage_print:vintagePrint,
+        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,bold_print:boldPrint,vintage_print:vintagePrint,multi_order:multiOrder,
         customer_id:custId,garment_id:garmentId,
         shipping_address:{address:cust.address,city:cust.city,province:cust.province,postal:cust.postal},
         placements,ai_plan:planOverride||aiPlan,sizes,garment_urls:garmentUrls,artwork_data:artData,
@@ -466,7 +467,7 @@ Return ONLY valid JSON, no markdown.
   async function loadJob(jobId){
     try{
       const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
-      setJobNum(j.job_num||"");setOrderName(j.order_name||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);
+      setJobNum(j.job_num||"");setOrderName(j.order_name||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);setMultiOrder(j.multi_order||false);
       setSavedJobId(j.id);setSaveStatus("saved");setPlacements(j.placements||[]);setAiPlan(j.ai_plan||[]);
       setAiStatus(j.ai_plan?.length?"done":"idle");setSizes(j.sizes||emptySizes());
       if(j.customer_id){const cd=await sb("GET",`/customers?id=eq.${j.customer_id}&select=*`);if(cd?.[0])selectCustomer(cd[0]);}
@@ -813,6 +814,16 @@ Return ONLY valid JSON, no markdown.
       wx.font=F.hd(0.026); wx.fillStyle=pressCheck?"#ff4444":"#f5f0e8";
       wx.fillText(ft.trim(),P,bodyY+FH*0.72); bodyY+=FH;
     }
+    if(multiOrder){
+      const MH=Math.round(PH*0.050);
+      wx.fillStyle="#1a2a3a"; wx.fillRect(0,bodyY,PW,MH);
+      wx.fillStyle="#4a9edd"; wx.fillRect(0,bodyY,PW,3);
+      wx.font=F.hd(0.028); wx.fillStyle="#4a9edd";
+      wx.fillText("⊕  MULTI-ITEM ORDER — DO NOT SHIP UNTIL ALL WORK ORDERS COMPLETE",P,bodyY+MH*0.68);
+      wx.textAlign="right"; wx.font=F.mono(0.018); wx.fillStyle="#4a9edd";
+      wx.fillText("HOLD FOR COMBINED SHIPMENT",PW-P,bodyY+MH*0.68); wx.textAlign="left";
+      bodyY+=MH;
+    }
     bodyY+=Math.round(PH*0.012);
 
     // ── CONTENT: Three columns top section ──────────────────────────────────
@@ -987,20 +998,19 @@ Return ONLY valid JSON, no markdown.
     const chItemH=Math.round((cardH-chdrH)/lupeItemLabels.length);
     lupeItemLabels.forEach((item,i)=>{
       const iy=plY+chdrH+i*chItemH;
-      if(i>0){wx.strokeStyle="#e0dbd4";wx.lineWidth=1;wx.beginPath();wx.moveTo(checkX,iy);wx.lineTo(checkX+checkW,iy);wx.stroke();}
-      const bxSize=Math.round(chItemH*0.28);
+      const bxSize=Math.round(chItemH*0.30);
       const bx=checkX+Math.round((checkW-bxSize)/2);
-      const by=iy+Math.round(chItemH*0.10);
+      const by=iy+Math.round(chItemH*0.08);
       wx.strokeStyle="#ccc";wx.lineWidth=1.5;wx.strokeRect(bx,by,bxSize,bxSize);
       wx.fillStyle="#fff";wx.fillRect(bx+1,by+1,bxSize-2,bxSize-2);
       const lines=item.split("|");
-      const lineH=Math.round(chItemH*0.20);
-      const ty=by+bxSize+Math.round(chItemH*0.06)+lineH;
-      wx.font=F.mono(0.014);wx.fillStyle="#666";wx.textAlign="center";
+      const lineH=Math.round(chItemH*0.18);
+      const ty=by+bxSize+Math.round(chItemH*0.04)+lineH;
+      wx.font=F.mono(0.013);wx.fillStyle="#666";wx.textAlign="center";
       lines.forEach((ln,li)=>wx.fillText(ln,checkX+checkW/2,ty+li*lineH));
       wx.textAlign="left";
     });
-    const initY=plY+cardH-Math.round(cardH*0.06);
+    const initY=plY+cardH-Math.round(cardH*0.04);
     wx.font=F.mono(0.011);wx.fillStyle="#aaa";wx.textAlign="center";
     wx.fillText("INITIALS",checkX+checkW/2,initY-4);
     wx.strokeStyle="#ccc";wx.lineWidth=1;wx.beginPath();
@@ -1188,6 +1198,11 @@ Return ONLY valid JSON, no markdown.
                         <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:val?activeColor:"#888",fontWeight:val?600:400}}>{icon} {label}</span>
                       </label>
                     ))}
+                    {/* Multi-order flag */}
+                    <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"10px 14px",border:`2px solid ${multiOrder?"#1a6eb5":"#d4cdc0"}`,background:multiOrder?"#eef4fc":"#fffdf8"}}>
+                      <input type="checkbox" checked={multiOrder} onChange={e=>setMultiOrder(e.target.checked)} style={{accentColor:"#1a6eb5",width:15,height:15}}/>
+                      <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:multiOrder?"#1a6eb5":"#888",fontWeight:multiOrder?600:400}}>⊕ Part of Multi-Item Order</span>
+                    </label>
                   </div>
                 </div>
                 <div style={{marginBottom:14}}><label style={S.lbl}>Special Instructions</label><textarea style={S.ta} value={specialInstructions} onChange={e=>setSpecialInstructions(e.target.value)} placeholder="Any special notes for production..."/></div>
