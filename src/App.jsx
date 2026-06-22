@@ -966,15 +966,30 @@ Return ONLY valid JSON, no markdown.
         wx.font=F.hd(0.016); wx.fillStyle="#c8372d";
         wx.fillText(p.decType.toUpperCase(),cardX+22,cy+badgeH*0.74); cy+=badgeH+Math.round(PH*0.010);
       } else { cy+=Math.round(PH*0.008); }
-      const dr=(lbl,val)=>{
+      const dr=(lbl,val,wrap=false)=>{
         if(!val) return;
         const lbh=Math.round(PH*0.014); const vbh=Math.round(PH*0.024);
         wx.font=F.hd(0.013); wx.fillStyle="#aaa"; wx.fillText(lbl.toUpperCase(),cardX+12,cy+lbh);
         wx.font=F.body(0.022); wx.fillStyle="#222";
-        let txt=val; while(wx.measureText(txt).width>cardW-20&&txt.length>3) txt=txt.slice(0,-2)+"…";
-        wx.fillText(txt,cardX+12,cy+lbh+vbh); cy+=lbh+vbh+Math.round(PH*0.008);
+        if(wrap){
+          // Word-wrap the value into multiple lines
+          const words=val.split(" "); let line=""; const maxW=cardW-24;
+          let wy=cy+lbh+vbh;
+          words.forEach(w=>{
+            const test=line?line+" "+w:w;
+            if(wx.measureText(test).width>maxW&&line){
+              wx.fillText(line,cardX+12,wy); line=w; wy+=Math.round(PH*0.022);
+            } else line=test;
+          });
+          if(line) wx.fillText(line,cardX+12,wy);
+          cy=wy+Math.round(PH*0.008);
+        } else {
+          let txt=val; while(wx.measureText(txt).width>cardW-24&&txt.length>3) txt=txt.slice(0,-2)+"…";
+          wx.fillText(txt,cardX+12,cy+lbh+vbh);
+          cy+=lbh+vbh+Math.round(PH*0.008);
+        }
       };
-      dr("Colours",p.colours);
+      dr("Colours",p.colours,true); // wrap colours
       dr("Art Width",p.specWidth?p.specWidth+'"':"");
       dr("From Collar",p.specFromCollar?p.specFromCollar+'"':"");
       dr("Artwork",p.artName);
@@ -1010,12 +1025,6 @@ Return ONLY valid JSON, no markdown.
       lines.forEach((ln,li)=>wx.fillText(ln,checkX+checkW/2,ty+li*lineH));
       wx.textAlign="left";
     });
-    const initY=plY+cardH-Math.round(cardH*0.04);
-    wx.font=F.mono(0.011);wx.fillStyle="#aaa";wx.textAlign="center";
-    wx.fillText("INITIALS",checkX+checkW/2,initY-4);
-    wx.strokeStyle="#ccc";wx.lineWidth=1;wx.beginPath();
-    wx.moveTo(checkX+8,initY+2);wx.lineTo(checkX+checkW-8,initY+2);wx.stroke();
-    wx.textAlign="left";
 
     // ── FOOTER ───────────────────────────────────────────────────────────────
     const fY=PH-footH;
