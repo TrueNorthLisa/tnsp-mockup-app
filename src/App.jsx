@@ -790,18 +790,20 @@ Return ONLY valid JSON, no markdown.
     wx.fillText("TRUE NORTH",P,HDR*0.75);
     wx.font=F.mono(0.022); wx.fillStyle="#c8372d";
     wx.fillText("SCREEN PRINTING & EMBROIDERY  ·  PRODUCTION WORK ORDER",P,HDR*0.93);
-    // Order name — large and prominent on the right
+    // Order name + due date in header
+    wx.textAlign="right";
     if(orderName){
-      wx.font=F.xl(0.052); wx.fillStyle="#f5f0e8"; wx.textAlign="right";
-      wx.fillText(orderName.toUpperCase(),PW-P,HDR*0.60);
-      wx.font=F.mono(0.016); wx.fillStyle="#888";
-      wx.fillText(`JOB #${jobNum||"TBD"}  ·  ${new Date().toLocaleDateString("en-CA")}`,PW-P,HDR*0.85);
-    } else {
-      wx.font=F.xl(0.038); wx.fillStyle="#e8c547"; wx.textAlign="right";
-      wx.fillText(`JOB #${jobNum||"TBD"}`,PW-P,HDR*0.65);
-      wx.font=F.mono(0.018); wx.fillStyle="#888";
-      wx.fillText(new Date().toLocaleDateString("en-CA"),PW-P,HDR*0.88);
+      wx.font=F.xl(0.048); wx.fillStyle="#f5f0e8";
+      wx.fillText(orderName.toUpperCase(),PW-P,HDR*0.55);
     }
+    // Due date — highlighted gold
+    if(dueDate){
+      const dueFmt=new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"});
+      wx.font=F.hd(0.022); wx.fillStyle="#e8c547";
+      wx.fillText(`DUE: ${dueFmt}`,PW-P,HDR*0.78);
+    }
+    wx.font=F.mono(0.015); wx.fillStyle="#555";
+    wx.fillText(`JOB #${jobNum||"TBD"}  ·  ${new Date().toLocaleDateString("en-CA")}`,PW-P,HDR*0.94);
     wx.textAlign="left";
     wx.fillStyle="#c8372d"; wx.fillRect(0,HDR,PW,3);
 
@@ -813,16 +815,6 @@ Return ONLY valid JSON, no markdown.
       let ft=""; if(pressCheck)ft+="⚠  PRESS CHECK REQUIRED     "; if(boldPrint)ft+="●  BOLD PRINT     "; if(vintagePrint)ft+="●  VINTAGE / DISTRESSED";
       wx.font=F.hd(0.026); wx.fillStyle=pressCheck?"#ff4444":"#f5f0e8";
       wx.fillText(ft.trim(),P,bodyY+FH*0.72); bodyY+=FH;
-    }
-    if(multiOrder){
-      const MH=Math.round(PH*0.050);
-      wx.fillStyle="#1a2a3a"; wx.fillRect(0,bodyY,PW,MH);
-      wx.fillStyle="#4a9edd"; wx.fillRect(0,bodyY,PW,3);
-      wx.font=F.hd(0.028); wx.fillStyle="#4a9edd";
-      wx.fillText("⊕  MULTI-ITEM ORDER — DO NOT SHIP UNTIL ALL WORK ORDERS COMPLETE",P,bodyY+MH*0.68);
-      wx.textAlign="right"; wx.font=F.mono(0.018); wx.fillStyle="#4a9edd";
-      wx.fillText("HOLD FOR COMBINED SHIPMENT",PW-P,bodyY+MH*0.68); wx.textAlign="left";
-      bodyY+=MH;
     }
     bodyY+=Math.round(PH*0.012);
 
@@ -880,7 +872,6 @@ Return ONLY valid JSON, no markdown.
     y0=field(cx0,y0,cw0,"Email",cust.email||"");
     y0=field(cx0,y0,cw0,"Phone",cust.phone||"");
     y0=field(cx0,y0,cw0,"Ship To",[cust.address,cust.city,cust.province,cust.postal].filter(Boolean).join(", ")||"");
-    y0=field(cx0,y0,cw0,"Due Date",dueDate?new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}):"");
 
     // Col 1: Garment
     let y1=bodyY;
@@ -889,6 +880,16 @@ Return ONLY valid JSON, no markdown.
     y1=field(cx1,y1,cw1,"Colour",selColour||"");
     y1=field(cx1,y1,cw1,"Decoration",decTypes.join(", ")||"");
     if(specialInstructions) y1=field(cx1,y1,cw1,"Notes",specialInstructions.substring(0,55));
+    // Shipment type tag
+    const shipTag=multiOrder?"⊕ MULTI-ITEM SHIPMENT":"● SINGLE SHIPMENT";
+    const shipColor=multiOrder?"#1a6eb5":"#2a7a4b";
+    const tagH=Math.round(PH*0.034);
+    const tagW=cx1+cw1-cx1-4;
+    y1+=Math.round(PH*0.008);
+    wx.fillStyle=multiOrder?"#deeaf7":"#edf7f1"; wx.fillRect(cx1,y1,tagW,tagH);
+    wx.fillStyle=shipColor; wx.fillRect(cx1,y1,3,tagH);
+    wx.font=F.hd(0.017); wx.fillStyle=shipColor;
+    wx.fillText(shipTag,cx1+10,y1+tagH*0.70); y1+=tagH+Math.round(PH*0.006);
 
     // Col 2: Sizes
     let y2=bodyY;
