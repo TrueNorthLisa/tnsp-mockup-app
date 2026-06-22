@@ -274,8 +274,9 @@ export default function App() {
     setJobsLoading(true);
     setJobsError("");
     try{
-      const d=await sb("GET","/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date,updated_at&order=updated_at.desc");
-      setJobs(Array.isArray(d)?d:[]);
+      const d=await sb("GET","/jobs?select=*");
+      const all=Array.isArray(d)?d:[];
+      setJobs(all.filter(j=>j.status!=="archived").sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0)));
     }catch(e){
       console.error("loadJobs error:",e);
       setJobsError(e.message);
@@ -287,7 +288,7 @@ export default function App() {
   async function archiveJob(id,e){e.stopPropagation();await sb("PATCH",`/jobs?id=eq.${id}`,{status:"archived"});setJobs(j=>j.filter(x=>x.id!==id));showToast("Job archived");}
   async function searchArchive(){
     if(!archiveSearch.trim())return;setArchiveSearching(true);
-    try{const q=archiveSearch.trim();const d=await sb("GET",`/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date,updated_at&status=in.(final,archived)&or=(client.ilike.*${q}*,job_num.ilike.*${q}*)&order=updated_at.desc&limit=20`);setArchiveResults(Array.isArray(d)?d:[]);}
+    try{const q=archiveSearch.trim();const d=await sb("GET",`/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date&status=in.(final,archived)&or=(client.ilike.*${q}*,job_num.ilike.*${q}*)&limit=20`);setArchiveResults(Array.isArray(d)?d:[]);}
     catch(e){showToast("Search failed: "+e.message);}
     setArchiveSearching(false);
   }
