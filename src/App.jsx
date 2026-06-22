@@ -270,8 +270,13 @@ export default function App() {
 
   async function loadJobs(){
     setJobsLoading(true);
-    try{const d=await sb("GET","/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date,updated_at&order=updated_at.desc");setJobs(Array.isArray(d)?d:[]);}
-    catch(e){showToast("Could not load jobs");}
+    try{
+      const d=await sb("GET","/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date,updated_at&order=updated_at.desc");
+      setJobs(Array.isArray(d)?d:[]);
+    }catch(e){
+      console.error("loadJobs error:",e);
+      showToast("Jobs error: "+e.message.substring(0,80));
+    }
     setJobsLoading(false);
   }
 
@@ -1058,7 +1063,9 @@ Return ONLY valid JSON, no markdown.
             <button style={S.btn("r")} onClick={newJob}>+ New Job</button>
           </div>
           {jobsLoading&&<div style={S.note("i")}>Loading...</div>}
-          {!jobsLoading&&jobs.length===0&&<div style={S.note("i")}>No active jobs — click New Job to get started.</div>}
+          {!jobsLoading&&jobs.length===0&&<div style={S.note("i")}>
+            No jobs found. URL: {import.meta.env.VITE_SUPABASE_URL?.substring(0,40)||"NOT SET"}
+          </div>}
           {jobs.map(j=>(
             <div key={j.id} style={S.jcard} onClick={()=>loadJob(j.id)}
               onMouseEnter={e=>e.currentTarget.style.borderColor="#c8372d"}
