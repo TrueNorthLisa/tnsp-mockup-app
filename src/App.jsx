@@ -943,25 +943,25 @@ Return ONLY valid JSON, no markdown.
       wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
       wx.fillText(`PLACEMENT ${i+1}  ·  ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,cardX+12,cy+Math.round(PH*0.018));
       cy+=Math.round(PH*0.026);
-      wx.font=F.bld(0.042); wx.fillStyle="#0f0f0f";
+      wx.font=F.bld(0.036); wx.fillStyle="#0f0f0f";
       let pname=p.placement||""; while(wx.measureText(pname).width>cardW-20&&pname.length>3) pname=pname.slice(0,-2)+"…";
-      wx.fillText(pname,cardX+12,cy+Math.round(PH*0.038));
-      cy+=Math.round(PH*0.050);
+      wx.fillText(pname,cardX+12,cy+Math.round(PH*0.032));
+      cy+=Math.round(PH*0.042);
       if(p.decType){
         wx.fillStyle="rgba(200,55,45,.12)";
-        wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
-        const badgeH=Math.round(PH*0.030); const badgeW=wx.measureText(p.decType.toUpperCase()).width+20;
+        wx.font=F.hd(0.016); wx.fillStyle="#c8372d";
+        const badgeH=Math.round(PH*0.026); const badgeW=wx.measureText(p.decType.toUpperCase()).width+20;
         wx.fillStyle="rgba(200,55,45,.12)"; wx.fillRect(cardX+12,cy,badgeW,badgeH);
-        wx.font=F.hd(0.018); wx.fillStyle="#c8372d";
-        wx.fillText(p.decType.toUpperCase(),cardX+22,cy+badgeH*0.74); cy+=badgeH+Math.round(PH*0.014);
-      } else { cy+=Math.round(PH*0.01); }
+        wx.font=F.hd(0.016); wx.fillStyle="#c8372d";
+        wx.fillText(p.decType.toUpperCase(),cardX+22,cy+badgeH*0.74); cy+=badgeH+Math.round(PH*0.010);
+      } else { cy+=Math.round(PH*0.008); }
       const dr=(lbl,val)=>{
         if(!val) return;
-        const lbh=Math.round(PH*0.016); const vbh=Math.round(PH*0.028);
-        wx.font=F.hd(0.016); wx.fillStyle="#aaa"; wx.fillText(lbl.toUpperCase(),cardX+12,cy+lbh);
-        wx.font=F.body(0.026); wx.fillStyle="#222";
+        const lbh=Math.round(PH*0.014); const vbh=Math.round(PH*0.024);
+        wx.font=F.hd(0.013); wx.fillStyle="#aaa"; wx.fillText(lbl.toUpperCase(),cardX+12,cy+lbh);
+        wx.font=F.body(0.022); wx.fillStyle="#222";
         let txt=val; while(wx.measureText(txt).width>cardW-20&&txt.length>3) txt=txt.slice(0,-2)+"…";
-        wx.fillText(txt,cardX+12,cy+lbh+vbh); cy+=lbh+vbh+Math.round(PH*0.012);
+        wx.fillText(txt,cardX+12,cy+lbh+vbh); cy+=lbh+vbh+Math.round(PH*0.008);
       };
       dr("Colours",p.colours);
       dr("Art Width",p.specWidth?p.specWidth+'"':"");
@@ -971,7 +971,7 @@ Return ONLY valid JSON, no markdown.
     });
 
     // ── VERTICAL PRE-PRODUCTION CHECKLIST (right of placement cards) ─────────
-    const lupeItemLabels=["Product|Received","Screens|Burned","Ink|Mixed","Product|Carted"];
+    const lupeItemLabels=["Product|Received","Screens|Burned","Ink|Mixed","On|Carts"];
     const checkX=P+placementAreaW+cardGap;
     const checkW=checkColW;
     wx.fillStyle="#ffffff"; wx.fillRect(checkX,plY,checkW,cardH);
@@ -982,7 +982,7 @@ Return ONLY valid JSON, no markdown.
     wx.fillStyle="#ff9f43"; wx.fillRect(checkX,plY,checkW,2);
     wx.font=F.hd(0.016); wx.fillStyle="#e07b20"; wx.textAlign="center";
     wx.fillText("PRE-PROD",checkX+checkW/2,plY+Math.round(chdrH*0.42));
-    wx.fillText("SIGN-OFF",checkX+checkW/2,plY+Math.round(chdrH*0.78));
+    wx.fillText("CHECKLIST",checkX+checkW/2,plY+Math.round(chdrH*0.78));
     wx.textAlign="left";
     const chItemH=Math.round((cardH-chdrH)/lupeItemLabels.length);
     lupeItemLabels.forEach((item,i)=>{
