@@ -270,7 +270,7 @@ export default function App() {
 
   async function loadJobs(){
     setJobsLoading(true);
-    try{const d=await sb("GET","/jobs?select=id,job_num,order_name,client,garment_style,garment_colour,status,due_date,updated_at&status=not.eq.archived&order=updated_at.desc");setJobs(Array.isArray(d)?d:[]);}
+    try{const d=await sb("GET","/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date,updated_at&order=updated_at.desc");setJobs(Array.isArray(d)?d:[]);}
     catch(e){showToast("Could not load jobs");}
     setJobsLoading(false);
   }
