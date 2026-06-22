@@ -456,6 +456,8 @@ Return ONLY valid JSON, no markdown.
         customer_id:custId,garment_id:garmentId,
         shipping_address:{address:cust.address,city:cust.city,province:cust.province,postal:cust.postal},
         placements,ai_plan:planOverride||aiPlan,sizes,garment_urls:garmentUrls,artwork_data:artData,
+        // Save customer mockup image as data URL so it persists
+        sew_out_image:sewOutImage?.canvas?.toDataURL("image/jpeg",.8)||null,
         updated_at:new Date().toISOString(),
       };
       if(savedJobId){await sb("PATCH",`/jobs?id=eq.${savedJobId}`,payload);}
@@ -468,6 +470,15 @@ Return ONLY valid JSON, no markdown.
     try{
       const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
       setJobNum(j.job_num||"");setOrderName(j.order_name||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);setMultiOrder(j.multi_order||false);
+      // Restore customer mockup image if saved
+      if(j.sew_out_image){
+        const img=new Image(); img.onload=()=>{
+          const canvas=document.createElement("canvas");
+          canvas.width=img.naturalWidth; canvas.height=img.naturalHeight;
+          canvas.getContext("2d").drawImage(img,0,0);
+          setSewOutImage({url:j.sew_out_image,img,canvas});
+        }; img.src=j.sew_out_image;
+      } else { setSewOutImage(null); }
       setSavedJobId(j.id);setSaveStatus("saved");setPlacements(j.placements||[]);setAiPlan(j.ai_plan||[]);
       setAiStatus(j.ai_plan?.length?"done":"idle");setSizes(j.sizes||emptySizes());
       if(j.customer_id){const cd=await sb("GET",`/customers?id=eq.${j.customer_id}&select=*`);if(cd?.[0])selectCustomer(cd[0]);}
