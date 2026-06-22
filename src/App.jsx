@@ -270,7 +270,7 @@ export default function App() {
 
   async function loadJobs(){
     setJobsLoading(true);
-    try{const d=await sb("GET","/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date,updated_at&status=in.(draft,in-progress)&order=updated_at.desc");setJobs(Array.isArray(d)?d:[]);}
+    try{const d=await sb("GET","/jobs?select=id,job_num,order_name,client,garment_style,garment_colour,status,due_date,updated_at&status=not.eq.archived&order=updated_at.desc");setJobs(Array.isArray(d)?d:[]);}
     catch(e){showToast("Could not load jobs");}
     setJobsLoading(false);
   }
@@ -1064,7 +1064,11 @@ Return ONLY valid JSON, no markdown.
               onMouseEnter={e=>e.currentTarget.style.borderColor="#c8372d"}
               onMouseLeave={e=>e.currentTarget.style.borderColor="#d4cdc0"}>
               <div>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.15rem",letterSpacing:".06em"}}>{j.client||"Unnamed"}{j.job_num&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",color:"#c8372d",marginLeft:10}}>#{j.job_num}</span>}</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.15rem",letterSpacing:".06em"}}>
+                  {j.order_name||j.client||"Unnamed"}
+                  {j.job_num&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",color:"#c8372d",marginLeft:10}}>#{j.job_num}</span>}
+                </div>
+                {j.order_name&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",color:"#888",marginTop:1}}>{j.client}</div>}
                 <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",color:"#aaa",marginTop:2}}>{j.garment_style}{j.garment_colour?" - "+j.garment_colour:""}{j.due_date&&<span style={{marginLeft:10,color:"#888"}}>Due: {new Date(j.due_date+"T00:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric"})}</span>}</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
