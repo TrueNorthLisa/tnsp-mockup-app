@@ -212,6 +212,7 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
 export default function App() {
   const [page, setPage] = useState("jobs");
   const [jobNum, setJobNum] = useState("");
+  const [orderName, setOrderName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [decTypes, setDecTypes] = useState([]);
   const [specialInstructions, setSpecialInstructions] = useState("");
@@ -291,7 +292,7 @@ export default function App() {
     setArtwork([]);setArtCounter(1);
     setPlacements([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(2);
     setAiPlan([]);setAiStatus("idle");setAiIntro("");setAiError("");setRevisionNotes("");
-    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");setSewOutImage(null);
+    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");setSewOutImage(null);setOrderName("");
   }
 
   async function newJob(){
@@ -439,7 +440,7 @@ Return ONLY valid JSON, no markdown.
       const artData=artwork.map(a=>{const c=document.createElement("canvas");const r=Math.min(300/a.img.naturalWidth,1);c.width=Math.round(a.img.naturalWidth*r);c.height=Math.round(a.img.naturalHeight*r);c.getContext("2d").drawImage(a.img,0,0,c.width,c.height);return{id:a.id,name:a.name,dataURL:c.toDataURL("image/png")};});
       await saveCustomer();
       const payload={
-        job_num:jobNum,client:cust.company||cust.contact_name,garment_style:`${selBrand} ${selStyle}`.trim(),garment_colour:selColour,
+        job_num:jobNum,order_name:orderName,client:cust.company||cust.contact_name,garment_style:`${selBrand} ${selStyle}`.trim(),garment_colour:selColour,
         status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,bold_print:boldPrint,vintage_print:vintagePrint,
         customer_id:custId,garment_id:garmentId,
         shipping_address:{address:cust.address,city:cust.city,province:cust.province,postal:cust.postal},
@@ -455,7 +456,7 @@ Return ONLY valid JSON, no markdown.
   async function loadJob(jobId){
     try{
       const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
-      setJobNum(j.job_num||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);
+      setJobNum(j.job_num||"");setOrderName(j.order_name||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);
       setSavedJobId(j.id);setSaveStatus("saved");setPlacements(j.placements||[]);setAiPlan(j.ai_plan||[]);
       setAiStatus(j.ai_plan?.length?"done":"idle");setSizes(j.sizes||emptySizes());
       if(j.customer_id){const cd=await sb("GET",`/customers?id=eq.${j.customer_id}&select=*`);if(cd?.[0])selectCustomer(cd[0]);}
@@ -778,10 +779,18 @@ Return ONLY valid JSON, no markdown.
     wx.fillText("TRUE NORTH",P,HDR*0.75);
     wx.font=F.mono(0.022); wx.fillStyle="#c8372d";
     wx.fillText("SCREEN PRINTING & EMBROIDERY  ·  PRODUCTION WORK ORDER",P,HDR*0.93);
-    wx.font=F.xl(0.038); wx.fillStyle="#e8c547"; wx.textAlign="right";
-    wx.fillText(`JOB #${jobNum||"TBD"}`,PW-P,HDR*0.65);
-    wx.font=F.mono(0.018); wx.fillStyle="#888";
-    wx.fillText(new Date().toLocaleDateString("en-CA"),PW-P,HDR*0.88);
+    // Order name — large and prominent on the right
+    if(orderName){
+      wx.font=F.xl(0.052); wx.fillStyle="#f5f0e8"; wx.textAlign="right";
+      wx.fillText(orderName.toUpperCase(),PW-P,HDR*0.60);
+      wx.font=F.mono(0.016); wx.fillStyle="#888";
+      wx.fillText(`JOB #${jobNum||"TBD"}  ·  ${new Date().toLocaleDateString("en-CA")}`,PW-P,HDR*0.85);
+    } else {
+      wx.font=F.xl(0.038); wx.fillStyle="#e8c547"; wx.textAlign="right";
+      wx.fillText(`JOB #${jobNum||"TBD"}`,PW-P,HDR*0.65);
+      wx.font=F.mono(0.018); wx.fillStyle="#888";
+      wx.fillText(new Date().toLocaleDateString("en-CA"),PW-P,HDR*0.88);
+    }
     wx.textAlign="left";
     wx.fillStyle="#c8372d"; wx.fillRect(0,HDR,PW,3);
 
@@ -883,15 +892,16 @@ Return ONLY valid JSON, no markdown.
     wx.font=F.hd(0.022); wx.fillStyle="#0f0f0f";
     wx.fillText("PRINT / EMBROIDERY PLACEMENTS",P+10,plY+pbh*0.74); plY+=pbh+Math.round(PH*0.01);
 
-    // ── PLACEMENT CARDS (fill remaining space exactly) ───────────────────────
+    // ── PLACEMENT CARDS + VERTICAL CHECKLIST SIDE BY SIDE ───────────────────
     const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
     const footH=Math.round(PH*0.038);
-    const lupeBarH=Math.round(PH*0.09); // space for pre-prod checklist bar
-    const availH=PH-plY-footH-lupeBarH-P;
+    const checkColW=Math.round(PW*0.18); // checklist column width on right
+    const availH=PH-plY-footH-P;
     const displayPlacements=aiPlan.slice(0,4);
     const numP=Math.max(displayPlacements.length,1);
     const cardGap=Math.round(PH*0.01);
-    const cardW=Math.floor((PW-P*2-(cardGap*(numP-1)))/numP);
+    const placementAreaW=PW-P*2-checkColW-cardGap;
+    const cardW=Math.floor((placementAreaW-(cardGap*(numP-1)))/numP);
     const cardH=availH;
 
     displayPlacements.forEach((p,i)=>{
@@ -930,42 +940,42 @@ Return ONLY valid JSON, no markdown.
       dr("Notes",p.notes);
     });
 
-    // ── LUPE'S PRE-PRODUCTION CHECKLIST ─────────────────────────────────────
-    const lupeItems=[
-      "Product Received",
-      "Screens Burned / Digitized",
-      "Ink Mixed / Thread Pulled",
-      "Product on Carts",
-    ];
-    const checkY=plY+cardH+Math.round(PH*0.012);
-    const checkSectionH=lupeBarH;
-    // Only draw if there's enough room above the footer
-    if(checkY+checkSectionH < PH-footH-4){
-      wx.fillStyle="#1a1a1a"; wx.fillRect(0,checkY,PW,checkSectionH);
-      wx.fillStyle="#ff9f43"; wx.fillRect(0,checkY,PW,2);
-      // Section label
-      wx.font=F.hd(0.018); wx.fillStyle="#ff9f43";
-      wx.fillText("PRE-PRODUCTION SIGN-OFF",P,checkY+Math.round(checkSectionH*0.38));
-      // Check boxes in a row
-      const itemW=Math.floor((PW-P*2-240)/lupeItems.length);
-      const boxSize=Math.round(checkSectionH*0.45);
-      lupeItems.forEach((item,i)=>{
-        const bx=240+P+i*itemW;
-        const by=checkY+Math.round((checkSectionH-boxSize)/2);
-        // Empty checkbox
-        wx.strokeStyle="#555"; wx.lineWidth=1.5; wx.strokeRect(bx,by,boxSize,boxSize);
-        wx.fillStyle="#222"; wx.fillRect(bx+1,by+1,boxSize-2,boxSize-2);
-        // Label below box
-        wx.font=F.mono(0.014); wx.fillStyle="#888"; wx.textAlign="center";
-        wx.fillText(item,bx+boxSize/2,by+boxSize+Math.round(checkSectionH*0.18));
-        wx.textAlign="left";
-      });
-      // Sign-off line
-      const sigX=P+4; const sigY=checkY+Math.round(checkSectionH*0.52);
-      wx.font=F.mono(0.012); wx.fillStyle="#555";
-      wx.fillText("SIGNED OFF BY",sigX,sigY);
-      wx.fillStyle="#333"; wx.fillRect(sigX,sigY+6,180,1);
-    }
+    // ── VERTICAL PRE-PRODUCTION CHECKLIST (right of placement cards) ─────────
+    const lupeItemLabels=["Product|Received","Screens|Burned","Ink|Mixed","Product|Carted"];
+    const checkX=P+placementAreaW+cardGap;
+    const checkW=checkColW;
+    wx.fillStyle="#ffffff"; wx.fillRect(checkX,plY,checkW,cardH);
+    wx.strokeStyle="#e0dbd4"; wx.lineWidth=1.5; wx.strokeRect(checkX,plY,checkW,cardH);
+    wx.fillStyle="#ff9f43"; wx.fillRect(checkX,plY,4,cardH);
+    const chdrH=Math.round(cardH*0.14);
+    wx.fillStyle="#fff4eb"; wx.fillRect(checkX,plY,checkW,chdrH);
+    wx.fillStyle="#ff9f43"; wx.fillRect(checkX,plY,checkW,2);
+    wx.font=F.hd(0.016); wx.fillStyle="#e07b20"; wx.textAlign="center";
+    wx.fillText("PRE-PROD",checkX+checkW/2,plY+Math.round(chdrH*0.42));
+    wx.fillText("SIGN-OFF",checkX+checkW/2,plY+Math.round(chdrH*0.78));
+    wx.textAlign="left";
+    const chItemH=Math.round((cardH-chdrH)/lupeItemLabels.length);
+    lupeItemLabels.forEach((item,i)=>{
+      const iy=plY+chdrH+i*chItemH;
+      if(i>0){wx.strokeStyle="#e0dbd4";wx.lineWidth=1;wx.beginPath();wx.moveTo(checkX,iy);wx.lineTo(checkX+checkW,iy);wx.stroke();}
+      const bxSize=Math.round(chItemH*0.28);
+      const bx=checkX+Math.round((checkW-bxSize)/2);
+      const by=iy+Math.round(chItemH*0.10);
+      wx.strokeStyle="#ccc";wx.lineWidth=1.5;wx.strokeRect(bx,by,bxSize,bxSize);
+      wx.fillStyle="#fff";wx.fillRect(bx+1,by+1,bxSize-2,bxSize-2);
+      const lines=item.split("|");
+      const lineH=Math.round(chItemH*0.20);
+      const ty=by+bxSize+Math.round(chItemH*0.06)+lineH;
+      wx.font=F.mono(0.014);wx.fillStyle="#666";wx.textAlign="center";
+      lines.forEach((ln,li)=>wx.fillText(ln,checkX+checkW/2,ty+li*lineH));
+      wx.textAlign="left";
+    });
+    const initY=plY+cardH-Math.round(cardH*0.06);
+    wx.font=F.mono(0.011);wx.fillStyle="#aaa";wx.textAlign="center";
+    wx.fillText("INITIALS",checkX+checkW/2,initY-4);
+    wx.strokeStyle="#ccc";wx.lineWidth=1;wx.beginPath();
+    wx.moveTo(checkX+8,initY+2);wx.lineTo(checkX+checkW-8,initY+2);wx.stroke();
+    wx.textAlign="left";
 
     // ── FOOTER ───────────────────────────────────────────────────────────────
     const fY=PH-footH;
@@ -987,7 +997,8 @@ Return ONLY valid JSON, no markdown.
       cc.fillStyle="#0f0f0f"; cc.fillRect(0,PH,PW,p2h);
       cc.font=F.xl(0.065); cc.fillStyle="#f5f0e8"; cc.fillText("TRUE NORTH",P,PH+p2h*0.68);
       cc.font=F.mono(0.020); cc.fillStyle="#c8372d"; cc.fillText("DIGITAL MOCKUP  ·  FOR PRODUCTION REFERENCE ONLY",P,PH+p2h*0.90);
-      cc.font=F.xl(0.036); cc.fillStyle="#e8c547"; cc.textAlign="right"; cc.fillText(`JOB #${jobNum||""}`,PW-P,PH+p2h*0.62);
+      cc.font=F.xl(0.036); cc.fillStyle="#e8c547"; cc.textAlign="right";
+      cc.fillText(orderName?orderName.toUpperCase():`JOB #${jobNum||""}`,PW-P,PH+p2h*0.62);
       cc.font=F.mono(0.018); cc.fillStyle="#888"; cc.fillText(`${cust.company||cust.contact_name||""}  ·  ${new Date().toLocaleDateString("en-CA")}`,PW-P,PH+p2h*0.86);
       cc.textAlign="left"; cc.fillStyle="#c8372d"; cc.fillRect(0,PH+p2h,PW,3);
       // Mockup image
@@ -1112,6 +1123,10 @@ Return ONLY valid JSON, no markdown.
             {step===1&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>01</span> Job Intake</div>
+                <div style={{marginBottom:14}}>
+                  <label style={S.lbl}>Order Name <span style={{color:"#c8372d"}}>*</span></label>
+                  <input style={S.inp} value={orderName} onChange={e=>setOrderName(e.target.value)} placeholder="e.g. Tofino Hoodies, Pac Surf Spring Run"/>
+                </div>
                 <div style={S.g2}>
                   <div><label style={S.lbl}>Job # <span style={{color:"#c8372d"}}>*</span></label><input style={S.inp} value={jobNum} onChange={e=>setJobNum(e.target.value)} placeholder="Auto-filled"/></div>
                   <div><label style={S.lbl}>Due Date</label><input type="date" style={S.inp} value={dueDate} onChange={e=>setDueDate(e.target.value)}/></div>
@@ -1585,3 +1600,4 @@ function GarmentManager({ garmentList, onRefresh }) {
     </div>
   );
 }
+
