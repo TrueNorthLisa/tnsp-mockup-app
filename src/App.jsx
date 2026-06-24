@@ -275,7 +275,7 @@ export default function App() {
     setJobsLoading(true);
     setJobsError("");
     try{
-      const d=await sb("GET","/jobs?select=*");
+      const d=await sb("GET","/jobs?select=*&source=eq.mockup");
       const all=Array.isArray(d)?d:[];
       setJobs(all.filter(j=>j.status!=="archived").sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0)));
     }catch(e){
@@ -289,7 +289,7 @@ export default function App() {
   async function archiveJob(id,e){e.stopPropagation();await sb("PATCH",`/jobs?id=eq.${id}`,{status:"archived"});setJobs(j=>j.filter(x=>x.id!==id));showToast("Job archived");}
   async function searchArchive(){
     if(!archiveSearch.trim())return;setArchiveSearching(true);
-    try{const q=archiveSearch.trim();const d=await sb("GET",`/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date&status=in.(final,archived)&or=(client.ilike.*${q}*,job_num.ilike.*${q}*)&limit=20`);setArchiveResults(Array.isArray(d)?d:[]);}
+    try{const q=archiveSearch.trim();const d=await sb("GET",`/jobs?select=id,job_num,client,garment_style,garment_colour,status,due_date&source=eq.mockup&status=in.(final,archived)&or=(client.ilike.*${q}*,job_num.ilike.*${q}*)&limit=20`);setArchiveResults(Array.isArray(d)?d:[]);}
     catch(e){showToast("Search failed: "+e.message);}
     setArchiveSearching(false);
   }
@@ -456,8 +456,8 @@ Return ONLY valid JSON, no markdown.
         customer_id:custId,garment_id:garmentId,
         shipping_address:{address:cust.address,city:cust.city,province:cust.province,postal:cust.postal},
         placements,ai_plan:planOverride||aiPlan,sizes,garment_urls:garmentUrls,artwork_data:artData,
-        // Save customer mockup image as data URL so it persists
         sew_out_image:sewOutImage?.canvas?.toDataURL("image/jpeg",.8)||null,
+        source:"mockup",
         updated_at:new Date().toISOString(),
       };
       if(savedJobId){await sb("PATCH",`/jobs?id=eq.${savedJobId}`,payload);}
@@ -1690,4 +1690,3 @@ function GarmentManager({ garmentList, onRefresh }) {
     </div>
   );
 }
-
