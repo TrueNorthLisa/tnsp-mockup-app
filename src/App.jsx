@@ -667,17 +667,19 @@ export default function App() {
     const sleeveRowH=sleeveVCs.length?Math.max(...sleeveVCs.map(c=>c.height)):0;
     const contentH=mainRowH+(hasSleeveRow?GAP+sleeveRowH:0);
     const cleanComb=document.createElement("canvas");
-    cleanComb.width=contentW;cleanComb.height=contentH;
+    cleanComb.width=contentW;cleanComb.height=contentH; // garment canvas stays at garment height
     const cleanCC=cleanComb.getContext("2d");
     cleanCC.fillStyle="#ede8df";cleanCC.fillRect(0,0,contentW,contentH);
     let xOff=0;
     mainVCs.forEach(vc=>{cleanCC.drawImage(vc,xOff,0);xOff+=vc.width+GAP;});
     if(hasSleeveRow){xOff=0;sleeveVCs.forEach(vc=>{cleanCC.drawImage(vc,xOff,mainRowH+GAP);xOff+=vc.width+GAP;});}
     const specC=buildSpec(activePlan,contentH);
+    // specC calculates its own height — use whichever is taller for the combined canvas
+    const totalH=Math.max(contentH,specC.height);
     const comb=document.createElement("canvas");
-    comb.width=contentW+GAP+specC.width;comb.height=contentH;
+    comb.width=contentW+GAP+specC.width;comb.height=totalH;
     const cc=comb.getContext("2d");
-    cc.fillStyle="#ede8df";cc.fillRect(0,0,comb.width,comb.height);
+    cc.fillStyle="#ede8df";cc.fillRect(0,0,comb.width,totalH);
     cc.drawImage(cleanComb,0,0);
     cc.drawImage(specC,contentW+GAP,0);
     exportRef.current=comb;
@@ -699,13 +701,22 @@ export default function App() {
     vx.fillStyle="#fff";vx.fillRect(0,0,vw,vh);vx.drawImage(img,0,0,vw,vh);
     activePlan.filter(p=>normalizeView(p.view)===vk).forEach(p=>{
       const art=artwork.find(a=>a.id==p.artId);if(!art)return;
-      // Use the fine-tune canvas width as the reference for scale.
-      // This ensures the artwork size matches what was set in fine-tune.
+      // Use the fine-tune canvas dimensions as the reference for both scale AND position.
+      // p.x and p.y are fractions of the fine-tune canvas — we convert them to
+      // fractions of the garment image by scaling through the ft canvas aspect ratio,
+      // then apply to the export canvas. This keeps placement identical to fine-tune.
       const refW = p._ftW || FT_W;
-      const aw = (Math.max(2,Math.min(200,p.scale||22))/100) * refW * (vw/refW);
+      const refH = p._ftH || FT_H;
+      // Scale: artwork pixel width = (scale% of refW), then scale proportionally to vw
+      const aw = (Math.max(2,Math.min(200,p.scale||22))/100) * vw * (refW/refW);
       const ah = aw*(art.img.naturalHeight/art.img.naturalWidth);
+      // Position: convert ft-canvas pixel position → fraction → export canvas pixel
+      const ax = (p.x||.5) * vw;
+      const ay = (p.y||.4) * (vw / refW * refH); // keep aspect-ratio-correct y
+      // Clamp so artwork never goes off canvas
+      const clampedAy = Math.min(ay, vh - ah/2 - 4);
       vx.save();
-      vx.translate((p.x||.5)*vw,(p.y||.4)*vh);
+      vx.translate(ax, clampedAy);
       if(p.flipped) vx.scale(-1,1);
       vx.drawImage(art.img,-aw/2,-ah/2,aw,ah);
       vx.restore();
@@ -729,27 +740,53 @@ export default function App() {
     return h;
   }
 
-  function buildSpec(activePlan, height){
-    const PW=500;const sc=document.createElement("canvas");sc.width=PW;sc.height=height;
+  function buildSpec(activePlan, contentH){
+    const PW=500;
+    const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
+
+    // ── PASS 1: calculate how tall the spec panel needs to be ──
+    let neededH = 96; // header + top padding
+    // Meta rows: each is 20px
+    const metaRows = [
+      jobNum, cust.company, cust.contact_name, cust.email, cust.phone,
+      [selBrand,selStyle,selStyleNum&&`(${selStyleNum})`,selColour].filter(Boolean).join(" "),
+      dueDate, decTypes.length?decTypes.join(", "):null,
+      (pressCheck||boldPrint||vintagePrint)?"flags":null,
+      Object.entries(garments).filter(([,v])=>v).length?"views":null,
+    ].filter(Boolean);
+    neededH += metaRows.length * 20;
+    const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
+    if(asSizes.length){ neededH += 20; neededH += 30; } // total units + size row
+    if(specialInstructions) neededH += 20;
+    neededH += 22; // divider + gap
+    activePlan.forEach(p=>{ neededH += ehH(p) + 20 + 18; });
+    neededH += 48; // footer
+    // The spec panel must be at least as tall as the garment canvas beside it
+    const height = Math.max(neededH, contentH);
+
+    // ── PASS 2: draw ──
+    const sc=document.createElement("canvas");sc.width=PW;sc.height=height;
     const sx=sc.getContext("2d");
-    sx.fillStyle="#f5f0e8";sx.fillRect(0,0,PW,height);sx.fillStyle="#c8372d";sx.fillRect(0,0,4,height);
+    sx.fillStyle="#f5f0e8";sx.fillRect(0,0,PW,height);
+    sx.fillStyle="#c8372d";sx.fillRect(0,0,4,height);
     sx.fillStyle="#0f0f0f";sx.fillRect(0,0,PW,80);
     sx.font="bold 28px Bebas Neue,sans-serif";sx.fillStyle="#f5f0e8";sx.fillText("TRUE NORTH",16,32);
     sx.font="12px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText("SCREEN PRINTING & EMBROIDERY",16,52);
     sx.font="11px IBM Plex Mono,monospace";sx.fillStyle="#888";sx.fillText("PLACEMENT SPECIFICATION SHEET",16,68);
     let y=96;
     const mr=(k,v)=>{sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#888";sx.fillText(k.toUpperCase(),16,y);sx.font="14px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(v||"",130,y);y+=20;};
-    if(jobNum)mr("Job #",jobNum);if(cust.company)mr("Client",cust.company);if(cust.contact_name)mr("Contact",cust.contact_name);
-    if(cust.email)mr("Email",cust.email);if(cust.phone)mr("Phone",cust.phone);
+    if(jobNum)mr("Job #",jobNum);
+    if(cust.company)mr("Client",cust.company);
+    if(cust.contact_name)mr("Contact",cust.contact_name);
+    if(cust.email)mr("Email",cust.email);
+    if(cust.phone)mr("Phone",cust.phone);
     const ga=[selBrand,selStyle,selStyleNum&&`(${selStyleNum})`,selColour].filter(Boolean).join(" ");if(ga)mr("Garment",ga);
     if(dueDate)mr("Due Date",new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"}));
     if(decTypes.length)mr("Decoration",decTypes.join(", "));
     const flags=[];if(pressCheck)flags.push("PRESS CHECK REQUIRED");if(boldPrint)flags.push("BOLD PRINT");if(vintagePrint)flags.push("VINTAGE / DISTRESSED");
     if(flags.length)mr("Print Options",flags.join("  |  "));
-    const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
     const lv=Object.entries(garments).filter(([,v])=>v).map(([k])=>viewLabels[k]||k);
     if(lv.length)mr("Views",lv.join(" + "));
-    const asSizes=ALL_SIZES.filter(s=>sizes[s]?.active&&sizes[s]?.qty);
     if(asSizes.length){
       const total=asSizes.reduce((sum,s)=>sum+(parseInt(sizes[s].qty)||0),0);
       mr("Total Units",String(total));
@@ -764,16 +801,38 @@ export default function App() {
     y+=6;sx.fillStyle="#d4cdc0";sx.fillRect(16,y,PW-32,1);y+=16;
     activePlan.forEach((p,i)=>{
       const ch=ehH(p)+20;
-      sx.fillStyle="#fff";sx.fillRect(12,y-2,PW-24,ch+8);sx.strokeStyle="#e0dbd3";sx.lineWidth=1;sx.strokeRect(12,y-2,PW-24,ch+8);sx.fillStyle="#c8372d";sx.fillRect(12,y-2,4,ch+8);
-      sx.font="bold 11px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(`PLACEMENT ${i+1} — ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,22,y+14);
+      sx.fillStyle="#fff";sx.fillRect(12,y-2,PW-24,ch+8);
+      sx.strokeStyle="#e0dbd3";sx.lineWidth=1;sx.strokeRect(12,y-2,PW-24,ch+8);
+      sx.fillStyle="#c8372d";sx.fillRect(12,y-2,4,ch+8);
+      sx.font="bold 11px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";
+      sx.fillText(`PLACEMENT ${i+1} — ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,22,y+14);
       sx.font="bold 16px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(p.placement||"",22,y+32);
-      if(p.decType){sx.fillStyle="rgba(200,55,45,.12)";const tw=sx.measureText(p.decType.toUpperCase()).width+12;sx.fillRect(22,y+36,tw,16);sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(p.decType.toUpperCase(),28,y+48);}
+      if(p.decType){
+        sx.fillStyle="rgba(200,55,45,.12)";
+        const tw=sx.measureText(p.decType.toUpperCase()).width+12;
+        sx.fillRect(22,y+36,tw,16);
+        sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";
+        sx.fillText(p.decType.toUpperCase(),28,y+48);
+      }
       let ry=y+(p.decType?60:44);
-      const sr=(k,v)=>{if(!v)return;sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#999";sx.fillText(k.toUpperCase(),22,ry);sx.font="13px IBM Plex Sans,sans-serif";sx.fillStyle="#222";const words=v.split(" ");let line="";const mw=PW-170;words.forEach(w=>{const t=line?line+" "+w:w;if(sx.measureText(t).width>mw&&line){sx.fillText(line,140,ry);line=w;ry+=16;}else{line=t;}});if(line)sx.fillText(line,140,ry);ry+=18;};
-      if(p.artName)sr("Artwork",p.artName);if(p.specWidth)sr("Art Width",p.specWidth+'"');if(p.specFromCollar)sr("From Collar",p.specFromCollar+'"');if(p.colours)sr("Colours",p.colours);if(p.notes)sr("Notes",p.notes);
+      const sr=(k,v)=>{
+        if(!v)return;
+        sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#999";sx.fillText(k.toUpperCase(),22,ry);
+        sx.font="13px IBM Plex Sans,sans-serif";sx.fillStyle="#222";
+        const words=v.split(" ");let line="";const mw=PW-170;
+        words.forEach(w=>{const t=line?line+" "+w:w;if(sx.measureText(t).width>mw&&line){sx.fillText(line,140,ry);line=w;ry+=16;}else{line=t;}});
+        if(line)sx.fillText(line,140,ry);ry+=18;
+      };
+      if(p.artName)sr("Artwork",p.artName);
+      if(p.specWidth)sr("Art Width",p.specWidth+'"');
+      if(p.specFromCollar)sr("From Collar",p.specFromCollar+'"');
+      if(p.colours)sr("Colours",p.colours);
+      if(p.notes)sr("Notes",p.notes);
       y+=ch+18;
     });
-    const fY=height-28;sx.fillStyle="#0f0f0f";sx.fillRect(0,fY,PW,28);
+    // Footer always at the actual bottom of the canvas
+    const fY=height-28;
+    sx.fillStyle="#0f0f0f";sx.fillRect(0,fY,PW,28);
     sx.font="11px IBM Plex Mono,monospace";sx.fillStyle="#666";
     sx.fillText("truenorthscreenprinting.ca · Vancouver, BC",16,fY+18);
     sx.fillText(new Date().toLocaleDateString("en-CA"),PW-76,fY+18);
