@@ -218,8 +218,6 @@ export default function App() {
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [pressCheck, setPressCheck] = useState(false);
   const [boldPrint, setBoldPrint] = useState(false);
-  const [multiOrder, setMultiOrder] = useState(false);
-  const [printRunName, setPrintRunName] = useState("");
   const [vintagePrint, setVintagePrint] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [custSearch, setCustSearch] = useState("");
@@ -304,7 +302,7 @@ export default function App() {
     setArtwork([]);setArtCounter(1);
     setPlacements([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(2);
     setAiPlan([]);setAiStatus("idle");setAiIntro("");setAiError("");setRevisionNotes("");
-    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");setSewOutImage(null);setOrderName("");setMultiOrder(false);setPrintRunName("");
+    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");setSewOutImage(null);setOrderName("");
   }
 
   async function newJob(){
@@ -453,7 +451,7 @@ Return ONLY valid JSON, no markdown.
       await saveCustomer();
       const payload={
         job_num:jobNum,order_name:orderName,client:cust.company||cust.contact_name,garment_style:`${selBrand} ${selStyle}`.trim(),garment_colour:selColour,
-        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,bold_print:boldPrint,vintage_print:vintagePrint,multi_order:multiOrder,print_run_name:printRunName||null,
+        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,bold_print:boldPrint,vintage_print:vintagePrint,
         customer_id:custId,garment_id:garmentId,
         shipping_address:{address:cust.address,city:cust.city,province:cust.province,postal:cust.postal},
         placements,ai_plan:planOverride||aiPlan,sizes,garment_urls:garmentUrls,artwork_data:artData,
@@ -470,7 +468,7 @@ Return ONLY valid JSON, no markdown.
   async function loadJob(jobId){
     try{
       const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
-      setJobNum(j.job_num||"");setOrderName(j.order_name||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);setMultiOrder(j.multi_order||false);setPrintRunName(j.print_run_name||"");
+      setJobNum(j.job_num||"");setOrderName(j.order_name||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);
       // Restore customer mockup image if saved
       if(j.sew_out_image){
         const img=new Image(); img.onload=()=>{
@@ -828,18 +826,6 @@ Return ONLY valid JSON, no markdown.
       wx.font=F.hd(0.026); wx.fillStyle=pressCheck?"#ff4444":"#f5f0e8";
       wx.fillText(ft.trim(),P,bodyY+FH*0.72); bodyY+=FH;
     }
-    if(printRunName){
-      const RH=Math.round(PH*0.048);
-      wx.fillStyle="#1a1a2e"; wx.fillRect(0,bodyY,PW,RH);
-      wx.fillStyle="#7c4dbd"; wx.fillRect(0,bodyY,PW,3);
-      wx.font=F.hd(0.020); wx.fillStyle="#b39ddb";
-      wx.fillText("🖨  PRINT RUN:",P,bodyY+RH*0.50);
-      wx.font=F.bld(0.026); wx.fillStyle="#ffffff";
-      wx.fillText(printRunName.toUpperCase(),P+Math.round(PW*0.16),bodyY+RH*0.50);
-      wx.font=F.mono(0.016); wx.fillStyle="#7c4dbd"; wx.textAlign="right";
-      wx.fillText("RUN ALL PRODUCTS WITH SAME SCREENS",PW-P,bodyY+RH*0.74);
-      wx.textAlign="left"; bodyY+=RH;
-    }
     bodyY+=Math.round(PH*0.012);
 
     // ── CONTENT: Three columns top section ──────────────────────────────────
@@ -904,16 +890,6 @@ Return ONLY valid JSON, no markdown.
     y1=field(cx1,y1,cw1,"Colour",selColour||"");
     y1=field(cx1,y1,cw1,"Decoration",decTypes.join(", ")||"");
     if(specialInstructions) y1=field(cx1,y1,cw1,"Notes",specialInstructions.substring(0,55));
-    // Shipment type tag
-    const shipTag=multiOrder?"⊕ MULTI-ITEM SHIPMENT":"● SINGLE SHIPMENT";
-    const shipColor=multiOrder?"#1a6eb5":"#2a7a4b";
-    const tagH=Math.round(PH*0.034);
-    const tagW=cx1+cw1-cx1-4;
-    y1+=Math.round(PH*0.008);
-    wx.fillStyle=multiOrder?"#deeaf7":"#edf7f1"; wx.fillRect(cx1,y1,tagW,tagH);
-    wx.fillStyle=shipColor; wx.fillRect(cx1,y1,3,tagH);
-    wx.font=F.hd(0.017); wx.fillStyle=shipColor;
-    wx.fillText(shipTag,cx1+10,y1+tagH*0.70); y1+=tagH+Math.round(PH*0.006);
 
     // Col 2: Sizes
     let y2=bodyY;
@@ -1249,17 +1225,7 @@ Return ONLY valid JSON, no markdown.
                         <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:val?activeColor:"#888",fontWeight:val?600:400}}>{icon} {label}</span>
                       </label>
                     ))}
-                    {/* Multi-order flag */}
-                    <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"10px 14px",border:`2px solid ${multiOrder?"#1a6eb5":"#d4cdc0"}`,background:multiOrder?"#eef4fc":"#fffdf8"}}>
-                      <input type="checkbox" checked={multiOrder} onChange={e=>setMultiOrder(e.target.checked)} style={{accentColor:"#1a6eb5",width:15,height:15}}/>
-                      <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:multiOrder?"#1a6eb5":"#888",fontWeight:multiOrder?600:400}}>⊕ Part of Multi-Item Order</span>
-                    </label>
                   </div>
-                </div>
-                {/* Print Run */}
-                <div style={{marginBottom:14}}>
-                  <label style={S.lbl}>🖨 Print Run Name <span style={{fontWeight:400,textTransform:"none",letterSpacing:0,color:"#aaa",fontSize:".5rem"}}>(optional — links work orders that share the same screens/setup)</span></label>
-                  <input style={S.inp} value={printRunName} onChange={e=>setPrintRunName(e.target.value)} placeholder="e.g. Tofino Eagle Summer Run — will appear on work order"/>
                 </div>
                 <div style={{marginBottom:14}}><label style={S.lbl}>Special Instructions</label><textarea style={S.ta} value={specialInstructions} onChange={e=>setSpecialInstructions(e.target.value)} placeholder="Any special notes for production..."/></div>
                 <hr style={S.div}/>
