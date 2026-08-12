@@ -501,6 +501,48 @@ Return ONLY valid JSON, no markdown.
     }catch(e){showToast("Could not load job: "+e.message);}
   }
 
+  async function copyJob(jobId, e){
+    e.stopPropagation();
+    try{
+      const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
+      // Load everything from the original job...
+      setOrderName((j.order_name||j.client||"")+" — Reprint");
+      setDueDate("");  // clear due date — reprints need a new one
+      setDecTypes(j.decoration_types||[]);
+      setSpecialInstructions(j.special_instructions||"");
+      setPressCheck(j.press_check||false);
+      setBoldPrint(j.bold_print||false);
+      setVintagePrint(j.vintage_print||false);
+      setSewOutImage(null); // don't copy customer mockup image
+      // ...but clear job number and sizes so they must be filled in fresh
+      setJobNum("");
+      setSizes(emptySizes());
+      setSavedJobId(null); // treat as a new unsaved job
+      setSaveStatus("");
+      // Load placements, artwork, garment — all stays the same
+      setPlacements(j.placements||[]);
+      setAiPlan(j.ai_plan||[]);
+      setAiStatus(j.ai_plan?.length?"done":"idle");
+      if(j.customer_id){const cd=await sb("GET",`/customers?id=eq.${j.customer_id}&select=*`);if(cd?.[0])selectCustomer(cd[0]);}
+      else{setCust({company:j.client||"",contact_name:"",email:"",phone:"",address:(j.shipping_address?.address||""),city:(j.shipping_address?.city||""),province:(j.shipping_address?.province||"BC"),postal:(j.shipping_address?.postal||"")});}
+      const gUrls=j.garment_urls||{};const newG={front:null,back:null,sleeve_left:null,sleeve_right:null,other:null};
+      await Promise.all(Object.entries(gUrls).map(([view,url])=>new Promise(res=>{
+        if(!url){res();return;}const img=new Image();img.crossOrigin="anonymous";
+        img.onload=()=>{newG[view]={img,name:view+" view",dataURL:url};res();};img.onerror=()=>res();img.src=url;
+      })));
+      setGarments(newG);
+      if(j.garment_style){const parts=j.garment_style.split(" ");setSelBrand(parts[0]||"");setSelStyle(parts.slice(1).join(" ")||"");}
+      setSelColour(j.garment_colour||"");setGarmentId(j.garment_id||null);
+      if(j.garment_id){const gm=garmentList.find(g=>g.id===j.garment_id);if(gm)setSelStyleNum(gm.style_num||"");}
+      const artData=j.artwork_data||[];const newArt=[];
+      await Promise.all(artData.map((a,idx)=>new Promise(res=>{const img=new Image();img.onload=()=>{newArt[idx]={id:a.id,img,name:a.name,dataURL:a.dataURL};res();};img.src=a.dataURL;})));
+      setArtwork(newArt.filter(Boolean));if(newArt.length)setArtCounter(Math.max(...newArt.map(a=>a.id))+1);
+      // Always drop into Step 1 so job number and quantities can be updated
+      setStep(1);setPage("builder");
+      showToast("Job copied — update job # and quantities");
+    }catch(e){showToast("Could not copy job: "+e.message);}
+  }
+
   function renderMockup(planOverride){
     const plan=planOverride||aiPlan;
     const orderedViews=["front","back","sleeve_left","sleeve_right","other"];
@@ -1143,6 +1185,7 @@ Return ONLY valid JSON, no markdown.
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",padding:"3px 8px",background:"#fff8e6",color:"#7a5500",border:"1px solid #b8892e"}}>{j.status||"draft"}</span>
+                <button onClick={e=>copyJob(j.id,e)} style={{background:"none",border:"1px solid #7eb8f7",color:"#1a6eb5",cursor:"pointer",fontSize:".52rem",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",padding:"3px 8px"}}>⎘ Copy</button>
                 <button onClick={e=>archiveJob(j.id,e)} style={{background:"none",border:"1px solid #d4cdc0",color:"#888",cursor:"pointer",fontSize:".52rem",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",padding:"3px 8px"}}>Archive</button>
                 <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>✕</button>
               </div>
@@ -1169,6 +1212,7 @@ Return ONLY valid JSON, no markdown.
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",padding:"3px 8px",background:j.status==="final"?"#e6f4ec":"#f5f0e8",color:j.status==="final"?"#2a7a4b":"#888",border:`1px solid ${j.status==="final"?"#2a7a4b":"#d4cdc0"}`}}>{j.status}</span>
+                    <button onClick={e=>copyJob(j.id,e)} style={{background:"none",border:"1px solid #7eb8f7",color:"#1a6eb5",cursor:"pointer",fontSize:".52rem",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",padding:"3px 8px"}}>⎘ Copy</button>
                     <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>✕</button>
                   </div>
                 </div>
