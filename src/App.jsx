@@ -1052,8 +1052,8 @@ Return ONLY valid JSON, no markdown.
       dr("Colours",p.colours,true);
       dr("Art Width",p.specWidth?p.specWidth+'"':"");
       dr("From Collar",p.specFromCollar?p.specFromCollar+'"':"");
-      dr("Artwork",p.artName);
-      dr("Notes",p.notes);
+      dr("Artwork",p.artName,true);
+      dr("Notes",p.notes,true);
     });
 
     // ── VERTICAL PRE-PRODUCTION CHECKLIST (right of placement cards) ─────────
