@@ -225,6 +225,7 @@ export default function App() {
   const [cust, setCust] = useState({company:"",contact_name:"",email:"",phone:"",address:"",city:"",province:"BC",postal:""});
   const [custSuggestions, setCustSuggestions] = useState([]);
   const [garmentList, setGarmentList] = useState([]);
+  const [garmentEntryMode, setGarmentEntryMode] = useState("library"); // "library" | "manual"
   const [selBrand, setSelBrand] = useState("");
   const [selStyle, setSelStyle] = useState("");
   const [selStyleNum, setSelStyleNum] = useState("");
@@ -1310,30 +1311,58 @@ Return ONLY valid JSON, no markdown.
             {step===2&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>02</span> Garment Selection</div>
-                <div style={S.note("i")}>Select brand, style, and colour — garment photos load automatically from the library.</div>
-                <div style={S.g3}>
-                  <div>
-                    <label style={S.lbl}>Brand</label>
-                    <select style={S.sel} value={selBrand} onChange={e=>{setSelBrand(e.target.value);setSelStyle("");setSelColour("");setGarmentId(null);}}>
-                      <option value="">— Select brand —</option>
-                      {brands.map(b=><option key={b} value={b}>{b}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={S.lbl}>Style</label>
-                    <select style={S.sel} value={selStyle} onChange={e=>{setSelStyle(e.target.value);setSelColour("");setGarmentId(null);}} disabled={!selBrand}>
-                      <option value="">— Select style —</option>
-                      {styles.map(s=><option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={S.lbl}>Colour</label>
-                    <select style={S.sel} value={selColour} onChange={e=>{const g=colours.find(x=>x.colour===e.target.value);if(g)selectColour(g);}} disabled={!selStyle}>
-                      <option value="">— Select colour —</option>
-                      {colours.map(c=><option key={c.id} value={c.colour}>{c.colour}</option>)}
-                    </select>
-                  </div>
+
+                <div style={{display:"flex",gap:0,marginBottom:12,border:"1px solid #d4cdc0",width:"fit-content"}}>
+                  <button onClick={()=>setGarmentEntryMode("library")} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:"9px 18px",background:garmentEntryMode==="library"?"#0f0f0f":"transparent",color:garmentEntryMode==="library"?"#f5f0e8":"#888",border:"none",borderRight:"1px solid #d4cdc0",cursor:"pointer"}}>📚 From Library</button>
+                  <button onClick={()=>{setGarmentEntryMode("manual");setGarmentId(null);}} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:"9px 18px",background:garmentEntryMode==="manual"?"#0f0f0f":"transparent",color:garmentEntryMode==="manual"?"#f5f0e8":"#888",border:"none",cursor:"pointer"}}>✎ Enter Manually</button>
                 </div>
+
+                {garmentEntryMode==="library"?(
+                  <>
+                    <div style={S.note("i")}>Select brand, style, and colour — garment photos load automatically from the library.</div>
+                    <div style={S.g3}>
+                      <div>
+                        <label style={S.lbl}>Brand</label>
+                        <select style={S.sel} value={selBrand} onChange={e=>{setSelBrand(e.target.value);setSelStyle("");setSelColour("");setGarmentId(null);}}>
+                          <option value="">— Select brand —</option>
+                          {brands.map(b=><option key={b} value={b}>{b}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={S.lbl}>Style</label>
+                        <select style={S.sel} value={selStyle} onChange={e=>{setSelStyle(e.target.value);setSelColour("");setGarmentId(null);}} disabled={!selBrand}>
+                          <option value="">— Select style —</option>
+                          {styles.map(s=><option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={S.lbl}>Colour</label>
+                        <select style={S.sel} value={selColour} onChange={e=>{const g=colours.find(x=>x.colour===e.target.value);if(g)selectColour(g);}} disabled={!selStyle}>
+                          <option value="">— Select colour —</option>
+                          {colours.map(c=><option key={c.id} value={c.colour}>{c.colour}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                ):(
+                  <>
+                    <div style={S.note("w")}>Manual entry — no library photos will load. Best used when you already have the customer's own mockup to work from.</div>
+                    <div style={S.g3}>
+                      <div>
+                        <label style={S.lbl}>Brand</label>
+                        <input style={S.inp} value={selBrand} onChange={e=>setSelBrand(e.target.value)} placeholder="e.g. AS Colour"/>
+                      </div>
+                      <div>
+                        <label style={S.lbl}>Style</label>
+                        <input style={S.inp} value={selStyle} onChange={e=>setSelStyle(e.target.value)} placeholder="e.g. Relax Hoodie 5161"/>
+                      </div>
+                      <div>
+                        <label style={S.lbl}>Colour</label>
+                        <input style={S.inp} value={selColour} onChange={e=>setSelColour(e.target.value)} placeholder="e.g. Bone"/>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Garment preview — now shows all 5 views */}
                 {Object.entries({front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"}).filter(([k])=>garments[k]).length>0&&(
