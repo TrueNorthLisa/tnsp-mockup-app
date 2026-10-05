@@ -23,7 +23,7 @@ const sb = async (method, path, body) => {
   return text ? JSON.parse(text) : [];
 };
 
-const ALL_SIZES = ["NB","6M","12M","18M","2T","3T","4T","5T","6T","YS","YM","YL","XS","S","M","L","XL","2XL","3XL","One Size"];
+const ALL_SIZES = ["2T","3T","4T","5T","6T","YS","YM","YL","XS","S","M","L","XL","2XL","3XL","One Size"];
 const DEC_TYPES = ["Screen Print","Embroidery","Heat Transfer","DTG","Patch"];
 const PLACEMENT_OPTIONS = ["Left Chest","Right Chest","Centre Front","Full Front","Centre Back","Full Back","Sleeve — Left","Sleeve — Right","Neck / Collar","Left Hip","Right Hip","Shoulder","Custom"];
 const VIEW_OPTIONS = ["Front","Back","Sleeve — Left","Sleeve — Right","Other"];
@@ -218,6 +218,8 @@ export default function App() {
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [pressCheck, setPressCheck] = useState(false);
   const [boldPrint, setBoldPrint] = useState(false);
+  const [multiOrder, setMultiOrder] = useState(false);
+  const [printRunName, setPrintRunName] = useState("");
   const [vintagePrint, setVintagePrint] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [custSearch, setCustSearch] = useState("");
@@ -225,7 +227,6 @@ export default function App() {
   const [cust, setCust] = useState({company:"",contact_name:"",email:"",phone:"",address:"",city:"",province:"BC",postal:""});
   const [custSuggestions, setCustSuggestions] = useState([]);
   const [garmentList, setGarmentList] = useState([]);
-  const [garmentEntryMode, setGarmentEntryMode] = useState("library"); // "library" | "manual"
   const [selBrand, setSelBrand] = useState("");
   const [selStyle, setSelStyle] = useState("");
   const [selStyleNum, setSelStyleNum] = useState("");
@@ -275,7 +276,7 @@ export default function App() {
     setJobsLoading(true);
     setJobsError("");
     try{
-      const d=await sb("GET","/jobs?select=*&source=eq.mockup");
+      const d=await sb("GET","/jobs?select=id,job_num,order_name,client,company,garment_style,garment_colour,decoration_types,due_date,status,updated_at,sew_out_image,press_check,bold_print,vintage_print,sizes&source=eq.mockup&status=neq.archived&order=updated_at.desc&limit=100");
       const all=Array.isArray(d)?d:[];
       setJobs(all.filter(j=>j.status!=="archived").sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0)));
     }catch(e){
@@ -303,7 +304,7 @@ export default function App() {
     setArtwork([]);setArtCounter(1);
     setPlacements([{_id:1,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(2);
     setAiPlan([]);setAiStatus("idle");setAiIntro("");setAiError("");setRevisionNotes("");
-    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");setSewOutImage(null);setOrderName("");
+    setMockupBuilt(false);setSavedJobId(null);setSaveStatus("");setStep(1);setPage("builder");setSewOutImage(null);setOrderName("");setMultiOrder(false);setPrintRunName("");
   }
 
   async function newJob(){
@@ -452,7 +453,7 @@ Return ONLY valid JSON, no markdown.
       await saveCustomer();
       const payload={
         job_num:jobNum,order_name:orderName,client:cust.company||cust.contact_name,garment_style:`${selBrand} ${selStyle}`.trim(),garment_colour:selColour,
-        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,bold_print:boldPrint,vintage_print:vintagePrint,
+        status,due_date:dueDate||null,decoration_types:decTypes,special_instructions:specialInstructions,press_check:pressCheck,bold_print:boldPrint,vintage_print:vintagePrint,multi_order:multiOrder,print_run_name:printRunName||null,
         customer_id:custId,garment_id:garmentId,
         shipping_address:{address:cust.address,city:cust.city,province:cust.province,postal:cust.postal},
         placements,ai_plan:planOverride||aiPlan,sizes,garment_urls:garmentUrls,artwork_data:artData,
@@ -469,7 +470,7 @@ Return ONLY valid JSON, no markdown.
   async function loadJob(jobId){
     try{
       const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
-      setJobNum(j.job_num||"");setOrderName(j.order_name||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);
+      setJobNum(j.job_num||"");setOrderName(j.order_name||"");setDueDate(j.due_date||"");setDecTypes(j.decoration_types||[]);setSpecialInstructions(j.special_instructions||"");setPressCheck(j.press_check||false);setBoldPrint(j.bold_print||false);setVintagePrint(j.vintage_print||false);setMultiOrder(j.multi_order||false);setPrintRunName(j.print_run_name||"");
       // Restore customer mockup image if saved
       if(j.sew_out_image){
         const img=new Image(); img.onload=()=>{
@@ -500,48 +501,6 @@ Return ONLY valid JSON, no markdown.
       if(targetStep===6)setTimeout(()=>renderMockup(j.ai_plan),300);
       showToast("Job loaded");
     }catch(e){showToast("Could not load job: "+e.message);}
-  }
-
-  async function copyJob(jobId, e){
-    e.stopPropagation();
-    try{
-      const d=await sb("GET",`/jobs?id=eq.${jobId}&select=*`);const j=d[0];if(!j)return;
-      // Load everything from the original job...
-      setOrderName((j.order_name||j.client||"")+" — Reprint");
-      setDueDate("");  // clear due date — reprints need a new one
-      setDecTypes(j.decoration_types||[]);
-      setSpecialInstructions(j.special_instructions||"");
-      setPressCheck(j.press_check||false);
-      setBoldPrint(j.bold_print||false);
-      setVintagePrint(j.vintage_print||false);
-      setSewOutImage(null); // don't copy customer mockup image
-      // ...but clear job number and sizes so they must be filled in fresh
-      setJobNum("");
-      setSizes(emptySizes());
-      setSavedJobId(null); // treat as a new unsaved job
-      setSaveStatus("");
-      // Load placements, artwork, garment — all stays the same
-      setPlacements(j.placements||[]);
-      setAiPlan(j.ai_plan||[]);
-      setAiStatus(j.ai_plan?.length?"done":"idle");
-      if(j.customer_id){const cd=await sb("GET",`/customers?id=eq.${j.customer_id}&select=*`);if(cd?.[0])selectCustomer(cd[0]);}
-      else{setCust({company:j.client||"",contact_name:"",email:"",phone:"",address:(j.shipping_address?.address||""),city:(j.shipping_address?.city||""),province:(j.shipping_address?.province||"BC"),postal:(j.shipping_address?.postal||"")});}
-      const gUrls=j.garment_urls||{};const newG={front:null,back:null,sleeve_left:null,sleeve_right:null,other:null};
-      await Promise.all(Object.entries(gUrls).map(([view,url])=>new Promise(res=>{
-        if(!url){res();return;}const img=new Image();img.crossOrigin="anonymous";
-        img.onload=()=>{newG[view]={img,name:view+" view",dataURL:url};res();};img.onerror=()=>res();img.src=url;
-      })));
-      setGarments(newG);
-      if(j.garment_style){const parts=j.garment_style.split(" ");setSelBrand(parts[0]||"");setSelStyle(parts.slice(1).join(" ")||"");}
-      setSelColour(j.garment_colour||"");setGarmentId(j.garment_id||null);
-      if(j.garment_id){const gm=garmentList.find(g=>g.id===j.garment_id);if(gm)setSelStyleNum(gm.style_num||"");}
-      const artData=j.artwork_data||[];const newArt=[];
-      await Promise.all(artData.map((a,idx)=>new Promise(res=>{const img=new Image();img.onload=()=>{newArt[idx]={id:a.id,img,name:a.name,dataURL:a.dataURL};res();};img.src=a.dataURL;})));
-      setArtwork(newArt.filter(Boolean));if(newArt.length)setArtCounter(Math.max(...newArt.map(a=>a.id))+1);
-      // Always drop into Step 1 so job number and quantities can be updated
-      setStep(1);setPage("builder");
-      showToast("Job copied — update job # and quantities");
-    }catch(e){showToast("Could not copy job: "+e.message);}
   }
 
   function renderMockup(planOverride){
@@ -869,6 +828,18 @@ Return ONLY valid JSON, no markdown.
       wx.font=F.hd(0.026); wx.fillStyle=pressCheck?"#ff4444":"#f5f0e8";
       wx.fillText(ft.trim(),P,bodyY+FH*0.72); bodyY+=FH;
     }
+    if(printRunName){
+      const RH=Math.round(PH*0.048);
+      wx.fillStyle="#1a1a2e"; wx.fillRect(0,bodyY,PW,RH);
+      wx.fillStyle="#7c4dbd"; wx.fillRect(0,bodyY,PW,3);
+      wx.font=F.hd(0.020); wx.fillStyle="#b39ddb";
+      wx.fillText("🖨  PRINT RUN:",P,bodyY+RH*0.50);
+      wx.font=F.bld(0.026); wx.fillStyle="#ffffff";
+      wx.fillText(printRunName.toUpperCase(),P+Math.round(PW*0.16),bodyY+RH*0.50);
+      wx.font=F.mono(0.016); wx.fillStyle="#7c4dbd"; wx.textAlign="right";
+      wx.fillText("RUN ALL PRODUCTS WITH SAME SCREENS",PW-P,bodyY+RH*0.74);
+      wx.textAlign="left"; bodyY+=RH;
+    }
     bodyY+=Math.round(PH*0.012);
 
     // ── CONTENT: Three columns top section ──────────────────────────────────
@@ -933,6 +904,16 @@ Return ONLY valid JSON, no markdown.
     y1=field(cx1,y1,cw1,"Colour",selColour||"");
     y1=field(cx1,y1,cw1,"Decoration",decTypes.join(", ")||"");
     if(specialInstructions) y1=field(cx1,y1,cw1,"Notes",specialInstructions.substring(0,55));
+    // Shipment type tag
+    const shipTag=multiOrder?"⊕ MULTI-ITEM SHIPMENT":"● SINGLE SHIPMENT";
+    const shipColor=multiOrder?"#1a6eb5":"#2a7a4b";
+    const tagH=Math.round(PH*0.034);
+    const tagW=cx1+cw1-cx1-4;
+    y1+=Math.round(PH*0.008);
+    wx.fillStyle=multiOrder?"#deeaf7":"#edf7f1"; wx.fillRect(cx1,y1,tagW,tagH);
+    wx.fillStyle=shipColor; wx.fillRect(cx1,y1,3,tagH);
+    wx.font=F.hd(0.017); wx.fillStyle=shipColor;
+    wx.fillText(shipTag,cx1+10,y1+tagH*0.70); y1+=tagH+Math.round(PH*0.006);
 
     // Col 2: Sizes
     let y2=bodyY;
@@ -1053,8 +1034,8 @@ Return ONLY valid JSON, no markdown.
       dr("Colours",p.colours,true);
       dr("Art Width",p.specWidth?p.specWidth+'"':"");
       dr("From Collar",p.specFromCollar?p.specFromCollar+'"':"");
-      dr("Artwork",p.artName,true);
-      dr("Notes",p.notes,true);
+      dr("Artwork",p.artName);
+      dr("Notes",p.notes);
     });
 
     // ── VERTICAL PRE-PRODUCTION CHECKLIST (right of placement cards) ─────────
@@ -1186,7 +1167,6 @@ Return ONLY valid JSON, no markdown.
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",padding:"3px 8px",background:"#fff8e6",color:"#7a5500",border:"1px solid #b8892e"}}>{j.status||"draft"}</span>
-                <button onClick={e=>copyJob(j.id,e)} style={{background:"none",border:"1px solid #7eb8f7",color:"#1a6eb5",cursor:"pointer",fontSize:".52rem",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",padding:"3px 8px"}}>⎘ Copy</button>
                 <button onClick={e=>archiveJob(j.id,e)} style={{background:"none",border:"1px solid #d4cdc0",color:"#888",cursor:"pointer",fontSize:".52rem",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",padding:"3px 8px"}}>Archive</button>
                 <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>✕</button>
               </div>
@@ -1213,7 +1193,6 @@ Return ONLY valid JSON, no markdown.
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",padding:"3px 8px",background:j.status==="final"?"#e6f4ec":"#f5f0e8",color:j.status==="final"?"#2a7a4b":"#888",border:`1px solid ${j.status==="final"?"#2a7a4b":"#d4cdc0"}`}}>{j.status}</span>
-                    <button onClick={e=>copyJob(j.id,e)} style={{background:"none",border:"1px solid #7eb8f7",color:"#1a6eb5",cursor:"pointer",fontSize:".52rem",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",padding:"3px 8px"}}>⎘ Copy</button>
                     <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>✕</button>
                   </div>
                 </div>
@@ -1270,7 +1249,17 @@ Return ONLY valid JSON, no markdown.
                         <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:val?activeColor:"#888",fontWeight:val?600:400}}>{icon} {label}</span>
                       </label>
                     ))}
+                    {/* Multi-order flag */}
+                    <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"10px 14px",border:`2px solid ${multiOrder?"#1a6eb5":"#d4cdc0"}`,background:multiOrder?"#eef4fc":"#fffdf8"}}>
+                      <input type="checkbox" checked={multiOrder} onChange={e=>setMultiOrder(e.target.checked)} style={{accentColor:"#1a6eb5",width:15,height:15}}/>
+                      <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:multiOrder?"#1a6eb5":"#888",fontWeight:multiOrder?600:400}}>⊕ Part of Multi-Item Order</span>
+                    </label>
                   </div>
+                </div>
+                {/* Print Run */}
+                <div style={{marginBottom:14}}>
+                  <label style={S.lbl}>🖨 Print Run Name <span style={{fontWeight:400,textTransform:"none",letterSpacing:0,color:"#aaa",fontSize:".5rem"}}>(optional — links work orders that share the same screens/setup)</span></label>
+                  <input style={S.inp} value={printRunName} onChange={e=>setPrintRunName(e.target.value)} placeholder="e.g. Tofino Eagle Summer Run — will appear on work order"/>
                 </div>
                 <div style={{marginBottom:14}}><label style={S.lbl}>Special Instructions</label><textarea style={S.ta} value={specialInstructions} onChange={e=>setSpecialInstructions(e.target.value)} placeholder="Any special notes for production..."/></div>
                 <hr style={S.div}/>
@@ -1311,58 +1300,30 @@ Return ONLY valid JSON, no markdown.
             {step===2&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>02</span> Garment Selection</div>
-
-                <div style={{display:"flex",gap:0,marginBottom:12,border:"1px solid #d4cdc0",width:"fit-content"}}>
-                  <button onClick={()=>setGarmentEntryMode("library")} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:"9px 18px",background:garmentEntryMode==="library"?"#0f0f0f":"transparent",color:garmentEntryMode==="library"?"#f5f0e8":"#888",border:"none",borderRight:"1px solid #d4cdc0",cursor:"pointer"}}>📚 From Library</button>
-                  <button onClick={()=>{setGarmentEntryMode("manual");setGarmentId(null);}} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:"9px 18px",background:garmentEntryMode==="manual"?"#0f0f0f":"transparent",color:garmentEntryMode==="manual"?"#f5f0e8":"#888",border:"none",cursor:"pointer"}}>✎ Enter Manually</button>
+                <div style={S.note("i")}>Select brand, style, and colour — garment photos load automatically from the library.</div>
+                <div style={S.g3}>
+                  <div>
+                    <label style={S.lbl}>Brand</label>
+                    <select style={S.sel} value={selBrand} onChange={e=>{setSelBrand(e.target.value);setSelStyle("");setSelColour("");setGarmentId(null);}}>
+                      <option value="">— Select brand —</option>
+                      {brands.map(b=><option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={S.lbl}>Style</label>
+                    <select style={S.sel} value={selStyle} onChange={e=>{setSelStyle(e.target.value);setSelColour("");setGarmentId(null);}} disabled={!selBrand}>
+                      <option value="">— Select style —</option>
+                      {styles.map(s=><option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={S.lbl}>Colour</label>
+                    <select style={S.sel} value={selColour} onChange={e=>{const g=colours.find(x=>x.colour===e.target.value);if(g)selectColour(g);}} disabled={!selStyle}>
+                      <option value="">— Select colour —</option>
+                      {colours.map(c=><option key={c.id} value={c.colour}>{c.colour}</option>)}
+                    </select>
+                  </div>
                 </div>
-
-                {garmentEntryMode==="library"?(
-                  <>
-                    <div style={S.note("i")}>Select brand, style, and colour — garment photos load automatically from the library.</div>
-                    <div style={S.g3}>
-                      <div>
-                        <label style={S.lbl}>Brand</label>
-                        <select style={S.sel} value={selBrand} onChange={e=>{setSelBrand(e.target.value);setSelStyle("");setSelColour("");setGarmentId(null);}}>
-                          <option value="">— Select brand —</option>
-                          {brands.map(b=><option key={b} value={b}>{b}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={S.lbl}>Style</label>
-                        <select style={S.sel} value={selStyle} onChange={e=>{setSelStyle(e.target.value);setSelColour("");setGarmentId(null);}} disabled={!selBrand}>
-                          <option value="">— Select style —</option>
-                          {styles.map(s=><option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={S.lbl}>Colour</label>
-                        <select style={S.sel} value={selColour} onChange={e=>{const g=colours.find(x=>x.colour===e.target.value);if(g)selectColour(g);}} disabled={!selStyle}>
-                          <option value="">— Select colour —</option>
-                          {colours.map(c=><option key={c.id} value={c.colour}>{c.colour}</option>)}
-                        </select>
-                      </div>
-                    </div>
-                  </>
-                ):(
-                  <>
-                    <div style={S.note("w")}>Manual entry — no library photos will load. Best used when you already have the customer's own mockup to work from.</div>
-                    <div style={S.g3}>
-                      <div>
-                        <label style={S.lbl}>Brand</label>
-                        <input style={S.inp} value={selBrand} onChange={e=>setSelBrand(e.target.value)} placeholder="e.g. AS Colour"/>
-                      </div>
-                      <div>
-                        <label style={S.lbl}>Style</label>
-                        <input style={S.inp} value={selStyle} onChange={e=>setSelStyle(e.target.value)} placeholder="e.g. Relax Hoodie 5161"/>
-                      </div>
-                      <div>
-                        <label style={S.lbl}>Colour</label>
-                        <input style={S.inp} value={selColour} onChange={e=>setSelColour(e.target.value)} placeholder="e.g. Bone"/>
-                      </div>
-                    </div>
-                  </>
-                )}
 
                 {/* Garment preview — now shows all 5 views */}
                 {Object.entries({front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"}).filter(([k])=>garments[k]).length>0&&(
