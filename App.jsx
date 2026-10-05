@@ -1729,3 +1729,4 @@ function GarmentManager({ garmentList, onRefresh }) {
     </div>
   );
 }
+
