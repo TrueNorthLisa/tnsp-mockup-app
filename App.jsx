@@ -5,7 +5,7 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 const sb = async (method, path, body) => {
   if (!SUPABASE_URL || SUPABASE_URL === "undefined") {
-    throw new Error(`VITE_SUPABASE_URL is not set — check Netlify environment variables and redeploy.`);
+    throw new Error(`VITE_SUPABASE_URL is not set â€” check Netlify environment variables and redeploy.`);
   }
   const url = `${SUPABASE_URL}/rest/v1${path}`;
   const res = await fetch(url, {
@@ -25,17 +25,17 @@ const sb = async (method, path, body) => {
 
 const ALL_SIZES = ["2T","3T","4T","5T","6T","YS","YM","YL","XS","S","M","L","XL","2XL","3XL","One Size"];
 const DEC_TYPES = ["Screen Print","Embroidery","Heat Transfer","DTG","Patch"];
-const PLACEMENT_OPTIONS = ["Left Chest","Right Chest","Centre Front","Full Front","Centre Back","Full Back","Sleeve — Left","Sleeve — Right","Neck / Collar","Left Hip","Right Hip","Shoulder","Custom"];
-const VIEW_OPTIONS = ["Front","Back","Sleeve — Left","Sleeve — Right","Other"];
+const PLACEMENT_OPTIONS = ["Left Chest","Right Chest","Centre Front","Full Front","Centre Back","Full Back","Sleeve â€” Left","Sleeve â€” Right","Neck / Collar","Left Hip","Right Hip","Shoulder","Custom"];
+const VIEW_OPTIONS = ["Front","Back","Sleeve â€” Left","Sleeve â€” Right","Other"];
 const BRANDS = ["Gildan","Comfort Colors","Next Level","Bella+Canvas"];
 const CA_PROVINCES = ["AB","BC","MB","NB","NL","NS","NT","NU","ON","PE","QC","SK","YT"];
 
-// Map view name to garment key — handles all variants AI might return
+// Map view name to garment key â€” handles all variants AI might return
 const VIEW_TO_KEY = {
   "front": "front",
   "back": "back",
-  "sleeve — left": "sleeve_left",
-  "sleeve — right": "sleeve_right",
+  "sleeve â€” left": "sleeve_left",
+  "sleeve â€” right": "sleeve_right",
   "sleeve_left": "sleeve_left",
   "sleeve_right": "sleeve_right",
   "sleeve left": "sleeve_left",
@@ -47,7 +47,7 @@ const VIEW_TO_KEY = {
 
 function normalizeView(v) {
   if(!v) return "front";
-  const key = v.toLowerCase().trim().replace(/\s*[—-]\s*/g,"_").replace(/\s+/g,"_");
+  const key = v.toLowerCase().trim().replace(/\s*[â€”-]\s*/g,"_").replace(/\s+/g,"_");
   return VIEW_TO_KEY[key] || VIEW_TO_KEY[v.toLowerCase().trim()] || "front";
 }
 
@@ -78,7 +78,7 @@ const S = {
 
 function emptySizes() { return Object.fromEntries(ALL_SIZES.map(s=>[s,{active:false,qty:""}])); }
 
-// ── FINE-TUNE CANVAS ──
+// â”€â”€ FINE-TUNE CANVAS â”€â”€
 function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
   // Include sleeve views
   const loadedViews = ["front","back","sleeve_left","sleeve_right","other"].filter(k=>garments[k]);
@@ -164,7 +164,7 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
   return (
     <div>
       <div style={S.sec}><span style={S.secn}>04</span> Fine-Tune Placements</div>
-      <div style={S.note("i")}>Drag artwork to reposition · Drag corner handles to resize · Scroll to scale</div>
+      <div style={S.note("i")}>Drag artwork to reposition Â· Drag corner handles to resize Â· Scroll to scale</div>
       <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
         <div style={{flex:1,minWidth:0}}>
           {loadedViews.length>1&&(
@@ -176,10 +176,10 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
             <canvas ref={canvasRef} width={640} height={750} style={{maxWidth:"100%",cursor:dragging?"grabbing":resizing?"nwse-resize":"default",display:"block"}} onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onMU} onWheel={onWhl}/>
           </div>
           <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
-            {[["←",-4,0],["→",4,0],["↑",0,-4],["↓",0,4]].map(([l,dx,dy])=><button key={l} onClick={()=>nudge(dx,dy)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>{l}</button>)}
-            <button onClick={()=>scaleStep(-1)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>− Size</button>
+            {[["â†",-4,0],["â†’",4,0],["â†‘",0,-4],["â†“",0,4]].map(([l,dx,dy])=><button key={l} onClick={()=>nudge(dx,dy)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>{l}</button>)}
+            <button onClick={()=>scaleStep(-1)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>âˆ’ Size</button>
             <button onClick={()=>scaleStep(1)} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>+ Size</button>
-            <button onClick={()=>{if(selected!==null)setLayers(ls=>ls.map(l=>l.id===selected?{...l,flipped:!l.flipped}:l));}} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>⇆ Flip</button>
+            <button onClick={()=>{if(selected!==null)setLayers(ls=>ls.map(l=>l.id===selected?{...l,flipped:!l.flipped}:l));}} style={{...S.btn("o"),padding:"7px 14px",fontSize:".7rem"}}>â‡† Flip</button>
           </div>
         </div>
         <div style={{width:210,flexShrink:0}}>
@@ -190,9 +190,9 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
               {art&&<img src={art.dataURL} style={{width:28,height:28,objectFit:"contain",background:"#f5f0e8",padding:2,flexShrink:0}}/>}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".08em",textTransform:"uppercase",color:isSel?"#f5f0e8":"#555",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.placement}</div>
-                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:isSel?"#aaa":"#bbb",marginTop:2}}>{(viewLabels[l.view]||l.view).toUpperCase()} · {Math.round(l.scale)}%</div>
+                <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:isSel?"#aaa":"#bbb",marginTop:2}}>{(viewLabels[l.view]||l.view).toUpperCase()} Â· {Math.round(l.scale)}%</div>
               </div>
-              <button onClick={e=>{e.stopPropagation();setLayers(ls=>ls.map(x=>x.id===l.id?{...x,visible:!x.visible}:x));}} style={{background:"none",border:"none",color:isSel?"#aaa":"#ccc",fontSize:".72rem",cursor:"pointer",padding:2}}>{l.visible?"👁":"🚫"}</button>
+              <button onClick={e=>{e.stopPropagation();setLayers(ls=>ls.map(x=>x.id===l.id?{...x,visible:!x.visible}:x));}} style={{background:"none",border:"none",color:isSel?"#aaa":"#ccc",fontSize:".72rem",cursor:"pointer",padding:2}}>{l.visible?"ðŸ‘":"ðŸš«"}</button>
             </div>;
           })}
           {selL&&<div style={{marginTop:12,background:"#fff",border:"1px solid #d4cdc0",padding:"10px 12px"}}>
@@ -202,8 +202,8 @@ function FineTuneCanvas({ garments, artwork, aiPlan, onConfirm, onBack }) {
         </div>
       </div>
       <div style={{display:"flex",gap:10,marginTop:20,flexWrap:"wrap"}}>
-        <button style={S.btn("o")} onClick={onBack}>← Back to AI Review</button>
-        <button style={S.btn()} onClick={handleConfirm}>Looks Good — Generate Final →</button>
+        <button style={S.btn("o")} onClick={onBack}>â† Back to AI Review</button>
+        <button style={S.btn()} onClick={handleConfirm}>Looks Good â€” Generate Final â†’</button>
       </div>
     </div>
   );
@@ -245,7 +245,7 @@ export default function App() {
   const [aiError, setAiError] = useState("");
   const [revisionNotes, setRevisionNotes] = useState("");
   const [mockupBuilt, setMockupBuilt] = useState(false);
-  const [sewOutImage, setSewOutImage] = useState(null); // {url, img} — bypasses full flow
+  const [sewOutImage, setSewOutImage] = useState(null); // {url, img} â€” bypasses full flow
   const [jobs, setJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [archiveSearch, setArchiveSearch] = useState("");
@@ -297,15 +297,15 @@ export default function App() {
       delete copy.id;
       copy.job_num="";
       copy.sizes={};
-      copy.order_name=(orig.order_name||orig.client||"Job")+" — Reprint";
+      copy.order_name=(orig.order_name||orig.client||"Job")+" â€” Reprint";
       copy.status="draft";
       copy.source="mockup";
       copy.created_at=undefined;
       copy.updated_at=undefined;
       const created=await sb("POST","/jobs",copy);
       const newId=Array.isArray(created)?created[0]?.id:created?.id;
-      if(newId){showToast("Job copied — opening...");await loadJob(newId);setStep(1);}
-      else showToast("Copy created — refresh to see it");
+      if(newId){showToast("Job copied â€” opening...");await loadJob(newId);setStep(1);}
+      else showToast("Copy created â€” refresh to see it");
     }catch(e){showToast("Copy failed: "+e.message);}
   }
   async function searchArchive(){
@@ -432,7 +432,7 @@ Return ONLY valid JSON, no markdown.
       let data;try{data=JSON.parse(text);}catch(e){throw new Error("Could not parse server response.");}
       if(data.error)throw new Error(data.error);
       const raw=data.content?.find(b=>b.type==="text")?.text||"";
-      if(!raw)throw new Error("Empty response — check ANTHROPIC_API_KEY in Netlify.");
+      if(!raw)throw new Error("Empty response â€” check ANTHROPIC_API_KEY in Netlify.");
       const clean=raw.replace(/```json|```/g,"").trim();
       let plan;try{plan=JSON.parse(clean);}catch(e){throw new Error("AI returned invalid JSON.");}
       setAiPlan((plan.placements||[]).map(p=>({...p,view:normalizeView(p.view)}))); setAiIntro(plan.intro||"Placement plan ready.");setAiStatus("done");
@@ -444,7 +444,7 @@ Return ONLY valid JSON, no markdown.
       "Left Chest":{x:.65,y:.33,scale:18},"Right Chest":{x:.32,y:.33,scale:18},
       "Centre Front":{x:.50,y:.38,scale:26},"Full Front":{x:.50,y:.45,scale:54},
       "Centre Back":{x:.50,y:.30,scale:26},"Full Back":{x:.50,y:.38,scale:56},
-      "Sleeve — Left":{x:.50,y:.40,scale:11},"Sleeve — Right":{x:.50,y:.40,scale:11},
+      "Sleeve â€” Left":{x:.50,y:.40,scale:11},"Sleeve â€” Right":{x:.50,y:.40,scale:11},
       "Neck / Collar":{x:.50,y:.18,scale:12},"Left Hip":{x:.65,y:.68,scale:14},
       "Right Hip":{x:.32,y:.68,scale:14},"Shoulder":{x:.50,y:.14,scale:10},"Custom":{x:.50,y:.40,scale:24},
     };
@@ -454,7 +454,7 @@ Return ONLY valid JSON, no markdown.
       const viewKey=VIEW_TO_KEY[(p.view||"front").toLowerCase()]||"front";
       return {placement:p.placement,view:normalizeView(p.view),artId:p.artId,artName:art?.name.replace(/\.[^.]+$/,"")||"",x:def.x,y:def.y,scale:def.scale,decType:p.decType,colours:p.colours,specWidth:p.width,specFromCollar:p.fromCollar,notes:p.notes};
     });
-    setAiPlan(plan);setStep(5);showToast("Skipped AI — drag to fine-tune positions");
+    setAiPlan(plan);setStep(5);showToast("Skipped AI â€” drag to fine-tune positions");
   }
 
   function handleFineTuneConfirm(ap){setAiPlan(ap);setStep(6);setTimeout(()=>renderMockup(ap),150);}
@@ -483,7 +483,7 @@ Return ONLY valid JSON, no markdown.
       };
       if(savedJobId){await sb("PATCH",`/jobs?id=eq.${savedJobId}`,payload);}
       else{const r=await sb("POST","/jobs",payload);if(r?.[0]?.id)setSavedJobId(r[0].id);}
-      setSaveStatus("saved");showToast(status==="final"?"Saved as final ✓":"Draft saved ✓");
+      setSaveStatus("saved");showToast(status==="final"?"Saved as final âœ“":"Draft saved âœ“");
     }catch(e){setSaveStatus("error");showToast("Save failed: "+e.message);}
   }
 
@@ -634,7 +634,7 @@ Return ONLY valid JSON, no markdown.
     aiPlan.forEach((p,i)=>{
       const ch=ehH(p)+20;
       sx.fillStyle="#fff";sx.fillRect(12,y-2,PW-24,ch+8);sx.strokeStyle="#e0dbd3";sx.lineWidth=1;sx.strokeRect(12,y-2,PW-24,ch+8);sx.fillStyle="#c8372d";sx.fillRect(12,y-2,4,ch+8);
-      sx.font="bold 11px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(`PLACEMENT ${i+1} — ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,22,y+14);
+      sx.font="bold 11px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(`PLACEMENT ${i+1} â€” ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,22,y+14);
       sx.font="bold 16px IBM Plex Sans,sans-serif";sx.fillStyle="#0f0f0f";sx.fillText(p.placement||"",22,y+32);
       if(p.decType){sx.fillStyle="rgba(200,55,45,.12)";const tw=sx.measureText(p.decType.toUpperCase()).width+12;sx.fillRect(22,y+36,tw,16);sx.font="bold 10px IBM Plex Mono,monospace";sx.fillStyle="#c8372d";sx.fillText(p.decType.toUpperCase(),28,y+48);}
       let ry=y+(p.decType?60:44);
@@ -644,7 +644,7 @@ Return ONLY valid JSON, no markdown.
     });
     const fY=height-28;sx.fillStyle="#0f0f0f";sx.fillRect(0,fY,PW,28);
     sx.font="11px IBM Plex Mono,monospace";sx.fillStyle="#666";
-    sx.fillText("truenorthscreenprinting.ca · Vancouver, BC",16,fY+18);
+    sx.fillText("truenorthscreenprinting.ca Â· Vancouver, BC",16,fY+18);
     sx.fillText(new Date().toLocaleDateString("en-CA"),PW-76,fY+18);
     return sc;
   }
@@ -652,7 +652,7 @@ Return ONLY valid JSON, no markdown.
   // Builds a customer-facing mockup combining the uploaded image + a spec panel
   function buildCustomerMockup(mockupImg){
     const PAD=16;
-    const SP=480;          // wider panel — plenty of room for long colour strings
+    const SP=480;          // wider panel â€” plenty of room for long colour strings
     const GAP=12;
 
     // Scale image to fit nicely beside the panel
@@ -669,14 +669,14 @@ Return ONLY valid JSON, no markdown.
     const cx=cc.getContext("2d");
     cx.fillStyle="#f5f0e8"; cx.fillRect(0,0,PW,PH);
 
-    // Image — white background, centred vertically
+    // Image â€” white background, centred vertically
     cx.fillStyle="#ffffff"; cx.fillRect(0,0,imgW,PH);
     const dyo=Math.round((PH-imgH)/2);
     cx.drawImage(mockupImg,0,dyo,imgW,imgH);
 
     // Panel
     const px=imgW+GAP;
-    const textW=SP-PAD*2;  // usable text width — critical for wrapping
+    const textW=SP-PAD*2;  // usable text width â€” critical for wrapping
     cx.fillStyle="#f5f0e8"; cx.fillRect(px,0,SP,PH);
     cx.fillStyle="#c8372d"; cx.fillRect(px,0,4,PH);
 
@@ -762,11 +762,11 @@ Return ONLY valid JSON, no markdown.
         cx.fillText(`${i+1}. ${p.placement||""}`,px+PAD,y+14); y+=24;
 
         // View + dec type
-        const tag=[(vl[p.view]||p.view||"Front").toUpperCase(),p.decType?.toUpperCase()].filter(Boolean).join("  ·  ");
+        const tag=[(vl[p.view]||p.view||"Front").toUpperCase(),p.decType?.toUpperCase()].filter(Boolean).join("  Â·  ");
         cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#c8372d";
         cx.fillText(tag,px+PAD,y); y+=20;
 
-        // Ink colours — full wrap
+        // Ink colours â€” full wrap
         if(p.colours){
           cx.font="bold 10px IBM Plex Mono,monospace"; cx.fillStyle="#888";
           cx.fillText("INK / THREAD COLOURS",px+PAD,y); y+=16;
@@ -792,17 +792,17 @@ Return ONLY valid JSON, no markdown.
     // Footer
     cx.fillStyle="#0f0f0f"; cx.fillRect(px,PH-26,SP,26);
     cx.font="10px IBM Plex Mono,monospace"; cx.fillStyle="#555";
-    cx.fillText("truenorthscreenprinting.ca  ·  604-874-4488",px+PAD,PH-10);
+    cx.fillText("truenorthscreenprinting.ca  Â·  604-874-4488",px+PAD,PH-10);
     return cc;
   }
 
   function buildWorkOrder(){
-    // Landscape 8.5×11" — 1056×816 base, printed at 96dpi fits perfectly on page
+    // Landscape 8.5Ã—11" â€” 1056Ã—816 base, printed at 96dpi fits perfectly on page
     const PW=1056, PH=816;
     const wc=document.createElement("canvas"); wc.width=PW; wc.height=PH;
     const wx=wc.getContext("2d");
 
-    // Font helpers — all sizes relative to PH so nothing is tiny
+    // Font helpers â€” all sizes relative to PH so nothing is tiny
     const F={
       xl:  s=>`bold ${Math.round(PH*s)}px Bebas Neue,sans-serif`,
       hd:  s=>`bold ${Math.round(PH*s)}px IBM Plex Mono,monospace`,
@@ -812,30 +812,30 @@ Return ONLY valid JSON, no markdown.
     };
     const P=16; // base padding
 
-    // ── BACKGROUND ──────────────────────────────────────────────────────────
+    // â”€â”€ BACKGROUND â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     wx.fillStyle="#ffffff"; wx.fillRect(0,0,PW,PH);
 
-    // ── HEADER (full width) ──────────────────────────────────────────────────
+    // â”€â”€ HEADER (full width) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const HDR=Math.round(PH*0.09);
     wx.fillStyle="#0f0f0f"; wx.fillRect(0,0,PW,HDR);
     wx.font=F.xl(0.068); wx.fillStyle="#f5f0e8";
     wx.fillText("TRUE NORTH",P,HDR*0.75);
     wx.font=F.mono(0.022); wx.fillStyle="#c8372d";
-    wx.fillText("SCREEN PRINTING & EMBROIDERY  ·  PRODUCTION WORK ORDER",P,HDR*0.93);
+    wx.fillText("SCREEN PRINTING & EMBROIDERY  Â·  PRODUCTION WORK ORDER",P,HDR*0.93);
     // Order name + due date in header
     wx.textAlign="right";
     if(orderName){
       wx.font=F.xl(0.048); wx.fillStyle="#f5f0e8";
       wx.fillText(orderName.toUpperCase(),PW-P,HDR*0.55);
     }
-    // Due date — highlighted gold
+    // Due date â€” highlighted gold
     if(dueDate){
       const dueFmt=new Date(dueDate+"T00:00:00").toLocaleDateString("en-CA",{year:"numeric",month:"short",day:"numeric"});
       wx.font=F.hd(0.022); wx.fillStyle="#e8c547";
       wx.fillText(`DUE: ${dueFmt}`,PW-P,HDR*0.78);
     }
     wx.font=F.mono(0.015); wx.fillStyle="#555";
-    wx.fillText(`JOB #${jobNum||"TBD"}  ·  ${new Date().toLocaleDateString("en-CA")}`,PW-P,HDR*0.94);
+    wx.fillText(`JOB #${jobNum||"TBD"}  Â·  ${new Date().toLocaleDateString("en-CA")}`,PW-P,HDR*0.94);
     wx.textAlign="left";
     wx.fillStyle="#c8372d"; wx.fillRect(0,HDR,PW,3);
 
@@ -844,7 +844,7 @@ Return ONLY valid JSON, no markdown.
     if(pressCheck||boldPrint||vintagePrint){
       const FH=Math.round(PH*0.045);
       wx.fillStyle="#1a0000"; wx.fillRect(0,bodyY,PW,FH);
-      let ft=""; if(pressCheck)ft+="⚠  PRESS CHECK REQUIRED     "; if(boldPrint)ft+="●  BOLD PRINT     "; if(vintagePrint)ft+="●  VINTAGE / DISTRESSED";
+      let ft=""; if(pressCheck)ft+="âš   PRESS CHECK REQUIRED     "; if(boldPrint)ft+="â—  BOLD PRINT     "; if(vintagePrint)ft+="â—  VINTAGE / DISTRESSED";
       wx.font=F.hd(0.026); wx.fillStyle=pressCheck?"#ff4444":"#f5f0e8";
       wx.fillText(ft.trim(),P,bodyY+FH*0.72); bodyY+=FH;
     }
@@ -853,7 +853,7 @@ Return ONLY valid JSON, no markdown.
       wx.fillStyle="#1a1a2e"; wx.fillRect(0,bodyY,PW,RH);
       wx.fillStyle="#7c4dbd"; wx.fillRect(0,bodyY,PW,3);
       wx.font=F.hd(0.020); wx.fillStyle="#b39ddb";
-      wx.fillText("🖨  PRINT RUN:",P,bodyY+RH*0.50);
+      wx.fillText("ðŸ–¨  PRINT RUN:",P,bodyY+RH*0.50);
       wx.font=F.bld(0.026); wx.fillStyle="#ffffff";
       wx.fillText(printRunName.toUpperCase(),P+Math.round(PW*0.16),bodyY+RH*0.50);
       wx.font=F.mono(0.016); wx.fillStyle="#7c4dbd"; wx.textAlign="right";
@@ -862,10 +862,10 @@ Return ONLY valid JSON, no markdown.
     }
     bodyY+=Math.round(PH*0.012);
 
-    // ── CONTENT: Three columns top section ──────────────────────────────────
+    // â”€â”€ CONTENT: Three columns top section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const TOP_H=Math.round(PH*0.38);
     const totalW=PW-P*4;
-    const cw0=Math.floor(totalW*0.38); // Customer — wider
+    const cw0=Math.floor(totalW*0.38); // Customer â€” wider
     const cw1=Math.floor(totalW*0.30); // Garment
     const cw2=totalW-cw0-cw1;          // Sizes
     const cx0=P, cx1=P*2+cw0, cx2=P*3+cw0+cw1;
@@ -900,7 +900,7 @@ Return ONLY valid JSON, no markdown.
           wx.fillText(line2,x,y+lh+vh+Math.round(PH*0.026));
           return y+lh+vh+Math.round(PH*0.026)+gap+Math.round(PH*0.012);
         }
-        let txt=val; while(wx.measureText(txt).width>maxW&&txt.length>3) txt=txt.slice(0,-2)+"…";
+        let txt=val; while(wx.measureText(txt).width>maxW&&txt.length>3) txt=txt.slice(0,-2)+"â€¦";
         wx.fillText(txt,x,y+lh+vh);
       } else {
         wx.fillText(val,x,y+lh+vh);
@@ -925,7 +925,7 @@ Return ONLY valid JSON, no markdown.
     y1=field(cx1,y1,cw1,"Decoration",decTypes.join(", ")||"");
     if(specialInstructions) y1=field(cx1,y1,cw1,"Notes",specialInstructions.substring(0,55));
     // Shipment type tag
-    const shipTag=multiOrder?"⊕ MULTI-ITEM SHIPMENT":"● SINGLE SHIPMENT";
+    const shipTag=multiOrder?"âŠ• MULTI-ITEM SHIPMENT":"â— SINGLE SHIPMENT";
     const shipColor=multiOrder?"#1a6eb5":"#2a7a4b";
     const tagH=Math.round(PH*0.034);
     const tagW=cx1+cw1-cx1-4;
@@ -966,19 +966,19 @@ Return ONLY valid JSON, no markdown.
       wx.fillText(`TOTAL: ${total} UNITS`,cx2,y2+Math.round(PH*0.028)); y2+=Math.round(PH*0.038);
     }
 
-    // ── DIVIDER ─────────────────────────────────────────────────────────────
+    // â”€â”€ DIVIDER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const topMax=Math.max(y0,y1,y2)+Math.round(PH*0.014);
     wx.fillStyle="#c8372d"; wx.fillRect(0,topMax,PW,2);
     let plY=topMax+Math.round(PH*0.012);
 
-    // ── PLACEMENTS SECTION HEADER ────────────────────────────────────────────
+    // â”€â”€ PLACEMENTS SECTION HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const pbh=Math.round(PH*0.036);
     wx.fillStyle="#f0ede8"; wx.fillRect(P,plY,PW-P*2,pbh);
     wx.fillStyle="#c8372d"; wx.fillRect(P,plY,4,pbh);
     wx.font=F.hd(0.022); wx.fillStyle="#0f0f0f";
     wx.fillText("PRINT / EMBROIDERY PLACEMENTS",P+10,plY+pbh*0.74); plY+=pbh+Math.round(PH*0.01);
 
-    // ── PLACEMENT CARDS + VERTICAL CHECKLIST SIDE BY SIDE ───────────────────
+    // â”€â”€ PLACEMENT CARDS + VERTICAL CHECKLIST SIDE BY SIDE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
     const footH=Math.round(PH*0.038);
     const checkColW=Math.round(PW*0.18); // checklist column width on right
@@ -991,7 +991,7 @@ Return ONLY valid JSON, no markdown.
     const cardH=availH;
 
     displayPlacements.forEach((p,i)=>{
-      // Scale factor — shrink content for more placements
+      // Scale factor â€” shrink content for more placements
       // 1 placement = full size, 2 = 95%, 3 = 82%, 4 = 70%
       const sc=numP===1?1:numP===2?0.95:numP===3?0.82:0.70;
 
@@ -1003,12 +1003,12 @@ Return ONLY valid JSON, no markdown.
 
       // Placement number + view
       wx.font=`bold ${Math.round(PH*0.016*sc)}px IBM Plex Mono,monospace`; wx.fillStyle="#c8372d";
-      wx.fillText(`PLACEMENT ${i+1}  ·  ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,cardX+12,cy+Math.round(PH*0.016*sc));
+      wx.fillText(`PLACEMENT ${i+1}  Â·  ${(viewLabels[p.view]||p.view||"FRONT").toUpperCase()}`,cardX+12,cy+Math.round(PH*0.016*sc));
       cy+=Math.round(PH*0.024*sc);
 
       // Placement name
       wx.font=`bold ${Math.round(PH*0.034*sc)}px IBM Plex Sans,sans-serif`; wx.fillStyle="#0f0f0f";
-      let pname=p.placement||""; while(wx.measureText(pname).width>cardW-20&&pname.length>3) pname=pname.slice(0,-2)+"…";
+      let pname=p.placement||""; while(wx.measureText(pname).width>cardW-20&&pname.length>3) pname=pname.slice(0,-2)+"â€¦";
       wx.fillText(pname,cardX+12,cy+Math.round(PH*0.030*sc));
       cy+=Math.round(PH*0.040*sc);
 
@@ -1046,7 +1046,7 @@ Return ONLY valid JSON, no markdown.
           if(line&&wy<plY+cardH-Math.round(PH*0.04)) wx.fillText(line,cardX+12,wy);
           cy=wy+rowGap;
         } else {
-          let txt=val; while(wx.measureText(txt).width>cardW-24&&txt.length>3) txt=txt.slice(0,-2)+"…";
+          let txt=val; while(wx.measureText(txt).width>cardW-24&&txt.length>3) txt=txt.slice(0,-2)+"â€¦";
           wx.fillText(txt,cardX+12,cy+lbH+valH);
           cy+=lbH+valH+rowGap;
         }
@@ -1058,7 +1058,7 @@ Return ONLY valid JSON, no markdown.
       dr("Notes",p.notes);
     });
 
-    // ── VERTICAL PRE-PRODUCTION CHECKLIST (right of placement cards) ─────────
+    // â”€â”€ VERTICAL PRE-PRODUCTION CHECKLIST (right of placement cards) â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const lupeItemLabels=["Product|Received","Screens|Burned","Ink|Mixed","On|Carts"];
     const checkX=P+placementAreaW+cardGap;
     const checkW=checkColW;
@@ -1088,15 +1088,15 @@ Return ONLY valid JSON, no markdown.
       wx.textAlign="left";
     });
 
-    // ── FOOTER ───────────────────────────────────────────────────────────────
+    // â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const fY=PH-footH;
     wx.fillStyle="#f0ede8"; wx.fillRect(0,fY,PW,footH);
     wx.fillStyle="#c8372d"; wx.fillRect(0,fY,PW,2);
     wx.font=F.mono(0.016); wx.fillStyle="#888";
-    wx.fillText("TRUE NORTH SCREEN PRINTING LTD.  ·  VANCOUVER, BC  ·  604-874-4488  ·  TRUENORTHSCREENPRINTING.CA",P,fY+footH*0.65);
+    wx.fillText("TRUE NORTH SCREEN PRINTING LTD.  Â·  VANCOUVER, BC  Â·  604-874-4488  Â·  TRUENORTHSCREENPRINTING.CA",P,fY+footH*0.65);
     wx.textAlign="right"; wx.fillText("PAGE 1 OF 2",PW-P,fY+footH*0.65); wx.textAlign="left";
 
-    // ── PAGE 2: Digital Mockup (clean garment only, no spec sheet) ───────────────────────────────────────
+    // â”€â”€ PAGE 2: Digital Mockup (clean garment only, no spec sheet) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if(cleanExportRef.current){
       const mockup=cleanExportRef.current;
       const combined=document.createElement("canvas"); combined.width=PW; combined.height=PH*2;
@@ -1107,10 +1107,10 @@ Return ONLY valid JSON, no markdown.
       const p2h=Math.round(PH*0.10);
       cc.fillStyle="#0f0f0f"; cc.fillRect(0,PH,PW,p2h);
       cc.font=F.xl(0.065); cc.fillStyle="#f5f0e8"; cc.fillText("TRUE NORTH",P,PH+p2h*0.68);
-      cc.font=F.mono(0.020); cc.fillStyle="#c8372d"; cc.fillText("DIGITAL MOCKUP  ·  FOR PRODUCTION REFERENCE ONLY",P,PH+p2h*0.90);
+      cc.font=F.mono(0.020); cc.fillStyle="#c8372d"; cc.fillText("DIGITAL MOCKUP  Â·  FOR PRODUCTION REFERENCE ONLY",P,PH+p2h*0.90);
       cc.font=F.xl(0.036); cc.fillStyle="#e8c547"; cc.textAlign="right";
       cc.fillText(orderName?orderName.toUpperCase():`JOB #${jobNum||""}`,PW-P,PH+p2h*0.62);
-      cc.font=F.mono(0.018); cc.fillStyle="#888"; cc.fillText(`${cust.company||cust.contact_name||""}  ·  ${new Date().toLocaleDateString("en-CA")}`,PW-P,PH+p2h*0.86);
+      cc.font=F.mono(0.018); cc.fillStyle="#888"; cc.fillText(`${cust.company||cust.contact_name||""}  Â·  ${new Date().toLocaleDateString("en-CA")}`,PW-P,PH+p2h*0.86);
       cc.textAlign="left"; cc.fillStyle="#c8372d"; cc.fillRect(0,PH+p2h,PW,3);
       // Mockup image
       const pad2=P; const imgY=PH+p2h+pad2;
@@ -1124,7 +1124,7 @@ Return ONLY valid JSON, no markdown.
       cc.fillStyle="#f0ede8"; cc.fillRect(0,PH*2-footH,PW,footH);
       cc.fillStyle="#c8372d"; cc.fillRect(0,PH*2-footH,PW,2);
       cc.font=F.mono(0.016); cc.fillStyle="#888";
-      cc.fillText("TRUE NORTH SCREEN PRINTING LTD.  ·  FOR PRODUCTION USE ONLY  ·  DO NOT DISTRIBUTE",P,PH*2-footH+footH*0.65);
+      cc.fillText("TRUE NORTH SCREEN PRINTING LTD.  Â·  FOR PRODUCTION USE ONLY  Â·  DO NOT DISTRIBUTE",P,PH*2-footH+footH*0.65);
       cc.textAlign="right"; cc.fillText("PAGE 2 OF 2",PW-P,PH*2-footH+footH*0.65); cc.textAlign="left";
       return combined;
     }
@@ -1157,7 +1157,7 @@ Return ONLY valid JSON, no markdown.
       <div style={S.header}>
         <div><div style={S.brand}>TRUE<span style={S.bspan}>NORTH</span></div><div style={S.bsub}>Screen Printing & Embroidery</div></div>
         <div style={{display:"flex",gap:10,alignItems:"center"}}>
-          {page==="builder"&&<button style={{...S.tag,cursor:"pointer",color:"#aaa"}} onClick={()=>setPage("jobs")}>← All Jobs</button>}
+          {page==="builder"&&<button style={{...S.tag,cursor:"pointer",color:"#aaa"}} onClick={()=>setPage("jobs")}>â† All Jobs</button>}
           <div style={S.tag}>Job Builder</div>
         </div>
       </div>
@@ -1165,7 +1165,7 @@ Return ONLY valid JSON, no markdown.
       {page==="jobs"&&(
         <div style={S.wrap}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-            <div style={S.sec}><span style={S.secn}>✦</span> Active Jobs</div>
+            <div style={S.sec}><span style={S.secn}>âœ¦</span> Active Jobs</div>
             <button style={S.btn("r")} onClick={newJob}>+ New Job</button>
           </div>
           {jobsLoading&&<div style={S.note("i")}>Loading...</div>}
@@ -1187,15 +1187,15 @@ Return ONLY valid JSON, no markdown.
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",padding:"3px 8px",background:"#fff8e6",color:"#7a5500",border:"1px solid #b8892e"}}>{j.status||"draft"}</span>
-                <button onClick={e=>{e.stopPropagation();copyJob(j.id);}} style={{background:"none",border:"1px solid #d4cdc0",color:"#888",cursor:"pointer",fontSize:".52rem",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",padding:"3px 8px"}}>⎘ Copy</button>
+                <button onClick={e=>{e.stopPropagation();copyJob(j.id);}} style={{background:"none",border:"1px solid #d4cdc0",color:"#888",cursor:"pointer",fontSize:".52rem",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",padding:"3px 8px"}}>âŽ˜ Copy</button>
                 <button onClick={e=>archiveJob(j.id,e)} style={{background:"none",border:"1px solid #d4cdc0",color:"#888",cursor:"pointer",fontSize:".52rem",fontFamily:"'IBM Plex Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",padding:"3px 8px"}}>Archive</button>
-                <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>✕</button>
+                <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>âœ•</button>
               </div>
             </div>
           ))}
           <hr style={S.div}/>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-            <div style={S.sec} onClick={()=>setShowArchive(v=>!v)}><span style={S.secn}>↓</span> Archive {showArchive?"▲":"▼"}</div>
+            <div style={S.sec} onClick={()=>setShowArchive(v=>!v)}><span style={S.secn}>â†“</span> Archive {showArchive?"â–²":"â–¼"}</div>
           </div>
           {showArchive&&(
             <div>
@@ -1214,14 +1214,14 @@ Return ONLY valid JSON, no markdown.
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",textTransform:"uppercase",padding:"3px 8px",background:j.status==="final"?"#e6f4ec":"#f5f0e8",color:j.status==="final"?"#2a7a4b":"#888",border:`1px solid ${j.status==="final"?"#2a7a4b":"#d4cdc0"}`}}>{j.status}</span>
-                    <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>✕</button>
+                    <button onClick={e=>deleteJob(j.id,e)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem"}}>âœ•</button>
                   </div>
                 </div>
               ))}
             </div>
           )}
           <hr style={S.div}/>
-          <div style={S.sec}><span style={S.secn}>⚙</span> Garment Library</div>
+          <div style={S.sec}><span style={S.secn}>âš™</span> Garment Library</div>
           <div style={S.note("i")}>Add garments here so they appear in the job builder. Upload front, back, and sleeve photos to Supabase storage and paste the public URLs.</div>
           <GarmentManager garmentList={garmentList} onRefresh={loadGarmentList}/>
         </div>
@@ -1264,7 +1264,7 @@ Return ONLY valid JSON, no markdown.
                 <div style={{marginBottom:14}}>
                   <label style={S.lbl}>Production Options</label>
                   <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                    {[[pressCheck,setPressCheck,"Press Check Required","⚠","#c8372d"],[boldPrint,setBoldPrint,"Bold Print","B","#0f0f0f"],[vintagePrint,setVintagePrint,"Vintage / Distressed","V","#7a5500"]].map(([val,setter,label,icon,activeColor])=>(
+                    {[[pressCheck,setPressCheck,"Press Check Required","âš ","#c8372d"],[boldPrint,setBoldPrint,"Bold Print","B","#0f0f0f"],[vintagePrint,setVintagePrint,"Vintage / Distressed","V","#7a5500"]].map(([val,setter,label,icon,activeColor])=>(
                       <label key={label} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"10px 14px",border:`2px solid ${val?activeColor:"#d4cdc0"}`,background:val?"#fdf8f0":"#fffdf8"}}>
                         <input type="checkbox" checked={val} onChange={e=>setter(e.target.checked)} style={{accentColor:activeColor,width:15,height:15}}/>
                         <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:val?activeColor:"#888",fontWeight:val?600:400}}>{icon} {label}</span>
@@ -1273,14 +1273,14 @@ Return ONLY valid JSON, no markdown.
                     {/* Multi-order flag */}
                     <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"10px 14px",border:`2px solid ${multiOrder?"#1a6eb5":"#d4cdc0"}`,background:multiOrder?"#eef4fc":"#fffdf8"}}>
                       <input type="checkbox" checked={multiOrder} onChange={e=>setMultiOrder(e.target.checked)} style={{accentColor:"#1a6eb5",width:15,height:15}}/>
-                      <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:multiOrder?"#1a6eb5":"#888",fontWeight:multiOrder?600:400}}>⊕ Part of Multi-Item Order</span>
+                      <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".12em",textTransform:"uppercase",color:multiOrder?"#1a6eb5":"#888",fontWeight:multiOrder?600:400}}>âŠ• Part of Multi-Item Order</span>
                     </label>
                   </div>
                 </div>
                 {/* Print Run */}
                 <div style={{marginBottom:14}}>
-                  <label style={S.lbl}>🖨 Print Run Name <span style={{fontWeight:400,textTransform:"none",letterSpacing:0,color:"#aaa",fontSize:".5rem"}}>(optional — links work orders that share the same screens/setup)</span></label>
-                  <input style={S.inp} value={printRunName} onChange={e=>setPrintRunName(e.target.value)} placeholder="e.g. Tofino Eagle Summer Run — will appear on work order"/>
+                  <label style={S.lbl}>ðŸ–¨ Print Run Name <span style={{fontWeight:400,textTransform:"none",letterSpacing:0,color:"#aaa",fontSize:".5rem"}}>(optional â€” links work orders that share the same screens/setup)</span></label>
+                  <input style={S.inp} value={printRunName} onChange={e=>setPrintRunName(e.target.value)} placeholder="e.g. Tofino Eagle Summer Run â€” will appear on work order"/>
                 </div>
                 <div style={{marginBottom:14}}><label style={S.lbl}>Special Instructions</label><textarea style={S.ta} value={specialInstructions} onChange={e=>setSpecialInstructions(e.target.value)} placeholder="Any special notes for production..."/></div>
                 <hr style={S.div}/>
@@ -1312,7 +1312,7 @@ Return ONLY valid JSON, no markdown.
                   <div><label style={S.lbl}>Postal Code</label><input style={S.inp} value={cust.postal} onChange={e=>setCust(c=>({...c,postal:e.target.value}))} placeholder="V6B 1A1"/></div>
                 </div>
                 <div style={{display:"flex",gap:10,marginTop:24}}>
-                  <button style={S.btn()} onClick={()=>{loadGarmentList();setStep(2);}}>Next - Garment Selection →</button>
+                  <button style={S.btn()} onClick={()=>{loadGarmentList();setStep(2);}}>Next - Garment Selection â†’</button>
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
@@ -1321,32 +1321,32 @@ Return ONLY valid JSON, no markdown.
             {step===2&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>02</span> Garment Selection</div>
-                <div style={S.note("i")}>Select brand, style, and colour — garment photos load automatically from the library.</div>
+                <div style={S.note("i")}>Select brand, style, and colour â€” garment photos load automatically from the library.</div>
                 <div style={S.g3}>
                   <div>
                     <label style={S.lbl}>Brand</label>
                     <select style={S.sel} value={selBrand} onChange={e=>{setSelBrand(e.target.value);setSelStyle("");setSelColour("");setGarmentId(null);}}>
-                      <option value="">— Select brand —</option>
+                      <option value="">â€” Select brand â€”</option>
                       {brands.map(b=><option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={S.lbl}>Style</label>
                     <select style={S.sel} value={selStyle} onChange={e=>{setSelStyle(e.target.value);setSelColour("");setGarmentId(null);}} disabled={!selBrand}>
-                      <option value="">— Select style —</option>
+                      <option value="">â€” Select style â€”</option>
                       {styles.map(s=><option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
                     <label style={S.lbl}>Colour</label>
                     <select style={S.sel} value={selColour} onChange={e=>{const g=colours.find(x=>x.colour===e.target.value);if(g)selectColour(g);}} disabled={!selStyle}>
-                      <option value="">— Select colour —</option>
+                      <option value="">â€” Select colour â€”</option>
                       {colours.map(c=><option key={c.id} value={c.colour}>{c.colour}</option>)}
                     </select>
                   </div>
                 </div>
 
-                {/* Garment preview — now shows all 5 views */}
+                {/* Garment preview â€” now shows all 5 views */}
                 {Object.entries({front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"}).filter(([k])=>garments[k]).length>0&&(
                   <div style={{display:"flex",gap:12,marginTop:16,marginBottom:8,flexWrap:"wrap"}}>
                     {Object.entries({front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"}).filter(([k])=>garments[k]).map(([k,label])=>(
@@ -1358,15 +1358,15 @@ Return ONLY valid JSON, no markdown.
                   </div>
                 )}
 
-                {/* Manual upload — now 5 slots including sleeves */}
+                {/* Manual upload â€” now 5 slots including sleeves */}
                 <div style={{marginTop:12}}>
                   <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".1em",textTransform:"uppercase",color:"#888",marginBottom:8}}>Or upload garment photos manually</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
                     {[["front","Front *"],["back","Back"],["sleeve_left","Left Sleeve"],["sleeve_right","Right Sleeve"],["other","Other"]].map(([view,label])=>(
                       <label key={view} style={{border:`2px ${garments[view]?"solid #4caf7d":"dashed #d4cdc0"}`,background:"#fffdf8",padding:12,textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:80,position:"relative",gap:4}}>
                         <input type="file" accept="image/*" style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>setGarments(g=>({...g,[view]:{img,name:file.name,dataURL:ev.target.result}}));img.src=ev.target.result;};reader.readAsDataURL(file);e.target.value="";}}/>
-                        {garments[view]?<img src={garments[view].dataURL} style={{maxHeight:44,maxWidth:"100%",objectFit:"contain"}}/>:<span style={{fontSize:"1.1rem"}}>👕</span>}
-                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",letterSpacing:".1em",textTransform:"uppercase",color:garments[view]?"#4caf7d":"#aaa"}}>{garments[view]?"✓ "+label:label}</span>
+                        {garments[view]?<img src={garments[view].dataURL} style={{maxHeight:44,maxWidth:"100%",objectFit:"contain"}}/>:<span style={{fontSize:"1.1rem"}}>ðŸ‘•</span>}
+                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",letterSpacing:".1em",textTransform:"uppercase",color:garments[view]?"#4caf7d":"#aaa"}}>{garments[view]?"âœ“ "+label:label}</span>
                       </label>
                     ))}
                   </div>
@@ -1399,8 +1399,8 @@ Return ONLY valid JSON, no markdown.
                   </div>
                 </div>
                 <div style={{display:"flex",gap:10,marginTop:24}}>
-                  <button style={S.btn("o")} onClick={()=>setStep(1)}>← Back</button>
-                  <button style={S.btn()} onClick={()=>setStep(3)}>Next - Artwork & Placements →</button>
+                  <button style={S.btn("o")} onClick={()=>setStep(1)}>â† Back</button>
+                  <button style={S.btn()} onClick={()=>setStep(3)}>Next - Artwork & Placements â†’</button>
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
@@ -1415,7 +1415,7 @@ Return ONLY valid JSON, no markdown.
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
                     <div>
                       <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".14em",textTransform:"uppercase",color:sewOutImage?"#2a7a4b":"#888",marginBottom:4}}>
-                        {sewOutImage?"✓ Customer / Sew-Out Mockup Loaded":"Have a customer-supplied mockup or sew-out photo?"}
+                        {sewOutImage?"âœ“ Customer / Sew-Out Mockup Loaded":"Have a customer-supplied mockup or sew-out photo?"}
                       </div>
                       <div style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".76rem",color:"#888",lineHeight:1.4}}>
                         {sewOutImage?"This image will be used instead of building a mockup. Fill in placements below for the work order, then go straight to export.":"Upload it here to skip the AI placement step. You can still fill in placement details for the work order."}
@@ -1430,14 +1430,14 @@ Return ONLY valid JSON, no markdown.
                             cleanExportRef.current=sewOutImage.canvas;
                             setMockupBuilt(true);
                             setStep(6);
-                            showToast("Using customer mockup — go to export ✓");
-                          }}>Use This → Skip to Export</button>
+                            showToast("Using customer mockup â€” go to export âœ“");
+                          }}>Use This â†’ Skip to Export</button>
                           <button style={{...S.btn("o"),padding:"6px 12px",fontSize:".52rem"}} onClick={()=>setSewOutImage(null)}>Remove</button>
                         </>
                       )}
                       {!sewOutImage&&(
                         <label style={{display:"inline-flex",alignItems:"center",gap:6,cursor:"pointer",padding:"8px 16px",border:"1px solid #c8372d",borderRadius:2,background:"#fdf0ee",fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".1em",textTransform:"uppercase",color:"#c8372d",whiteSpace:"nowrap"}}>
-                          📎 Upload Mockup / Sew-Out
+                          ðŸ“Ž Upload Mockup / Sew-Out
                           <input type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic" style={{display:"none"}} onChange={e=>{
                             const file=e.target.files?.[0]; if(!file) return;
                             const url=URL.createObjectURL(file);
@@ -1446,7 +1446,7 @@ Return ONLY valid JSON, no markdown.
                               canvas.width=img.naturalWidth; canvas.height=img.naturalHeight;
                               canvas.getContext("2d").drawImage(img,0,0);
                               setSewOutImage({url,img,canvas});
-                              showToast("Mockup image loaded ✓");
+                              showToast("Mockup image loaded âœ“");
                             }; img.src=url;
                             e.target.value="";
                           }}/>
@@ -1455,7 +1455,7 @@ Return ONLY valid JSON, no markdown.
                     </div>
                   </div>
                 </div>
-                {/* Artwork upload — hide when using customer mockup */}
+                {/* Artwork upload â€” hide when using customer mockup */}
                 {!sewOutImage && (
                   <>
                     <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:8}}>
@@ -1463,7 +1463,7 @@ Return ONLY valid JSON, no markdown.
                         <div key={a.id} style={{background:"#fffdf8",border:"2px solid #d4cdc0",padding:8,display:"flex",flexDirection:"column",alignItems:"center",gap:4,width:78,position:"relative"}}>
                           <img src={a.dataURL} style={{width:54,height:54,objectFit:"contain",background:"#fff",padding:2}}/>
                           <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".44rem",letterSpacing:".06em",textTransform:"uppercase",color:"#888",textAlign:"center",wordBreak:"break-all",lineHeight:1.3}}>{a.name.replace(/\.[^.]+$/,"").substring(0,10)}</div>
-                          <button onClick={()=>removeArt(a.id)} style={{position:"absolute",top:2,right:2,background:"none",border:"none",color:"#ccc",fontSize:".65rem",cursor:"pointer",padding:"1px 3px"}}>✕</button>
+                          <button onClick={()=>removeArt(a.id)} style={{position:"absolute",top:2,right:2,background:"none",border:"none",color:"#ccc",fontSize:".65rem",cursor:"pointer",padding:"1px 3px"}}>âœ•</button>
                         </div>
                       ))}
                       <label style={{width:78,minHeight:80,border:"2px dashed #d4cdc0",background:"#fffdf8",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",position:"relative",gap:3}}>
@@ -1480,7 +1480,7 @@ Return ONLY valid JSON, no markdown.
                   <div key={p._id} style={S.prow}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                       <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".14em",textTransform:"uppercase",color:"#c8372d"}}>Placement {idx+1}</span>
-                      <button onClick={()=>removeRow(p._id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".78rem"}}>✕ Remove</button>
+                      <button onClick={()=>removeRow(p._id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".78rem"}}>âœ• Remove</button>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 1fr 1fr",gap:10}}>
                       <div>
@@ -1503,7 +1503,7 @@ Return ONLY valid JSON, no markdown.
                           <input style={S.inp} placeholder="e.g. Front Logo" value={p.artName||""} onChange={e=>updateRow(p._id,"artName",e.target.value)}/>
                         ) : (
                           <select style={S.sel} value={p.artId} onChange={e=>updateRow(p._id,"artId",e.target.value)}>
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             {artwork.map(a=><option key={a.id} value={a.id}>{a.name.replace(/\.[^.]+$/,"").substring(0,16)}</option>)}
                           </select>
                         )}
@@ -1525,9 +1525,9 @@ Return ONLY valid JSON, no markdown.
                 ))}
                 <button onClick={addRow} style={{background:"none",border:"1px dashed #d4cdc0",color:"#aaa",fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".12em",textTransform:"uppercase",padding:9,cursor:"pointer",textAlign:"center",width:"100%",marginBottom:4}}>+ Add Placement</button>
                 <div style={{display:"flex",gap:10,marginTop:24}}>
-                  <button style={S.btn("o")} onClick={()=>setStep(2)}>← Back</button>
+                  <button style={S.btn("o")} onClick={()=>setStep(2)}>â† Back</button>
                   {sewOutImage ? (
-                    // Customer mockup flow — skip AI, go straight to export
+                    // Customer mockup flow â€” skip AI, go straight to export
                     <button style={S.btn()} onClick={()=>{
                       // Build aiPlan from placement rows for work order
                       const plan=placements.filter(p=>p.placement).map(p=>({
@@ -1547,12 +1547,12 @@ Return ONLY valid JSON, no markdown.
                       cleanExportRef.current=sewOutImage.canvas;
                       setMockupBuilt(true);
                       setStep(6);
-                      showToast("Placement details saved — go to export ✓");
-                    }}>Use Customer Mockup → Go to Export</button>
+                      showToast("Placement details saved â€” go to export âœ“");
+                    }}>Use Customer Mockup â†’ Go to Export</button>
                   ) : (
                     <>
-                      <button style={S.btn("r")} onClick={()=>{setStep(4);runAI();}}>Send to AI →</button>
-                      <button style={S.btn("o")} onClick={skipAI}>Skip AI — Place Manually →</button>
+                      <button style={S.btn("r")} onClick={()=>{setStep(4);runAI();}}>Send to AI â†’</button>
+                      <button style={S.btn("o")} onClick={skipAI}>Skip AI â€” Place Manually â†’</button>
                     </>
                   )}
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
@@ -1564,17 +1564,17 @@ Return ONLY valid JSON, no markdown.
               <div>
                 <div style={S.sec}><span style={S.secn}>04</span> AI Placement Review</div>
                 {aiStatus==="thinking"&&<div style={{...S.note("w"),display:"flex",alignItems:"center",gap:8}}><span style={{display:"inline-flex",gap:3}}>{[0,.2,.4].map((d,i)=><span key={i} style={{width:5,height:5,background:"currentColor",borderRadius:"50%",display:"inline-block",animation:`pulse 1.2s ${d}s infinite`}}/>)}</span>Calculating placements...<style>{`@keyframes pulse{0%,80%,100%{opacity:.2}40%{opacity:1}}`}</style></div>}
-                {aiStatus==="error"&&<div style={{...S.note("w"),borderColor:"#c8372d",background:"#fdf0ee",color:"#c8372d"}}>⚠ {aiError}</div>}
+                {aiStatus==="error"&&<div style={{...S.note("w"),borderColor:"#c8372d",background:"#fdf0ee",color:"#c8372d"}}>âš  {aiError}</div>}
                 {aiStatus==="done"&&(
                   <div>
-                    <div style={S.note("i")}>✓ {aiIntro}</div>
+                    <div style={S.note("i")}>âœ“ {aiIntro}</div>
                     {aiPlan.map((p,i)=>{
                       const art=artwork.find(a=>a.id==p.artId);
                       const viewLabels={front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"};
                       return <div key={i} style={S.card}>
                         <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:8}}>
                           <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:"1.1rem",letterSpacing:".08em"}}>{p.placement}</div>
-                          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#c8372d"}}>{viewLabels[p.view]||p.view||"FRONT"} · {p.decType||""}</div>
+                          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".5rem",letterSpacing:".12em",textTransform:"uppercase",color:"#c8372d"}}>{viewLabels[p.view]||p.view||"FRONT"} Â· {p.decType||""}</div>
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"3px 16px"}}>
                           {[["Artwork",p.artName||(art?.name.replace(/\.[^.]+$/,"")||"")],p.specWidth&&["Art Width",p.specWidth+'"'],p.specFromCollar&&["From Collar",p.specFromCollar+'"'],p.colours&&["Colours",p.colours],["Position",`x:${Math.round(p.x*100)}%  y:${Math.round(p.y*100)}%  scale:${Math.round(p.scale)}%`]].filter(Boolean).map(([k,v],ki)=>(
@@ -1588,9 +1588,9 @@ Return ONLY valid JSON, no markdown.
                   </div>
                 )}
                 <div style={{display:"flex",gap:10,marginTop:24,flexWrap:"wrap"}}>
-                  <button style={S.btn("o")} onClick={()=>setStep(3)}>← Back</button>
-                  {aiStatus==="done"&&<button style={S.btn()} onClick={()=>setStep(5)}>Fine-Tune →</button>}
-                  {(aiStatus==="done"||aiStatus==="error")&&<button style={S.btn("o")} onClick={runAI}>↺ Re-run{revisionNotes?" with Changes":""}</button>}
+                  <button style={S.btn("o")} onClick={()=>setStep(3)}>â† Back</button>
+                  {aiStatus==="done"&&<button style={S.btn()} onClick={()=>setStep(5)}>Fine-Tune â†’</button>}
+                  {(aiStatus==="done"||aiStatus==="error")&&<button style={S.btn("o")} onClick={runAI}>â†º Re-run{revisionNotes?" with Changes":""}</button>}
                   <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                 </div>
               </div>
@@ -1603,23 +1603,23 @@ Return ONLY valid JSON, no markdown.
             {step===6&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>06</span> Export</div>
-                {saveStatus==="saved"&&<div style={S.note("s")}>✓ Job saved</div>}
+                {saveStatus==="saved"&&<div style={S.note("s")}>âœ“ Job saved</div>}
                 {sewOutImage ? (
-                  // Sew-out shortcut — show the uploaded image directly
+                  // Sew-out shortcut â€” show the uploaded image directly
                   <div>
                     <div style={S.note("i")}>Using uploaded sew-out / customer mockup. Work order will include this image on page 2.</div>
                     <div style={{background:"#111",display:"flex",alignItems:"center",justifyContent:"center",minHeight:300,padding:16}}>
                       <img src={sewOutImage.url} alt="Sew-out mockup" style={{maxWidth:"100%",maxHeight:500,objectFit:"contain",boxShadow:"0 0 0 1px #2a2a2a,0 16px 48px rgba(0,0,0,.7)"}}/>
                     </div>
                     <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-                      <button style={S.btn()} onClick={exportCustomerMockup}>⬇ Customer Mockup (with specs)</button>
+                      <button style={S.btn()} onClick={exportCustomerMockup}>â¬‡ Customer Mockup (with specs)</button>
                       <button style={S.btn("o")} onClick={()=>{
                         const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=sewOutImage.url;a.click();
-                      }}>⬇ Original Image Only</button>
-                      <button style={S.btn()} onClick={exportWorkOrder}>⬇ Work Order</button>
+                      }}>â¬‡ Original Image Only</button>
+                      <button style={S.btn()} onClick={exportWorkOrder}>â¬‡ Work Order</button>
                       <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
                       <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
-                      <button style={S.btn("o")} onClick={()=>{setSewOutImage(null);setStep(3);}}>← Back to Artwork</button>
+                      <button style={S.btn("o")} onClick={()=>{setSewOutImage(null);setStep(3);}}>â† Back to Artwork</button>
                     </div>
                   </div>
                 ) : (
@@ -1630,12 +1630,12 @@ Return ONLY valid JSON, no markdown.
                       <canvas ref={canvasRef} style={{display:mockupBuilt?"block":"none",maxWidth:"100%",boxShadow:"0 0 0 1px #2a2a2a,0 16px 48px rgba(0,0,0,.7)"}}/>
                     </div>
                     <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-                      <button style={S.btn()} onClick={exportPNG}>⬇ Client Mockup PNG</button>
-                      <button style={S.btn()} onClick={exportJPG}>⬇ Client Mockup JPG</button>
-                      <button style={S.btn()} onClick={exportWorkOrder}>⬇ Work Order PNG</button>
+                      <button style={S.btn()} onClick={exportPNG}>â¬‡ Client Mockup PNG</button>
+                      <button style={S.btn()} onClick={exportJPG}>â¬‡ Client Mockup JPG</button>
+                      <button style={S.btn()} onClick={exportWorkOrder}>â¬‡ Work Order PNG</button>
                       <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
                       <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
-                      <button style={S.btn("o")} onClick={()=>setStep(5)}>← Fine-Tune</button>
+                      <button style={S.btn("o")} onClick={()=>setStep(5)}>â† Fine-Tune</button>
                     </div>
                   </div>
                 )}
@@ -1650,7 +1650,7 @@ Return ONLY valid JSON, no markdown.
   );
 }
 
-// ── GARMENT LIBRARY MANAGER ──
+// â”€â”€ GARMENT LIBRARY MANAGER â”€â”€
 function GarmentManager({ garmentList, onRefresh }) {
   const [form, setForm] = useState({brand:"Gildan",style_num:"",style_name:"",colour:"",colour_hex:"",front_url:"",back_url:"",sleeve_left_url:"",sleeve_right_url:"",photo_url:""});
   const [saving, setSaving] = useState(false);
@@ -1664,7 +1664,7 @@ function GarmentManager({ garmentList, onRefresh }) {
     setSaving(true);setMsg("");
     try{
       await sb("POST","/garments",form);
-      setMsg("Garment added successfully ✓");
+      setMsg("Garment added successfully âœ“");
       setForm(f=>({...f,style_num:"",colour:"",colour_hex:"",front_url:"",back_url:"",sleeve_left_url:"",sleeve_right_url:"",photo_url:""}));
       onRefresh();
     }catch(e){setMsg("Error: "+e.message);}
@@ -1702,7 +1702,7 @@ function GarmentManager({ garmentList, onRefresh }) {
           <div><label style={lblStyle}>Left Sleeve URL</label><input style={fldStyle} value={form.sleeve_left_url} onChange={e=>setForm(f=>({...f,sleeve_left_url:e.target.value}))} placeholder="https://...supabase.co/.../sleeve-left.jpg"/></div>
           <div><label style={lblStyle}>Right Sleeve URL</label><input style={fldStyle} value={form.sleeve_right_url} onChange={e=>setForm(f=>({...f,sleeve_right_url:e.target.value}))} placeholder="https://...supabase.co/.../sleeve-right.jpg"/></div>
         </div>
-        {msg&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".1em",textTransform:"uppercase",color:msg.includes("✓")?"#2a7a4b":"#c8372d",marginBottom:8,padding:"8px 10px",background:msg.includes("✓")?"#e6f4ec":"#fdf0ee",borderLeft:`3px solid ${msg.includes("✓")?"#2a7a4b":"#c8372d"}`}}>{msg}</div>}
+        {msg&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".56rem",letterSpacing:".1em",textTransform:"uppercase",color:msg.includes("âœ“")?"#2a7a4b":"#c8372d",marginBottom:8,padding:"8px 10px",background:msg.includes("âœ“")?"#e6f4ec":"#fdf0ee",borderLeft:`3px solid ${msg.includes("âœ“")?"#2a7a4b":"#c8372d"}`}}>{msg}</div>}
         <button onClick={addGarment} disabled={saving} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".58rem",letterSpacing:".14em",textTransform:"uppercase",padding:"10px 20px",cursor:saving?"not-allowed":"pointer",border:"2px solid #0f0f0f",background:saving?"#555":"#0f0f0f",color:"#f5f0e8"}}>
           {saving?"Adding...":"+ Add to Library"}
         </button>
@@ -1715,13 +1715,13 @@ function GarmentManager({ garmentList, onRefresh }) {
               <div style={{fontFamily:"'IBM Plex Sans',sans-serif",fontSize:".88rem",fontWeight:500}}>{g.brand} {g.style_name}{g.style_num&&` (${g.style_num})`}</div>
               <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".08em",textTransform:"uppercase",color:"#aaa",marginTop:2}}>{g.colour}</div>
               <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:"#ccc",marginTop:2,display:"flex",gap:8,flexWrap:"wrap"}}>
-                {g.front_url&&<span>✓ Front</span>}
-                {g.back_url&&<span>✓ Back</span>}
-                {g.sleeve_left_url&&<span>✓ L Sleeve</span>}
-                {g.sleeve_right_url&&<span>✓ R Sleeve</span>}
+                {g.front_url&&<span>âœ“ Front</span>}
+                {g.back_url&&<span>âœ“ Back</span>}
+                {g.sleeve_left_url&&<span>âœ“ L Sleeve</span>}
+                {g.sleeve_right_url&&<span>âœ“ R Sleeve</span>}
               </div>
             </div>
-            <button onClick={()=>deleteGarment(g.id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem",flexShrink:0}}>✕</button>
+            <button onClick={()=>deleteGarment(g.id)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:".8rem",flexShrink:0}}>âœ•</button>
           </div>
         ))}
         {garmentList.length===0&&<div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".54rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb",padding:"10px 0"}}>No garments in library yet</div>}
