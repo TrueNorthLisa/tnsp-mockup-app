@@ -235,6 +235,7 @@ export default function App() {
   // garments now includes sleeve_left and sleeve_right
   const [garments, setGarments] = useState({front:null,back:null,sleeve_left:null,sleeve_right:null,other:null});
   const [pasteTargetView, setPasteTargetView] = useState("front");
+  const [garmentMode, setGarmentMode] = useState("library");
   const [sizes, setSizes] = useState(emptySizes());
   const [artwork, setArtwork] = useState([]);
   const [artCounter, setArtCounter] = useState(1);
@@ -1352,6 +1353,14 @@ Return ONLY valid JSON, no markdown.
             {step===2&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>02</span> Garment Selection</div>
+                {/* Garment source toggle */}
+                <div style={{display:"flex",gap:0,marginBottom:14,border:"1px solid #d4cdc0",width:"fit-content"}}>
+                  <button onClick={()=>setGarmentMode("library")} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".1em",textTransform:"uppercase",padding:"7px 16px",border:"none",cursor:"pointer",background:garmentMode==="library"?"#0f0f0f":"#f5f0e8",color:garmentMode==="library"?"#fff":"#888"}}>From Library</button>
+                  <button onClick={()=>setGarmentMode("manual")} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".1em",textTransform:"uppercase",padding:"7px 16px",border:"none",borderLeft:"1px solid #d4cdc0",cursor:"pointer",background:garmentMode==="manual"?"#0f0f0f":"#f5f0e8",color:garmentMode==="manual"?"#fff":"#888"}}>Enter Manually</button>
+                </div>
+
+                {garmentMode==="library"?(
+                <>
                 <div style={S.note("i")}>Select brand, style, and colour - garment photos load automatically from the library.</div>
                 <div style={S.g3}>
                   <div>
@@ -1376,6 +1385,26 @@ Return ONLY valid JSON, no markdown.
                     </select>
                   </div>
                 </div>
+                </>
+                ):(
+                <>
+                <div style={S.note("i")}>Type in the garment details manually - then upload or paste photos below.</div>
+                <div style={S.g3}>
+                  <div>
+                    <label style={S.lbl}>Brand / Supplier</label>
+                    <input style={S.inp} placeholder="e.g. AS Colour, Gildan, S&S..." value={selBrand} onChange={e=>{setSelBrand(e.target.value);setGarmentId(null);}}/>
+                  </div>
+                  <div>
+                    <label style={S.lbl}>Style / Style #</label>
+                    <input style={S.inp} placeholder="e.g. Staple Tee 5001" value={selStyle} onChange={e=>{setSelStyle(e.target.value);setGarmentId(null);}}/>
+                  </div>
+                  <div>
+                    <label style={S.lbl}>Colour</label>
+                    <input style={S.inp} placeholder="e.g. Clay, Black, White..." value={selColour} onChange={e=>{setSelColour(e.target.value);setGarmentId(null);}}/>
+                  </div>
+                </div>
+                </>
+                )}
 
                 {/* Garment preview - now shows all 5 views */}
                 {Object.entries({front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"}).filter(([k])=>garments[k]).length>0&&(
