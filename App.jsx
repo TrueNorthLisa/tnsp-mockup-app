@@ -234,6 +234,7 @@ export default function App() {
   const [garmentId, setGarmentId] = useState(null);
   // garments now includes sleeve_left and sleeve_right
   const [garments, setGarments] = useState({front:null,back:null,sleeve_left:null,sleeve_right:null,other:null});
+  const [pasteTargetView, setPasteTargetView] = useState("front");
   const [sizes, setSizes] = useState(emptySizes());
   const [artwork, setArtwork] = useState([]);
   const [artCounter, setArtCounter] = useState(1);
@@ -293,15 +294,17 @@ export default function App() {
       const src=await sb("GET",`/jobs?id=eq.${id}&select=*`);
       if(!src||!src[0])return showToast("Could not load job to copy");
       const orig=src[0];
-      const copy={...orig};
-      delete copy.id;
-      copy.job_num="";
-      copy.sizes={};
-      copy.order_name=(orig.order_name||orig.client||"Job")+" â€” Reprint";
-      copy.status="draft";
-      copy.source="mockup";
-      copy.created_at=undefined;
-      copy.updated_at=undefined;
+      // Build copy â€” keep all mockup data (artwork, placements, ai_plan, garments, sew_out_image)
+      // Only clear job number and sizes; rename as Reprint
+      const {id:_id, created_at:_ca, updated_at:_ua, ...rest}=orig;
+      const copy={
+        ...rest,
+        job_num:"",
+        sizes:{},
+        order_name:(orig.order_name||orig.client||"Job")+" - Reprint",
+        status:"draft",
+        source:"mockup",
+      };
       const created=await sb("POST","/jobs",copy);
       const newId=Array.isArray(created)?created[0]?.id:created?.id;
       if(newId){showToast("Job copied â€” opening...");await loadJob(newId);setStep(1);}
@@ -391,6 +394,34 @@ export default function App() {
     });
     setArtCounter(c=>c+e.target.files.length);e.target.value="";
   }
+  function loadArtFromBlob(blob,name){
+    const reader=new FileReader();
+    reader.onload=ev=>{const img=new Image();img.onload=()=>{setArtwork(prev=>[...prev,{id:Date.now(),img,name,dataURL:ev.target.result}]);showToast("Artwork pasted âœ“");};img.src=ev.target.result;};
+    reader.readAsDataURL(blob);
+  }
+  useEffect(()=>{
+    function handlePaste(e){
+      if(page!=="builder")return;
+      const items=e.clipboardData?.items||[];
+      for(const item of items){
+        if(item.type.startsWith("image/")){
+          const blob=item.getAsFile();
+          if(!blob)return;
+          if(step===3){
+            loadArtFromBlob(blob,`pasted-${Date.now()}.png`);
+          } else if(step===2){
+            const reader=new FileReader();
+            const view=pasteTargetView;
+            reader.onload=ev=>{const img=new Image();img.onload=()=>{setGarments(g=>({...g,[view]:{img,name:`pasted-${view}.png`,dataURL:ev.target.result}}));showToast(`${view.charAt(0).toUpperCase()+view.slice(1)} garment pasted âœ“`);};img.src=ev.target.result;};
+            reader.readAsDataURL(blob);
+          }
+          e.preventDefault();return;
+        }
+      }
+    }
+    window.addEventListener("paste",handlePaste);
+    return()=>window.removeEventListener("paste",handlePaste);
+  },[step,page,pasteTargetView]);
   function removeArt(id){setArtwork(a=>a.filter(x=>x.id!==id));}
 
   function addRow(){setPlacements(p=>[...p,{_id:rowCounter,view:"Front",placement:"Left Chest",artId:"",width:"",fromCollar:"",decType:"Screen Print",colours:"",notes:""}]);setRowCounter(c=>c+1);}
@@ -1361,12 +1392,14 @@ Return ONLY valid JSON, no markdown.
                 {/* Manual upload â€” now 5 slots including sleeves */}
                 <div style={{marginTop:12}}>
                   <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".1em",textTransform:"uppercase",color:"#888",marginBottom:8}}>Or upload garment photos manually</div>
+                  <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",color:"#aaa",marginBottom:6}}>Click a slot to target it, then Ctrl+V to paste</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
-                    {[["front","Front *"],["back","Back"],["sleeve_left","Left Sleeve"],["sleeve_right","Right Sleeve"],["other","Other"]].map(([view,label])=>(
-                      <label key={view} style={{border:`2px ${garments[view]?"solid #4caf7d":"dashed #d4cdc0"}`,background:"#fffdf8",padding:12,textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:80,position:"relative",gap:4}}>
+                    {[["front","Front *"],["back","Back"],["sleeve_left","L Sleeve"],["sleeve_right","R Sleeve"],["other","Other"]].map(([view,label])=>(
+                      <label key={view} onClick={()=>setPasteTargetView(view)} style={{border:`2px ${pasteTargetView===view?"solid #c8372d":garments[view]?"solid #4caf7d":"dashed #d4cdc0"}`,background:pasteTargetView===view?"#fff8f8":"#fffdf8",padding:12,textAlign:"center",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:80,position:"relative",gap:4}}>
                         <input type="file" accept="image/*" style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>setGarments(g=>({...g,[view]:{img,name:file.name,dataURL:ev.target.result}}));img.src=ev.target.result;};reader.readAsDataURL(file);e.target.value="";}}/>
                         {garments[view]?<img src={garments[view].dataURL} style={{maxHeight:44,maxWidth:"100%",objectFit:"contain"}}/>:<span style={{fontSize:"1.1rem"}}>ðŸ‘•</span>}
-                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",letterSpacing:".1em",textTransform:"uppercase",color:garments[view]?"#4caf7d":"#aaa"}}>{garments[view]?"âœ“ "+label:label}</span>
+                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".46rem",letterSpacing:".1em",textTransform:"uppercase",color:pasteTargetView===view?"#c8372d":garments[view]?"#4caf7d":"#aaa"}}>{garments[view]?"âœ“ "+label:label}</span>
+                        {pasteTargetView===view&&<span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".38rem",color:"#c8372d"}}>â† paste here</span>}
                       </label>
                     ))}
                   </div>
@@ -1470,6 +1503,7 @@ Return ONLY valid JSON, no markdown.
                         <input type="file" accept="image/*" multiple style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%"}} onChange={loadArtFiles}/>
                         <span style={{fontSize:"1.3rem",color:"#ccc"}}>+</span>
                         <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".44rem",letterSpacing:".1em",textTransform:"uppercase",color:"#bbb"}}>Add Art</span>
+                        <span style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".38rem",color:"#ccc",marginTop:1}}>or Ctrl+V</span>
                       </label>
                     </div>
                     <hr style={S.div}/>
