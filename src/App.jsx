@@ -830,8 +830,8 @@ Return ONLY valid JSON, no markdown.
   }
 
   function buildWorkOrder(){
-    // Landscape 8.5x11" - 1056x816 base, printed at 96dpi fits perfectly on page
-    const PW=1056, PH=816;
+    // Landscape 8.5x11" at 72dpi = 792x612 (vs 96dpi 1056x816) — 43% less memory, still print-quality
+    const PW=792, PH=612;
     const wc=document.createElement("canvas"); wc.width=PW; wc.height=PH;
     const wx=wc.getContext("2d");
 
@@ -1129,23 +1129,27 @@ Return ONLY valid JSON, no markdown.
     wx.fillText("TRUE NORTH SCREEN PRINTING LTD. | VANCOUVER, BC | 604-874-4488 | TRUENORTHSCREENPRINTING.CA",P,fY+footH*0.65);
     wx.textAlign="right"; wx.fillText("PAGE 1 OF 2",PW-P,fY+footH*0.65); wx.textAlign="left";
 
-    // -- PAGE 2: Digital Mockup (separate canvas to avoid OOM) ----------------
+    // -- PAGE 2: Digital Mockup (combined portrait canvas, both pages stacked) -
     if(cleanExportRef.current){
       const mockup=cleanExportRef.current;
-      const p2=document.createElement("canvas"); p2.width=PW; p2.height=PH;
-      const cc=p2.getContext("2d");
-      cc.fillStyle="#ffffff"; cc.fillRect(0,0,PW,PH);
+      const combined=document.createElement("canvas"); combined.width=PW; combined.height=PH*2;
+      const cc=combined.getContext("2d");
+      // Stamp page 1 into top half, then free it
+      cc.drawImage(wc,0,0);
+      wc.width=0; wc.height=0;
+      // Page 2 background
+      cc.fillStyle="#ffffff"; cc.fillRect(0,PH,PW,PH);
       // Header
       const p2h=Math.round(PH*0.10);
-      cc.fillStyle="#0f0f0f"; cc.fillRect(0,0,PW,p2h);
-      cc.font=F.xl(0.065); cc.fillStyle="#f5f0e8"; cc.fillText("TRUE NORTH",P,p2h*0.68);
-      cc.font=F.mono(0.020); cc.fillStyle="#c8372d"; cc.fillText("DIGITAL MOCKUP | FOR PRODUCTION REFERENCE ONLY",P,p2h*0.90);
+      cc.fillStyle="#0f0f0f"; cc.fillRect(0,PH,PW,p2h);
+      cc.font=F.xl(0.065); cc.fillStyle="#f5f0e8"; cc.fillText("TRUE NORTH",P,PH+p2h*0.68);
+      cc.font=F.mono(0.020); cc.fillStyle="#c8372d"; cc.fillText("DIGITAL MOCKUP | FOR PRODUCTION REFERENCE ONLY",P,PH+p2h*0.90);
       cc.font=F.xl(0.036); cc.fillStyle="#e8c547"; cc.textAlign="right";
-      cc.fillText(orderName?orderName.toUpperCase():`JOB #${jobNum||""}`,PW-P,p2h*0.62);
-      cc.font=F.mono(0.018); cc.fillStyle="#888"; cc.fillText(`${cust.company||cust.contact_name||""} | ${new Date().toLocaleDateString("en-CA")}`,PW-P,p2h*0.86);
-      cc.textAlign="left"; cc.fillStyle="#c8372d"; cc.fillRect(0,p2h,PW,3);
+      cc.fillText(orderName?orderName.toUpperCase():`JOB #${jobNum||""}`,PW-P,PH+p2h*0.62);
+      cc.font=F.mono(0.018); cc.fillStyle="#888"; cc.fillText(`${cust.company||cust.contact_name||""} | ${new Date().toLocaleDateString("en-CA")}`,PW-P,PH+p2h*0.86);
+      cc.textAlign="left"; cc.fillStyle="#c8372d"; cc.fillRect(0,PH+p2h,PW,3);
       // Mockup image
-      const pad2=P; const imgY=p2h+pad2;
+      const pad2=P; const imgY=PH+p2h+pad2;
       const maxW2=PW-pad2*2; const maxH2=PH-p2h-footH-pad2*2;
       const ratio=Math.min(maxW2/mockup.width,maxH2/mockup.height);
       const mw=Math.round(mockup.width*ratio); const mh=Math.round(mockup.height*ratio);
@@ -1153,14 +1157,14 @@ Return ONLY valid JSON, no markdown.
       cc.fillStyle="#f5f2eb"; cc.fillRect(mx-4,imgY-4,mw+8,mh+8);
       cc.drawImage(mockup,mx,imgY,mw,mh);
       // Footer
-      cc.fillStyle="#f0ede8"; cc.fillRect(0,PH-footH,PW,footH);
-      cc.fillStyle="#c8372d"; cc.fillRect(0,PH-footH,PW,2);
+      cc.fillStyle="#f0ede8"; cc.fillRect(0,PH*2-footH,PW,footH);
+      cc.fillStyle="#c8372d"; cc.fillRect(0,PH*2-footH,PW,2);
       cc.font=F.mono(0.016); cc.fillStyle="#888";
-      cc.fillText("TRUE NORTH SCREEN PRINTING LTD. | FOR PRODUCTION USE ONLY | DO NOT DISTRIBUTE",P,PH-footH+footH*0.65);
-      cc.textAlign="right"; cc.fillText("PAGE 2 OF 2",PW-P,PH-footH+footH*0.65); cc.textAlign="left";
-      return [wc, p2];
+      cc.fillText("TRUE NORTH SCREEN PRINTING LTD. | FOR PRODUCTION USE ONLY | DO NOT DISTRIBUTE",P,PH*2-footH+footH*0.65);
+      cc.textAlign="right"; cc.fillText("PAGE 2 OF 2",PW-P,PH*2-footH+footH*0.65); cc.textAlign="left";
+      return combined;
     }
-    return [wc];
+    return wc;
   }
 
   function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13;return Math.max(h,55);}
@@ -1179,30 +1183,21 @@ Return ONLY valid JSON, no markdown.
   function exportWorkOrder(){
     if(woExporting)return;
     setWoExporting(true);
-    // Yield to browser so button updates before heavy canvas work
     setTimeout(async()=>{
       try{
         await document.fonts.ready;
-        const pages=buildWorkOrder();
-        if(!pages||!pages.length){showToast("Could not build work order");setWoExporting(false);return;}
-        const jn=jobNum||"draft";
-        for(let i=0;i<pages.length;i++){
-          // Yield between pages so browser doesn't lock up
-          await new Promise(r=>setTimeout(r,0));
-          const pg=pages[i];
-          const dataUrl=pg.toDataURL("image/png");
-          // Free the canvas memory immediately
-          pg.width=0; pg.height=0;
-          const suffix=pages.length>1?`-p${i+1}`:"";
-          const a=document.createElement("a");
-          a.download=`TNSP-WorkOrder-${jn}${suffix}.png`;
-          a.href=dataUrl;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          // Small delay between downloads so browser handles them cleanly
-          if(i<pages.length-1) await new Promise(r=>setTimeout(r,300));
-        }
+        const wo=buildWorkOrder();
+        if(!wo){showToast("Could not build work order");setWoExporting(false);return;}
+        await new Promise(r=>setTimeout(r,0));
+        // JPEG at 95% quality — ~70% smaller than PNG, still crisp for print
+        const dataUrl=wo.toDataURL("image/jpeg",0.95);
+        wo.width=0; wo.height=0;
+        const a=document.createElement("a");
+        a.download=`TNSP-WorkOrder-${jobNum||"draft"}.jpg`;
+        a.href=dataUrl;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       }catch(e){showToast("Work order error: "+e.message);}
       finally{setWoExporting(false);}
     },50);
