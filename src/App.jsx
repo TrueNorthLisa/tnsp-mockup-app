@@ -529,9 +529,12 @@ Return ONLY valid JSON, no markdown.
       // Restore customer mockup image if saved
       if(j.sew_out_image){
         const img=new Image(); img.onload=()=>{
+          const MAX=1500;
+          const r=Math.min(1,MAX/Math.max(img.naturalWidth,img.naturalHeight));
           const canvas=document.createElement("canvas");
-          canvas.width=img.naturalWidth; canvas.height=img.naturalHeight;
-          canvas.getContext("2d").drawImage(img,0,0);
+          canvas.width=Math.round(img.naturalWidth*r);
+          canvas.height=Math.round(img.naturalHeight*r);
+          canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
           setSewOutImage({url:j.sew_out_image,img,canvas});
         }; img.src=j.sew_out_image;
       } else { setSewOutImage(null); }
@@ -1529,9 +1532,12 @@ Return ONLY valid JSON, no markdown.
                             const file=e.target.files?.[0]; if(!file) return;
                             const url=URL.createObjectURL(file);
                             const img=new Image(); img.onload=()=>{
+                              const MAX=1500;
+                              const r=Math.min(1,MAX/Math.max(img.naturalWidth,img.naturalHeight));
                               const canvas=document.createElement("canvas");
-                              canvas.width=img.naturalWidth; canvas.height=img.naturalHeight;
-                              canvas.getContext("2d").drawImage(img,0,0);
+                              canvas.width=Math.round(img.naturalWidth*r);
+                              canvas.height=Math.round(img.naturalHeight*r);
+                              canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
                               setSewOutImage({url,img,canvas});
                               showToast("Mockup image loaded");
                             }; img.src=url;
