@@ -270,6 +270,8 @@ export default function App() {
   },[]);
   useEffect(()=>{ if(page==="jobs") loadJobs(); },[page]);
   useEffect(()=>{ loadGarmentList(); loadCustomers(); },[]);
+  // Keep cleanExportRef in sync with sewOutImage so work order page 2 always has the mockup
+  useEffect(()=>{ if(sewOutImage?.canvas) cleanExportRef.current=sewOutImage.canvas; },[sewOutImage]);
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),2800);}
 
@@ -1130,8 +1132,9 @@ Return ONLY valid JSON, no markdown.
     wx.textAlign="right"; wx.fillText("PAGE 1 OF 2",PW-P,fY+footH*0.65); wx.textAlign="left";
 
     // -- PAGE 2: Digital Mockup (combined portrait canvas, both pages stacked) -
-    if(cleanExportRef.current){
-      const mockup=cleanExportRef.current;
+    const mockupCanvas=cleanExportRef.current||(sewOutImage?.canvas||null);
+    if(mockupCanvas){
+      const mockup=mockupCanvas;
       const combined=document.createElement("canvas"); combined.width=PW; combined.height=PH*2;
       const cc=combined.getContext("2d");
       // Stamp page 1 into top half, then free it
