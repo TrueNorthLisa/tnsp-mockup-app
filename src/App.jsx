@@ -820,7 +820,7 @@ Return ONLY valid JSON, no markdown.
         }
 
         if(p.notes){
-          wrap("Note: "+p.notes,"italic 12px IBM Plex Sans,sans-serif","#888",18);
+          wrap("Note: "+p.notes.replace(/\n+/g," | "),"italic 12px IBM Plex Sans,sans-serif","#888",18);
         }
 
         y+=18;
@@ -1093,7 +1093,7 @@ Return ONLY valid JSON, no markdown.
       dr("Art Width",p.specWidth?p.specWidth+'"':"");
       dr("From Collar",p.specFromCollar?p.specFromCollar+'"':"");
       dr("Artwork",p.artName);
-      dr("Notes",p.notes);
+      dr("Notes",p.notes?p.notes.replace(/\n+/g," | "):p.notes);
     });
 
     // -- VERTICAL PRE-PRODUCTION CHECKLIST (right of placement cards) ---------
@@ -1173,7 +1173,7 @@ Return ONLY valid JSON, no markdown.
     return wc;
   }
 
-  function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13;return Math.max(h,55);}
+  function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes){const flat=p.notes.replace(/\n+/g," | ");h+=15+Math.ceil((flat.length||0)/36)*13;}return Math.max(h,55);}
   function exportPNG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=exportRef.current.toDataURL("image/png");a.click();}
   function exportJPG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.jpg`;a.href=exportRef.current.toDataURL("image/jpeg",.93);a.click();}
   function exportCustomerMockup(){
