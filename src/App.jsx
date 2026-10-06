@@ -257,6 +257,7 @@ export default function App() {
   const [savedJobId, setSavedJobId] = useState(null);
   const [saveStatus, setSaveStatus] = useState("");
   const [toast, setToast] = useState("");
+  const [woExporting, setWoExporting] = useState(false);
   const [step, setStep] = useState(1);
   const canvasRef = useRef(null);
   const exportRef = useRef(null);
@@ -1128,24 +1129,23 @@ Return ONLY valid JSON, no markdown.
     wx.fillText("TRUE NORTH SCREEN PRINTING LTD. | VANCOUVER, BC | 604-874-4488 | TRUENORTHSCREENPRINTING.CA",P,fY+footH*0.65);
     wx.textAlign="right"; wx.fillText("PAGE 1 OF 2",PW-P,fY+footH*0.65); wx.textAlign="left";
 
-    // -- PAGE 2: Digital Mockup (clean garment only, no spec sheet) ---------------------------------------
+    // -- PAGE 2: Digital Mockup (separate canvas to avoid OOM) ----------------
     if(cleanExportRef.current){
       const mockup=cleanExportRef.current;
-      const combined=document.createElement("canvas"); combined.width=PW; combined.height=PH*2;
-      const cc=combined.getContext("2d");
-      cc.drawImage(wc,0,0);
-      cc.fillStyle="#ffffff"; cc.fillRect(0,PH,PW,PH);
+      const p2=document.createElement("canvas"); p2.width=PW; p2.height=PH;
+      const cc=p2.getContext("2d");
+      cc.fillStyle="#ffffff"; cc.fillRect(0,0,PW,PH);
       // Header
       const p2h=Math.round(PH*0.10);
-      cc.fillStyle="#0f0f0f"; cc.fillRect(0,PH,PW,p2h);
-      cc.font=F.xl(0.065); cc.fillStyle="#f5f0e8"; cc.fillText("TRUE NORTH",P,PH+p2h*0.68);
-      cc.font=F.mono(0.020); cc.fillStyle="#c8372d"; cc.fillText("DIGITAL MOCKUP | FOR PRODUCTION REFERENCE ONLY",P,PH+p2h*0.90);
+      cc.fillStyle="#0f0f0f"; cc.fillRect(0,0,PW,p2h);
+      cc.font=F.xl(0.065); cc.fillStyle="#f5f0e8"; cc.fillText("TRUE NORTH",P,p2h*0.68);
+      cc.font=F.mono(0.020); cc.fillStyle="#c8372d"; cc.fillText("DIGITAL MOCKUP | FOR PRODUCTION REFERENCE ONLY",P,p2h*0.90);
       cc.font=F.xl(0.036); cc.fillStyle="#e8c547"; cc.textAlign="right";
-      cc.fillText(orderName?orderName.toUpperCase():`JOB #${jobNum||""}`,PW-P,PH+p2h*0.62);
-      cc.font=F.mono(0.018); cc.fillStyle="#888"; cc.fillText(`${cust.company||cust.contact_name||""} | ${new Date().toLocaleDateString("en-CA")}`,PW-P,PH+p2h*0.86);
-      cc.textAlign="left"; cc.fillStyle="#c8372d"; cc.fillRect(0,PH+p2h,PW,3);
+      cc.fillText(orderName?orderName.toUpperCase():`JOB #${jobNum||""}`,PW-P,p2h*0.62);
+      cc.font=F.mono(0.018); cc.fillStyle="#888"; cc.fillText(`${cust.company||cust.contact_name||""} | ${new Date().toLocaleDateString("en-CA")}`,PW-P,p2h*0.86);
+      cc.textAlign="left"; cc.fillStyle="#c8372d"; cc.fillRect(0,p2h,PW,3);
       // Mockup image
-      const pad2=P; const imgY=PH+p2h+pad2;
+      const pad2=P; const imgY=p2h+pad2;
       const maxW2=PW-pad2*2; const maxH2=PH-p2h-footH-pad2*2;
       const ratio=Math.min(maxW2/mockup.width,maxH2/mockup.height);
       const mw=Math.round(mockup.width*ratio); const mh=Math.round(mockup.height*ratio);
@@ -1153,14 +1153,14 @@ Return ONLY valid JSON, no markdown.
       cc.fillStyle="#f5f2eb"; cc.fillRect(mx-4,imgY-4,mw+8,mh+8);
       cc.drawImage(mockup,mx,imgY,mw,mh);
       // Footer
-      cc.fillStyle="#f0ede8"; cc.fillRect(0,PH*2-footH,PW,footH);
-      cc.fillStyle="#c8372d"; cc.fillRect(0,PH*2-footH,PW,2);
+      cc.fillStyle="#f0ede8"; cc.fillRect(0,PH-footH,PW,footH);
+      cc.fillStyle="#c8372d"; cc.fillRect(0,PH-footH,PW,2);
       cc.font=F.mono(0.016); cc.fillStyle="#888";
-      cc.fillText("TRUE NORTH SCREEN PRINTING LTD. | FOR PRODUCTION USE ONLY | DO NOT DISTRIBUTE",P,PH*2-footH+footH*0.65);
-      cc.textAlign="right"; cc.fillText("PAGE 2 OF 2",PW-P,PH*2-footH+footH*0.65); cc.textAlign="left";
-      return combined;
+      cc.fillText("TRUE NORTH SCREEN PRINTING LTD. | FOR PRODUCTION USE ONLY | DO NOT DISTRIBUTE",P,PH-footH+footH*0.65);
+      cc.textAlign="right"; cc.fillText("PAGE 2 OF 2",PW-P,PH-footH+footH*0.65); cc.textAlign="left";
+      return [wc, p2];
     }
-    return wc;
+    return [wc];
   }
 
   function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13;return Math.max(h,55);}
@@ -1176,9 +1176,36 @@ Return ONLY valid JSON, no markdown.
       a.click();
     }catch(e){showToast("Export error: "+e.message);}
   }
-  async function exportWorkOrder(){
-    try{await document.fonts.ready;const wo=buildWorkOrder();if(!wo){showToast("Could not build work order");return;}const a=document.createElement("a");a.download=`TNSP-WorkOrder-${jobNum||"draft"}.png`;a.href=wo.toDataURL("image/png");a.click();}
-    catch(e){showToast("Work order error: "+e.message);}
+  function exportWorkOrder(){
+    if(woExporting)return;
+    setWoExporting(true);
+    // Yield to browser so button updates before heavy canvas work
+    setTimeout(async()=>{
+      try{
+        await document.fonts.ready;
+        const pages=buildWorkOrder();
+        if(!pages||!pages.length){showToast("Could not build work order");setWoExporting(false);return;}
+        const jn=jobNum||"draft";
+        for(let i=0;i<pages.length;i++){
+          // Yield between pages so browser doesn't lock up
+          await new Promise(r=>setTimeout(r,0));
+          const pg=pages[i];
+          const dataUrl=pg.toDataURL("image/png");
+          // Free the canvas memory immediately
+          pg.width=0; pg.height=0;
+          const suffix=pages.length>1?`-p${i+1}`:"";
+          const a=document.createElement("a");
+          a.download=`TNSP-WorkOrder-${jn}${suffix}.png`;
+          a.href=dataUrl;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          // Small delay between downloads so browser handles them cleanly
+          if(i<pages.length-1) await new Promise(r=>setTimeout(r,300));
+        }
+      }catch(e){showToast("Work order error: "+e.message);}
+      finally{setWoExporting(false);}
+    },50);
   }
 
   const safeSizes={...emptySizes(),...sizes};
@@ -1679,7 +1706,7 @@ Return ONLY valid JSON, no markdown.
                       <button style={S.btn("o")} onClick={()=>{
                         const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=sewOutImage.url;a.click();
                       }}>Download: Original Image</button>
-                      <button style={S.btn()} onClick={exportWorkOrder}>Download: Work Order</button>
+                      <button style={S.btn()} onClick={exportWorkOrder} disabled={woExporting}>{woExporting?"Generating...":"Download: Work Order"}</button>
                       <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
                       <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                       <button style={S.btn("o")} onClick={()=>{setSewOutImage(null);setStep(3);}}>Back to Artwork</button>
@@ -1695,7 +1722,7 @@ Return ONLY valid JSON, no markdown.
                     <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
                       <button style={S.btn()} onClick={exportPNG}>Download: Client Mockup PNG</button>
                       <button style={S.btn()} onClick={exportJPG}>Download: Client Mockup JPG</button>
-                      <button style={S.btn()} onClick={exportWorkOrder}>Download: Work Order PNG</button>
+                      <button style={S.btn()} onClick={exportWorkOrder} disabled={woExporting}>{woExporting?"Generating...":"Download: Work Order PNG"}</button>
                       <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
                       <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                       <button style={S.btn("o")} onClick={()=>setStep(5)}>Back to Fine-Tune</button>
