@@ -235,6 +235,7 @@ export default function App() {
   // garments now includes sleeve_left and sleeve_right
   const [garments, setGarments] = useState({front:null,back:null,sleeve_left:null,sleeve_right:null,other:null});
   const [pasteTargetView, setPasteTargetView] = useState("front");
+  const [garmentMode, setGarmentMode] = useState("library");
   const [sizes, setSizes] = useState(emptySizes());
   const [artwork, setArtwork] = useState([]);
   const [artCounter, setArtCounter] = useState(1);
@@ -256,6 +257,7 @@ export default function App() {
   const [savedJobId, setSavedJobId] = useState(null);
   const [saveStatus, setSaveStatus] = useState("");
   const [toast, setToast] = useState("");
+  const [woExporting, setWoExporting] = useState(false);
   const [step, setStep] = useState(1);
   const canvasRef = useRef(null);
   const exportRef = useRef(null);
@@ -268,6 +270,8 @@ export default function App() {
   },[]);
   useEffect(()=>{ if(page==="jobs") loadJobs(); },[page]);
   useEffect(()=>{ loadGarmentList(); loadCustomers(); },[]);
+  // Keep cleanExportRef in sync with sewOutImage so work order page 2 always has the mockup
+  useEffect(()=>{ if(sewOutImage?.canvas) cleanExportRef.current=sewOutImage.canvas; },[sewOutImage]);
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),2800);}
 
@@ -525,9 +529,12 @@ Return ONLY valid JSON, no markdown.
       // Restore customer mockup image if saved
       if(j.sew_out_image){
         const img=new Image(); img.onload=()=>{
+          const MAX=1500;
+          const r=Math.min(1,MAX/Math.max(img.naturalWidth,img.naturalHeight));
           const canvas=document.createElement("canvas");
-          canvas.width=img.naturalWidth; canvas.height=img.naturalHeight;
-          canvas.getContext("2d").drawImage(img,0,0);
+          canvas.width=Math.round(img.naturalWidth*r);
+          canvas.height=Math.round(img.naturalHeight*r);
+          canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
           setSewOutImage({url:j.sew_out_image,img,canvas});
         }; img.src=j.sew_out_image;
       } else { setSewOutImage(null); }
@@ -813,7 +820,7 @@ Return ONLY valid JSON, no markdown.
         }
 
         if(p.notes){
-          wrap("Note: "+p.notes,"italic 12px IBM Plex Sans,sans-serif","#888",18);
+          wrap("Note: "+p.notes.replace(/\n+/g," | "),"italic 12px IBM Plex Sans,sans-serif","#888",18);
         }
 
         y+=18;
@@ -828,8 +835,8 @@ Return ONLY valid JSON, no markdown.
   }
 
   function buildWorkOrder(){
-    // Landscape 8.5x11" - 1056x816 base, printed at 96dpi fits perfectly on page
-    const PW=1056, PH=816;
+    // Landscape 8.5x11" at 72dpi = 792x612 (vs 96dpi 1056x816) — 43% less memory, still print-quality
+    const PW=792, PH=612;
     const wc=document.createElement("canvas"); wc.width=PW; wc.height=PH;
     const wx=wc.getContext("2d");
 
@@ -1059,34 +1066,57 @@ Return ONLY valid JSON, no markdown.
       const valH=Math.round(PH*0.022*sc);
       const rowGap=Math.round(PH*0.007*sc);
 
-      const dr=(lbl,val,wrap=false)=>{
-        if(!val||cy>plY+cardH-Math.round(PH*0.04)) return;
-        wx.font=`bold ${lbSize}px IBM Plex Mono,monospace`; wx.fillStyle="#aaa";
-        wx.fillText(lbl.toUpperCase(),cardX+12,cy+lbH);
-        wx.font=`${valSize}px IBM Plex Sans,sans-serif`; wx.fillStyle="#222";
-        if(wrap){
-          const words=val.split(" "); let line=""; const maxW=cardW-24;
-          let wy=cy+lbH+valH;
-          words.forEach(w=>{
+      const bottom=plY+cardH-Math.round(PH*0.012);
+      const lineStep=Math.round(PH*0.020*sc);
+      // Wrap text into lines that fit maxW
+      const wrapLines=(txt,maxW)=>{
+        const out=[];
+        String(txt).split(/\n+/).forEach(para=>{
+          let line="";
+          para.split(" ").forEach(w=>{
             const test=line?line+" "+w:w;
-            if(wx.measureText(test).width>maxW&&line){
-              if(wy<plY+cardH-Math.round(PH*0.04)){wx.fillText(line,cardX+12,wy);}
-              line=w; wy+=Math.round(PH*0.020*sc);
-            } else line=test;
+            if(wx.measureText(test).width>maxW&&line){out.push(line);line=w;}else line=test;
           });
-          if(line&&wy<plY+cardH-Math.round(PH*0.04)) wx.fillText(line,cardX+12,wy);
-          cy=wy+rowGap;
-        } else {
-          let txt=val; while(wx.measureText(txt).width>cardW-24&&txt.length>3) txt=txt.slice(0,-2)+"...";
-          wx.fillText(txt,cardX+12,cy+lbH+valH);
-          cy+=lbH+valH+rowGap;
-        }
+          if(line) out.push(line);
+        });
+        return out;
       };
-      dr("Colours",p.colours,true);
-      dr("Art Width",p.specWidth?p.specWidth+'"':"");
-      dr("From Collar",p.specFromCollar?p.specFromCollar+'"':"");
-      dr("Artwork",p.artName);
-      dr("Notes",p.notes);
+      // Draw label + wrapped value in a column; trims with "..." if it runs out of room
+      const field=(x,y,w,lbl,val)=>{
+        wx.font=`bold ${lbSize}px IBM Plex Mono,monospace`; wx.fillStyle="#aaa";
+        wx.fillText(lbl.toUpperCase(),x,y+lbH);
+        wx.font=`${valSize}px IBM Plex Sans,sans-serif`; wx.fillStyle="#222";
+        const lines=wrapLines(val,w-8);
+        let wy=y+lbH+valH;
+        for(let li=0;li<lines.length;li++){
+          let txt=lines[li];
+          const last=li===lines.length-1;
+          if(!last&&wy+lineStep>bottom){
+            while(wx.measureText(txt+"...").width>w-8&&txt.length>1) txt=txt.slice(0,-1);
+            wx.fillText(txt+"...",x,wy); return wy+rowGap;
+          }
+          wx.fillText(txt,x,wy);
+          if(!last) wy+=lineStep;
+        }
+        return wy+rowGap;
+      };
+      // Short specs two-across so Notes always has room
+      const colW=Math.floor((cardW-24)/2);
+      const specs=[
+        ["Colours",p.colours],
+        ["Art Width",p.specWidth?p.specWidth+'"':""],
+        ["From Collar",p.specFromCollar?p.specFromCollar+'"':""],
+        ["Artwork",p.artName],
+      ].filter(([,v])=>v);
+      for(let k=0;k<specs.length;k+=2){
+        if(cy+lbH+valH>bottom) break;
+        const yL=field(cardX+12,cy,colW,specs[k][0],specs[k][1]);
+        const yR=specs[k+1]?field(cardX+12+colW,cy,colW,specs[k+1][0],specs[k+1][1]):yL;
+        cy=Math.max(yL,yR);
+      }
+      if(p.notes&&cy+lbH+valH<=bottom){
+        cy=field(cardX+12,cy,cardW-24,"Notes",p.notes);
+      }
     });
 
     // -- VERTICAL PRE-PRODUCTION CHECKLIST (right of placement cards) ---------
@@ -1127,12 +1157,16 @@ Return ONLY valid JSON, no markdown.
     wx.fillText("TRUE NORTH SCREEN PRINTING LTD. | VANCOUVER, BC | 604-874-4488 | TRUENORTHSCREENPRINTING.CA",P,fY+footH*0.65);
     wx.textAlign="right"; wx.fillText("PAGE 1 OF 2",PW-P,fY+footH*0.65); wx.textAlign="left";
 
-    // -- PAGE 2: Digital Mockup (clean garment only, no spec sheet) ---------------------------------------
-    if(cleanExportRef.current){
-      const mockup=cleanExportRef.current;
+    // -- PAGE 2: Digital Mockup (combined portrait canvas, both pages stacked) -
+    const mockupCanvas=cleanExportRef.current||(sewOutImage?.canvas||null);
+    if(mockupCanvas){
+      const mockup=mockupCanvas;
       const combined=document.createElement("canvas"); combined.width=PW; combined.height=PH*2;
       const cc=combined.getContext("2d");
+      // Stamp page 1 into top half, then free it
       cc.drawImage(wc,0,0);
+      wc.width=0; wc.height=0;
+      // Page 2 background
       cc.fillStyle="#ffffff"; cc.fillRect(0,PH,PW,PH);
       // Header
       const p2h=Math.round(PH*0.10);
@@ -1162,7 +1196,7 @@ Return ONLY valid JSON, no markdown.
     return wc;
   }
 
-  function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes)h+=15+Math.ceil((p.notes.length||0)/36)*13;return Math.max(h,55);}
+  function ehH(p){let h=p.decType?54:40;if(p.artName)h+=15;if(p.specWidth)h+=15;if(p.specFromCollar)h+=15;if(p.colours)h+=15+Math.ceil((p.colours.length||0)/36)*13;if(p.notes){const flat=p.notes.replace(/\n+/g," | ");h+=15+Math.ceil((flat.length||0)/36)*13;}return Math.max(h,55);}
   function exportPNG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=exportRef.current.toDataURL("image/png");a.click();}
   function exportJPG(){if(!exportRef.current)return;const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.jpg`;a.href=exportRef.current.toDataURL("image/jpeg",.93);a.click();}
   function exportCustomerMockup(){
@@ -1175,9 +1209,27 @@ Return ONLY valid JSON, no markdown.
       a.click();
     }catch(e){showToast("Export error: "+e.message);}
   }
-  async function exportWorkOrder(){
-    try{await document.fonts.ready;const wo=buildWorkOrder();if(!wo){showToast("Could not build work order");return;}const a=document.createElement("a");a.download=`TNSP-WorkOrder-${jobNum||"draft"}.png`;a.href=wo.toDataURL("image/png");a.click();}
-    catch(e){showToast("Work order error: "+e.message);}
+  function exportWorkOrder(){
+    if(woExporting)return;
+    setWoExporting(true);
+    setTimeout(async()=>{
+      try{
+        await document.fonts.ready;
+        const wo=buildWorkOrder();
+        if(!wo){showToast("Could not build work order");setWoExporting(false);return;}
+        await new Promise(r=>setTimeout(r,0));
+        // JPEG at 95% quality — ~70% smaller than PNG, still crisp for print
+        const dataUrl=wo.toDataURL("image/jpeg",0.95);
+        wo.width=0; wo.height=0;
+        const a=document.createElement("a");
+        a.download=`TNSP-WorkOrder-${jobNum||"draft"}.jpg`;
+        a.href=dataUrl;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }catch(e){showToast("Work order error: "+e.message);}
+      finally{setWoExporting(false);}
+    },50);
   }
 
   const safeSizes={...emptySizes(),...sizes};
@@ -1352,6 +1404,14 @@ Return ONLY valid JSON, no markdown.
             {step===2&&(
               <div>
                 <div style={S.sec}><span style={S.secn}>02</span> Garment Selection</div>
+                {/* Garment source toggle */}
+                <div style={{display:"flex",gap:0,marginBottom:14,border:"1px solid #d4cdc0",width:"fit-content"}}>
+                  <button onClick={()=>setGarmentMode("library")} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".1em",textTransform:"uppercase",padding:"7px 16px",border:"none",cursor:"pointer",background:garmentMode==="library"?"#0f0f0f":"#f5f0e8",color:garmentMode==="library"?"#fff":"#888"}}>From Library</button>
+                  <button onClick={()=>setGarmentMode("manual")} style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:".52rem",letterSpacing:".1em",textTransform:"uppercase",padding:"7px 16px",border:"none",borderLeft:"1px solid #d4cdc0",cursor:"pointer",background:garmentMode==="manual"?"#0f0f0f":"#f5f0e8",color:garmentMode==="manual"?"#fff":"#888"}}>Enter Manually</button>
+                </div>
+
+                {garmentMode==="library"?(
+                <>
                 <div style={S.note("i")}>Select brand, style, and colour - garment photos load automatically from the library.</div>
                 <div style={S.g3}>
                   <div>
@@ -1376,6 +1436,26 @@ Return ONLY valid JSON, no markdown.
                     </select>
                   </div>
                 </div>
+                </>
+                ):(
+                <>
+                <div style={S.note("i")}>Type in the garment details manually - then upload or paste photos below.</div>
+                <div style={S.g3}>
+                  <div>
+                    <label style={S.lbl}>Brand / Supplier</label>
+                    <input style={S.inp} placeholder="e.g. AS Colour, Gildan, S&S..." value={selBrand} onChange={e=>{setSelBrand(e.target.value);setGarmentId(null);}}/>
+                  </div>
+                  <div>
+                    <label style={S.lbl}>Style / Style #</label>
+                    <input style={S.inp} placeholder="e.g. Staple Tee 5001" value={selStyle} onChange={e=>{setSelStyle(e.target.value);setGarmentId(null);}}/>
+                  </div>
+                  <div>
+                    <label style={S.lbl}>Colour</label>
+                    <input style={S.inp} placeholder="e.g. Clay, Black, White..." value={selColour} onChange={e=>{setSelColour(e.target.value);setGarmentId(null);}}/>
+                  </div>
+                </div>
+                </>
+                )}
 
                 {/* Garment preview - now shows all 5 views */}
                 {Object.entries({front:"Front",back:"Back",sleeve_left:"Left Sleeve",sleeve_right:"Right Sleeve",other:"Other"}).filter(([k])=>garments[k]).length>0&&(
@@ -1475,9 +1555,12 @@ Return ONLY valid JSON, no markdown.
                             const file=e.target.files?.[0]; if(!file) return;
                             const url=URL.createObjectURL(file);
                             const img=new Image(); img.onload=()=>{
+                              const MAX=1500;
+                              const r=Math.min(1,MAX/Math.max(img.naturalWidth,img.naturalHeight));
                               const canvas=document.createElement("canvas");
-                              canvas.width=img.naturalWidth; canvas.height=img.naturalHeight;
-                              canvas.getContext("2d").drawImage(img,0,0);
+                              canvas.width=Math.round(img.naturalWidth*r);
+                              canvas.height=Math.round(img.naturalHeight*r);
+                              canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
                               setSewOutImage({url,img,canvas});
                               showToast("Mockup image loaded");
                             }; img.src=url;
@@ -1650,7 +1733,7 @@ Return ONLY valid JSON, no markdown.
                       <button style={S.btn("o")} onClick={()=>{
                         const a=document.createElement("a");a.download=`TNSP-Mockup-${jobNum||"draft"}.png`;a.href=sewOutImage.url;a.click();
                       }}>Download: Original Image</button>
-                      <button style={S.btn()} onClick={exportWorkOrder}>Download: Work Order</button>
+                      <button style={S.btn()} onClick={exportWorkOrder} disabled={woExporting}>{woExporting?"Generating...":"Download: Work Order"}</button>
                       <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
                       <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                       <button style={S.btn("o")} onClick={()=>{setSewOutImage(null);setStep(3);}}>Back to Artwork</button>
@@ -1666,7 +1749,7 @@ Return ONLY valid JSON, no markdown.
                     <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
                       <button style={S.btn()} onClick={exportPNG}>Download: Client Mockup PNG</button>
                       <button style={S.btn()} onClick={exportJPG}>Download: Client Mockup JPG</button>
-                      <button style={S.btn()} onClick={exportWorkOrder}>Download: Work Order PNG</button>
+                      <button style={S.btn()} onClick={exportWorkOrder} disabled={woExporting}>{woExporting?"Generating...":"Download: Work Order PNG"}</button>
                       <button style={S.btn("g")} onClick={()=>saveJob("final")}>Save as Final</button>
                       <button style={S.btn("o")} onClick={()=>saveJob("draft")}>Save Draft</button>
                       <button style={S.btn("o")} onClick={()=>setStep(5)}>Back to Fine-Tune</button>
